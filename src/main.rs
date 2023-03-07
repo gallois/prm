@@ -44,8 +44,12 @@ fn main() {
                 let mut birthday_obj: Option<NaiveDate> = None;
                 match birthday {
                     Some(birthday_str) => {
-                        birthday_obj =
-                            Some(NaiveDate::parse_from_str(&birthday_str, "%Y-%m-%d").unwrap());
+                        let birthday_result = NaiveDate::parse_from_str(&birthday_str, "%Y-%m-%d");
+                        // TODO proper error handling and messaging
+                        match birthday_result {
+                            Ok(date) => birthday_obj = Some(date),
+                            Err(error) => panic!("Error parsing birthday: {}", error),
+                        }
                     }
                     None => (),
                 }
