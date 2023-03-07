@@ -3,20 +3,26 @@ use chrono::prelude::*;
 #[derive(Debug)]
 pub struct Person {
     name: String,
-    birthday: NaiveDate,
+    birthday: Option<NaiveDate>,
     contact_info: Vec<ContactInfo>,
     activities: Vec<Activity>,
     reminders: Vec<Reminder>,
+    notes: Vec<Notes>,
 }
 
 impl Person {
-    pub fn new(name: String, birthday: NaiveDate, contact_info: Vec<ContactInfo>) -> Person {
+    pub fn new(
+        name: String,
+        birthday: Option<NaiveDate>,
+        contact_info: Vec<ContactInfo>,
+    ) -> Person {
         Person {
             name,
             birthday,
             contact_info,
             activities: vec![],
             reminders: vec![],
+            notes: vec![],
         }
     }
 }
@@ -72,4 +78,11 @@ enum Entity {
     Person(Person),
     Activity(Activity),
     Reminder(Reminder),
+    Notes(Notes),
+}
+
+#[derive(Debug)]
+struct Notes {
+    date: NaiveDate,
+    content: String,
 }

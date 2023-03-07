@@ -1,5 +1,6 @@
 use chrono::prelude::*;
 use clap::{Parser, Subcommand};
+use prm::{ContactInfo, ContactInfoType};
 
 #[derive(Parser)]
 struct Cli {
@@ -12,12 +13,12 @@ enum Commands {
     #[command(arg_required_else_help = true)]
     Add {
         entity: String,
-        #[arg(required = false)]
+        #[arg(required = true)]
         name: String,
-        #[arg(required = false)]
-        birthday: String,
-        #[arg(required = false)]
-        contact_info: String,
+        #[arg(short, long, required = false)]
+        birthday: Option<String>,
+        #[arg(short, long, required = false)]
+        contact_info: Option<String>,
     },
     #[command(arg_required_else_help = true)]
     Show { entity: String },
@@ -40,31 +41,54 @@ fn main() {
             contact_info,
         } => match entity.as_str() {
             "person" => {
-                let birthday = NaiveDate::parse_from_str(&birthday, "%Y-%m-%d").unwrap();
-                let contact_info_split: Vec<&str> = contact_info.split(":").collect();
-                let contact_info_type;
-
-                match contact_info_split[0] {
-                    "phone" => {
-                        contact_info_type =
-                            prm::ContactInfoType::Phone(String::from(contact_info_split[1]))
+                let mut birthday_obj: Option<NaiveDate> = None;
+                match birthday {
+                    Some(birthday_str) => {
+                        birthday_obj =
+                            Some(NaiveDate::parse_from_str(&birthday_str, "%Y-%m-%d").unwrap());
                     }
-                    "whatsapp" => {
-                        contact_info_type =
-                            prm::ContactInfoType::Whatsapp(String::from(contact_info_split[1]))
-                    }
-                    "email" => {
-                        contact_info_type =
-                            prm::ContactInfoType::Email(String::from(contact_info_split[1]))
-                    }
-                    _ => panic!("Unknown contact info type"),
+                    None => (),
                 }
 
-                let contact_info = prm::ContactInfo {
-                    contact_info_type: contact_info_type,
-                };
+                let contact_info_split: Vec<String>;
+                let mut contact_info_type: Option<ContactInfoType> = None;
 
-                let person = prm::Person::new(name, birthday, vec![contact_info]);
+                // TODO allow for multiple contact info on creation
+                match contact_info {
+                    Some(contact_info_str) => {
+                        contact_info_split =
+                            contact_info_str.split(":").map(|x| x.to_string()).collect()
+                    }
+                    None => contact_info_split = vec![],
+                }
+
+                if contact_info_split.len() > 0 {
+                    match contact_info_split[0].as_str() {
+                        "phone" => {
+                            contact_info_type =
+                                Some(prm::ContactInfoType::Phone(contact_info_split[1].clone()))
+                        }
+                        "whatsapp" => {
+                            contact_info_type = Some(prm::ContactInfoType::Whatsapp(
+                                contact_info_split[1].clone(),
+                            ))
+                        }
+                        "email" => {
+                            contact_info_type =
+                                Some(prm::ContactInfoType::Email(contact_info_split[1].clone()))
+                        }
+                        // TODO proper error handling and messaging
+                        _ => panic!("Unknown contact info type"),
+                    }
+                }
+
+                let mut contact_info: Vec<ContactInfo> = Vec::new();
+                match contact_info_type {
+                    Some(contact_info_type) => contact_info.push(ContactInfo { contact_info_type }),
+                    None => (),
+                }
+
+                let person = prm::Person::new(name, birthday_obj, contact_info);
                 println!("Person: {:#?}", person);
             }
             other => {
