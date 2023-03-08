@@ -28,15 +28,31 @@ impl Person {
 }
 
 #[derive(Debug)]
-struct Activity {
-    activity_type: ActivityType,
+pub struct Activity {
     name: String,
+    activity_type: ActivityType,
     date: NaiveDate,
     content: String,
 }
 
+impl Activity {
+    pub fn new(
+        name: String,
+        activity_type: ActivityType,
+        date: NaiveDate,
+        content: String,
+    ) -> Activity {
+        Activity {
+            name,
+            activity_type,
+            date,
+            content,
+        }
+    }
+}
+
 #[derive(Debug)]
-enum ActivityType {
+pub enum ActivityType {
     Phone,
     InPerson,
     Online,

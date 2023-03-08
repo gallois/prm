@@ -45,6 +45,15 @@ enum Entity {
         #[arg(short, long, required = false)]
         contact_info: Option<String>,
     },
+    Activity {
+        name: String,
+        #[arg(short, long, required = true)]
+        activity_type: String,
+        #[arg(short, long, required = true)]
+        date: String,
+        #[arg(short, long, required = true)]
+        content: String,
+    },
 }
 
 fn main() {
@@ -115,6 +124,29 @@ fn main() {
 
                     let person = prm::Person::new(name, birthday_obj, contact_info);
                     println!("Person: {:#?}", person);
+                }
+                // TODO will require linking to a person
+                Entity::Activity {
+                    name,
+                    activity_type,
+                    date,
+                    content,
+                } => {
+                    let activity_type = match activity_type.as_str() {
+                        "phone" => prm::ActivityType::Phone,
+                        "in_person" => prm::ActivityType::InPerson,
+                        "online" => prm::ActivityType::Online,
+                        // TODO proper error handling and messaging
+                        _ => panic!("Unknown activity type"),
+                    };
+
+                    let date_obj = match NaiveDate::parse_from_str(date.as_str(), "%Y-%m-%d") {
+                        Ok(date) => date,
+                        Err(error) => panic!("Error parsing date: {}", error),
+                    };
+
+                    let activity = prm::Activity::new(name, activity_type, date_obj, content);
+                    println!("Activity: {:#?}", activity);
                 }
             }
         }
