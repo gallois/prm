@@ -1,6 +1,7 @@
 use chrono::prelude::*;
 use clap::{Args, Parser, Subcommand};
 use prm::{ContactInfo, ContactInfoType};
+use rusqlite::Connection;
 
 #[derive(Parser)]
 struct Cli {
@@ -10,6 +11,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    Init {},
     Add(AddArgs),
     #[command(arg_required_else_help = true)]
     Show {
@@ -72,7 +74,81 @@ enum Entity {
 fn main() {
     let args = Cli::parse();
 
+    let conn = Connection::open("data/prm.db").unwrap();
+
     match args.command {
+        Commands::Init {} => {
+            // TODO populate some of the tables that have known information
+            // [ ] contact_info_type
+            // [ ] activity_type
+            // [ ] recurring
+            let sql_create_statements = vec![
+                "CREATE TABLE person (
+                    id INTEGER PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    birthday TEXT
+                );",
+                "CREATE TABLE activity (
+                    id INTEGER PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    type INTEGER NOT NULL,
+                    date TEXT NOT NULL,
+                    content TEXT
+                );",
+                "CREATE TABLE reminders (
+                    id INTEGER PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    date TEXT NOT NULL,
+                    description TEXT,
+                    recurring INTEGER NOT NULL
+                );",
+                "CREATE TABLE notes (
+                    id INTEGER PRIMARY KEY, 
+                    date TEXT NOT NULL,
+                    content TEXT NOT NULL
+                );",
+                "CREATE TABLE contact_info (
+                    id INTEGER PRIMARY KEY,
+                    person_id INTEGER NOT NULL,
+                    contact_info_type_id INTEGER NOT NULL,
+                    contact_info_details TEXT
+                );",
+                "CREATE TABLE contact_info_type (
+                    id INTEGER PRIMARY KEY,
+                    type TEXT NOT NULL
+                );",
+                "CREATE TABLE people_activities (
+                    id INTEGER PRIMARY KEY,
+                    person_id INTEGER NOT NULL,
+                    activity_id INTEGER NOT NULL
+                );",
+                "CREATE TABLE people_reminders (
+                    id INTEGER PRIMARY KEY,
+                    person_id INTEGER NOT NULL,
+                    reminder_id INTEGER NOT NULL
+                );",
+                "CREATE TABLE people_notes (
+                    id INTEGER PRIMARY KEY,
+                    person_id INTEGER NOT NULL,
+                    note_id INTEGER NOT NULL
+                );",
+                "CREATE TABLE activity_type (
+                    id INTEGER PRIMARY KEY,
+                    type TEXT NOT NULL
+                );",
+                "CREATE TABLE recurring_type (
+                    id INTEGER PRIMARY KEY,
+                    type TEXT NOT NULL
+                );",
+            ];
+            for query in sql_create_statements {
+                match conn.execute(query, ()) {
+                    Ok(_) => (),
+                    Err(error) => panic!("Error creating database tables: {}", error),
+                }
+            }
+            println!("Database tables initialised");
+        }
         Commands::Add(add) => {
             match add.entity {
                 Entity::Person {
@@ -179,7 +255,7 @@ fn main() {
                             "quarterly" => Some(prm::RecurringType::Quarterly),
                             "biannual" => Some(prm::RecurringType::Biannual),
                             "yearly" => Some(prm::RecurringType::Yearly),
-                            _ => panic!("unknown recurring pattern"),
+                            _ => panic!("Unknown recurring pattern"),
                         },
                         None => None,
                     };
@@ -190,7 +266,7 @@ fn main() {
                     };
 
                     let reminder =
-                        prm::Reminder::new(name, date_obj, recurring_type, vec![], description);
+                        prm::Reminder::new(name, date_obj, description, recurring_type, vec![]);
                     println!("Reminder: {:#?}", reminder);
                 }
                 Entity::Notes { content } => {

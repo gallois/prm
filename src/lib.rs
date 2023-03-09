@@ -66,25 +66,25 @@ pub enum ActivityType {
 pub struct Reminder {
     name: String,
     date: NaiveDate,
+    description: Option<String>,
     recurring: Option<RecurringType>,
     people: Vec<Person>,
-    description: Option<String>,
 }
 
 impl Reminder {
     pub fn new(
         name: String,
         date: NaiveDate,
+        description: Option<String>,
         recurring: Option<RecurringType>,
         people: Vec<Person>,
-        description: Option<String>,
     ) -> Reminder {
         Reminder {
             name,
             date,
+            description,
             recurring,
             people,
-            description,
         }
     }
 }
