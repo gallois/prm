@@ -11,6 +11,7 @@ pub struct Person {
 }
 
 impl Person {
+    // TODO create a macro for generating all these `new` functions
     pub fn new(
         name: String,
         birthday: Option<NaiveDate>,
@@ -59,15 +60,34 @@ pub enum ActivityType {
 }
 
 #[derive(Debug)]
-struct Reminder {
+pub struct Reminder {
     name: String,
     date: NaiveDate,
     recurring: Option<RecurringType>,
     people: Vec<Person>,
+    description: Option<String>,
+}
+
+impl Reminder {
+    pub fn new(
+        name: String,
+        date: NaiveDate,
+        recurring: Option<RecurringType>,
+        people: Vec<Person>,
+        description: Option<String>,
+    ) -> Reminder {
+        Reminder {
+            name,
+            date,
+            recurring,
+            people,
+            description,
+        }
+    }
 }
 
 #[derive(Debug)]
-enum RecurringType {
+pub enum RecurringType {
     Daily,
     Weekly,
     Fortnightly,

@@ -54,6 +54,16 @@ enum Entity {
         #[arg(short, long, required = true)]
         content: String,
     },
+    Reminder {
+        name: String,
+        #[arg(short, long, required = true)]
+        date: String,
+        #[arg(short, long, required = false)]
+        recurring: Option<String>,
+        #[arg(long, required = false)]
+        description: Option<String>,
+        // TODO add person
+    },
 }
 
 fn main() {
@@ -147,6 +157,36 @@ fn main() {
 
                     let activity = prm::Activity::new(name, activity_type, date_obj, content);
                     println!("Activity: {:#?}", activity);
+                }
+                // TODO link to people
+                Entity::Reminder {
+                    name,
+                    date,
+                    recurring,
+                    description,
+                } => {
+                    let recurring_type = match recurring {
+                        Some(recurring_type_str) => match recurring_type_str.as_str() {
+                            "daily" => Some(prm::RecurringType::Daily),
+                            "weekly" => Some(prm::RecurringType::Weekly),
+                            "fortnightly" => Some(prm::RecurringType::Fortnightly),
+                            "monthly" => Some(prm::RecurringType::Monthly),
+                            "quarterly" => Some(prm::RecurringType::Quarterly),
+                            "biannual" => Some(prm::RecurringType::Biannual),
+                            "yearly" => Some(prm::RecurringType::Yearly),
+                            _ => panic!("unknown recurring pattern"),
+                        },
+                        None => None,
+                    };
+
+                    let date_obj = match NaiveDate::parse_from_str(date.as_str(), "%Y-%m-%d") {
+                        Ok(date) => date,
+                        Err(error) => panic!("Error parsing date: {}", error),
+                    };
+
+                    let reminder =
+                        prm::Reminder::new(name, date_obj, recurring_type, vec![], description);
+                    println!("Reminder: {:#?}", reminder);
                 }
             }
         }
