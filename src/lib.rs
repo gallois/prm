@@ -34,6 +34,7 @@ pub struct Activity {
     activity_type: ActivityType,
     date: NaiveDate,
     content: String,
+    people: Vec<Person>,
 }
 
 impl Activity {
@@ -42,12 +43,14 @@ impl Activity {
         activity_type: ActivityType,
         date: NaiveDate,
         content: String,
+        people: Vec<Person>,
     ) -> Activity {
         Activity {
             name,
             activity_type,
             date,
             content,
+            people,
         }
     }
 }
@@ -110,15 +113,25 @@ pub enum ContactInfoType {
 }
 
 #[derive(Debug)]
+pub struct Notes {
+    date: NaiveDate,
+    content: String,
+    people: Vec<Person>,
+}
+
+impl Notes {
+    pub fn new(date: NaiveDate, content: String, people: Vec<Person>) -> Notes {
+        Notes {
+            date,
+            content,
+            people,
+        }
+    }
+}
+
 enum Entity {
     Person(Person),
     Activity(Activity),
     Reminder(Reminder),
     Notes(Notes),
-}
-
-#[derive(Debug)]
-struct Notes {
-    date: NaiveDate,
-    content: String,
 }

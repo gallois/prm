@@ -64,6 +64,9 @@ enum Entity {
         description: Option<String>,
         // TODO add person
     },
+    Notes {
+        content: String,
+    },
 }
 
 fn main() {
@@ -80,6 +83,7 @@ fn main() {
                     let mut birthday_obj: Option<NaiveDate> = None;
                     match birthday {
                         Some(birthday_str) => {
+                            // TODO extract common logic, e.g. parsing dates
                             let birthday_result =
                                 NaiveDate::parse_from_str(&birthday_str, "%Y-%m-%d");
                             // TODO allow for entering date without year
@@ -155,7 +159,8 @@ fn main() {
                         Err(error) => panic!("Error parsing date: {}", error),
                     };
 
-                    let activity = prm::Activity::new(name, activity_type, date_obj, content);
+                    let activity =
+                        prm::Activity::new(name, activity_type, date_obj, content, vec![]);
                     println!("Activity: {:#?}", activity);
                 }
                 // TODO link to people
@@ -187,6 +192,12 @@ fn main() {
                     let reminder =
                         prm::Reminder::new(name, date_obj, recurring_type, vec![], description);
                     println!("Reminder: {:#?}", reminder);
+                }
+                Entity::Notes { content } => {
+                    let date = Utc::now().date_naive();
+
+                    let note = prm::Notes::new(date, content, vec![]);
+                    println!("Note: {:#?}", note);
                 }
             }
         }
