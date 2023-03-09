@@ -1,8 +1,9 @@
 use chrono::prelude::*;
+use rusqlite::{params, Connection};
 
 #[derive(Debug)]
 pub struct Person {
-    name: String,
+    pub name: String,
     birthday: Option<NaiveDate>,
     contact_info: Vec<ContactInfo>,
     activities: Vec<Activity>,
@@ -25,6 +26,25 @@ impl Person {
             reminders: vec![],
             notes: vec![],
         }
+    }
+}
+
+impl DbOperations for Person {
+    fn save(&self, conn: &Connection) -> Result<&Person, DbOperationsError> {
+        let birthday_str = match self.birthday {
+            Some(birthday) => birthday.to_string(),
+            None => "".to_string(),
+        };
+        match conn.execute(
+            "INSERT INTO people (name, birthday) VALUES (?1, ?2)",
+            params![self.name, birthday_str],
+        ) {
+            Ok(updated) => {
+                println!("[DEBUG] {} rows were updated", updated);
+            }
+            Err(_) => return Err(DbOperationsError),
+        }
+        Ok(self)
     }
 }
 
@@ -129,9 +149,17 @@ impl Notes {
     }
 }
 
-enum Entity {
+enum EntityType {
     Person(Person),
     Activity(Activity),
     Reminder(Reminder),
     Notes(Notes),
+}
+
+pub struct DbOperationsError;
+
+pub trait DbOperations {
+    fn save(&self, conn: &Connection) -> Result<&Self, DbOperationsError>
+    where
+        Self: Sized;
 }

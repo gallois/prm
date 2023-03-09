@@ -1,6 +1,9 @@
 use chrono::prelude::*;
 use clap::{Args, Parser, Subcommand};
-use prm::{ContactInfo, ContactInfoType};
+use prm::{
+    Activity, ActivityType, ContactInfo, ContactInfoType, DbOperations, DbOperationsError, Notes,
+    Person, RecurringType, Reminder,
+};
 use rusqlite::Connection;
 
 #[derive(Parser)]
@@ -79,12 +82,12 @@ fn main() {
     match args.command {
         Commands::Init {} => {
             let sql_create_statements = vec![
-                "CREATE TABLE person (
+                "CREATE TABLE people (
                     id INTEGER PRIMARY KEY,
                     name TEXT NOT NULL,
                     birthday TEXT
                 );",
-                "CREATE TABLE activity (
+                "CREATE TABLE activities (
                     id INTEGER PRIMARY KEY,
                     name TEXT NOT NULL,
                     type INTEGER NOT NULL,
@@ -109,7 +112,7 @@ fn main() {
                     contact_info_type_id INTEGER NOT NULL,
                     contact_info_details TEXT
                 );",
-                "CREATE TABLE contact_info_type (
+                "CREATE TABLE contact_info_types (
                     id INTEGER PRIMARY KEY,
                     type TEXT NOT NULL
                 );",
@@ -128,11 +131,11 @@ fn main() {
                     person_id INTEGER NOT NULL,
                     note_id INTEGER NOT NULL
                 );",
-                "CREATE TABLE activity_type (
+                "CREATE TABLE activity_types (
                     id INTEGER PRIMARY KEY,
                     type TEXT NOT NULL
                 );",
-                "CREATE TABLE recurring_type (
+                "CREATE TABLE recurring_types (
                     id INTEGER PRIMARY KEY,
                     type TEXT NOT NULL
                 );",
@@ -144,13 +147,13 @@ fn main() {
                 }
             }
             let sql_populate_statements = vec![
-                "INSERT INTO contact_info_type (type) 
+                "INSERT INTO contact_info_types (type) 
                  VALUES 
                     ('Phone'),
                     ('Whatsapp'),
                     ('Email')
                 ",
-                "INSERT INTO activity_type (type)
+                "INSERT INTO activity_types (type)
                  VALUES 
                     ('Phone'),
                     ('InPerson'),
@@ -214,16 +217,15 @@ fn main() {
                         match contact_info_split[0].as_str() {
                             "phone" => {
                                 contact_info_type =
-                                    Some(prm::ContactInfoType::Phone(contact_info_split[1].clone()))
+                                    Some(ContactInfoType::Phone(contact_info_split[1].clone()))
                             }
                             "whatsapp" => {
-                                contact_info_type = Some(prm::ContactInfoType::WhatsApp(
-                                    contact_info_split[1].clone(),
-                                ))
+                                contact_info_type =
+                                    Some(ContactInfoType::WhatsApp(contact_info_split[1].clone()))
                             }
                             "email" => {
                                 contact_info_type =
-                                    Some(prm::ContactInfoType::Email(contact_info_split[1].clone()))
+                                    Some(ContactInfoType::Email(contact_info_split[1].clone()))
                             }
                             // TODO proper error handling and messaging
                             _ => panic!("Unknown contact info type"),
@@ -238,8 +240,12 @@ fn main() {
                         None => (),
                     }
 
-                    let person = prm::Person::new(name, birthday_obj, contact_info);
-                    println!("Person: {:#?}", person);
+                    let person = Person::new(name, birthday_obj, contact_info);
+                    println!("[DEBUG] Person: {:#?}", person);
+                    match person.save(&conn) {
+                        Ok(_) => println!("{} added successfully", person.name),
+                        Err(_) => panic!("Error while adding {}", person.name),
+                    };
                 }
                 // TODO will require linking to a person
                 Entity::Activity {
@@ -249,9 +255,9 @@ fn main() {
                     content,
                 } => {
                     let activity_type = match activity_type.as_str() {
-                        "phone" => prm::ActivityType::Phone,
-                        "in_person" => prm::ActivityType::InPerson,
-                        "online" => prm::ActivityType::Online,
+                        "phone" => ActivityType::Phone,
+                        "in_person" => ActivityType::InPerson,
+                        "online" => ActivityType::Online,
                         // TODO proper error handling and messaging
                         _ => panic!("Unknown activity type"),
                     };
@@ -261,8 +267,7 @@ fn main() {
                         Err(error) => panic!("Error parsing date: {}", error),
                     };
 
-                    let activity =
-                        prm::Activity::new(name, activity_type, date_obj, content, vec![]);
+                    let activity = Activity::new(name, activity_type, date_obj, content, vec![]);
                     println!("Activity: {:#?}", activity);
                 }
                 // TODO link to people
@@ -274,13 +279,13 @@ fn main() {
                 } => {
                     let recurring_type = match recurring {
                         Some(recurring_type_str) => match recurring_type_str.as_str() {
-                            "daily" => Some(prm::RecurringType::Daily),
-                            "weekly" => Some(prm::RecurringType::Weekly),
-                            "fortnightly" => Some(prm::RecurringType::Fortnightly),
-                            "monthly" => Some(prm::RecurringType::Monthly),
-                            "quarterly" => Some(prm::RecurringType::Quarterly),
-                            "biannual" => Some(prm::RecurringType::Biannual),
-                            "yearly" => Some(prm::RecurringType::Yearly),
+                            "daily" => Some(RecurringType::Daily),
+                            "weekly" => Some(RecurringType::Weekly),
+                            "fortnightly" => Some(RecurringType::Fortnightly),
+                            "monthly" => Some(RecurringType::Monthly),
+                            "quarterly" => Some(RecurringType::Quarterly),
+                            "biannual" => Some(RecurringType::Biannual),
+                            "yearly" => Some(RecurringType::Yearly),
                             _ => panic!("Unknown recurring pattern"),
                         },
                         None => None,
@@ -292,13 +297,13 @@ fn main() {
                     };
 
                     let reminder =
-                        prm::Reminder::new(name, date_obj, description, recurring_type, vec![]);
+                        Reminder::new(name, date_obj, description, recurring_type, vec![]);
                     println!("Reminder: {:#?}", reminder);
                 }
                 Entity::Notes { content } => {
                     let date = Utc::now().date_naive();
 
-                    let note = prm::Notes::new(date, content, vec![]);
+                    let note = Notes::new(date, content, vec![]);
                     println!("Note: {:#?}", note);
                 }
             }
