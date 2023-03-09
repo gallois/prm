@@ -108,7 +108,7 @@ pub struct ContactInfo {
 #[derive(Debug)]
 pub enum ContactInfoType {
     Phone(String),
-    Whatsapp(String),
+    WhatsApp(String),
     Email(String),
 }
 

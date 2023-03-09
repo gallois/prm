@@ -78,10 +78,6 @@ fn main() {
 
     match args.command {
         Commands::Init {} => {
-            // TODO populate some of the tables that have known information
-            // [ ] contact_info_type
-            // [ ] activity_type
-            // [ ] recurring
             let sql_create_statements = vec![
                 "CREATE TABLE person (
                     id INTEGER PRIMARY KEY,
@@ -147,7 +143,37 @@ fn main() {
                     Err(error) => panic!("Error creating database tables: {}", error),
                 }
             }
-            println!("Database tables initialised");
+            let sql_populate_statements = vec![
+                "INSERT INTO contact_info_type (type) 
+                 VALUES 
+                    ('Phone'),
+                    ('Whatsapp'),
+                    ('Email')
+                ",
+                "INSERT INTO activity_type (type)
+                 VALUES 
+                    ('Phone'),
+                    ('InPerson'),
+                    ('Online')
+                ",
+                "INSERT INTO recurring_type (type)
+                 VALUES
+                    ('Daily'),
+                    ('Weekly'),
+                    ('Fortnightly'),
+                    ('Monthly'),
+                    ('Quarterly'),
+                    ('Biannual'),
+                    ('Yearly')
+                ",
+            ];
+            for query in sql_populate_statements {
+                match conn.execute(query, ()) {
+                    Ok(_) => (),
+                    Err(error) => panic!("Error populating database tables: {}", error),
+                }
+            }
+            println!("Database initialised");
         }
         Commands::Add(add) => {
             match add.entity {
@@ -191,7 +217,7 @@ fn main() {
                                     Some(prm::ContactInfoType::Phone(contact_info_split[1].clone()))
                             }
                             "whatsapp" => {
-                                contact_info_type = Some(prm::ContactInfoType::Whatsapp(
+                                contact_info_type = Some(prm::ContactInfoType::WhatsApp(
                                     contact_info_split[1].clone(),
                                 ))
                             }
