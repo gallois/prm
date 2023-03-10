@@ -81,102 +81,10 @@ fn main() {
 
     match args.command {
         Commands::Init {} => {
-            let sql_create_statements = vec![
-                "CREATE TABLE people (
-                    id INTEGER PRIMARY KEY,
-                    name TEXT NOT NULL,
-                    birthday TEXT
-                );",
-                "CREATE TABLE activities (
-                    id INTEGER PRIMARY KEY,
-                    name TEXT NOT NULL,
-                    type INTEGER NOT NULL,
-                    date TEXT NOT NULL,
-                    content TEXT
-                );",
-                "CREATE TABLE reminders (
-                    id INTEGER PRIMARY KEY,
-                    name TEXT NOT NULL,
-                    date TEXT NOT NULL,
-                    description TEXT,
-                    recurring INTEGER NOT NULL
-                );",
-                "CREATE TABLE notes (
-                    id INTEGER PRIMARY KEY, 
-                    date TEXT NOT NULL,
-                    content TEXT NOT NULL
-                );",
-                "CREATE TABLE contact_info (
-                    id INTEGER PRIMARY KEY,
-                    person_id INTEGER NOT NULL,
-                    contact_info_type_id INTEGER NOT NULL,
-                    contact_info_details TEXT
-                );",
-                "CREATE TABLE contact_info_types (
-                    id INTEGER PRIMARY KEY,
-                    type TEXT NOT NULL
-                );",
-                "CREATE TABLE people_activities (
-                    id INTEGER PRIMARY KEY,
-                    person_id INTEGER NOT NULL,
-                    activity_id INTEGER NOT NULL
-                );",
-                "CREATE TABLE people_reminders (
-                    id INTEGER PRIMARY KEY,
-                    person_id INTEGER NOT NULL,
-                    reminder_id INTEGER NOT NULL
-                );",
-                "CREATE TABLE people_notes (
-                    id INTEGER PRIMARY KEY,
-                    person_id INTEGER NOT NULL,
-                    note_id INTEGER NOT NULL
-                );",
-                "CREATE TABLE activity_types (
-                    id INTEGER PRIMARY KEY,
-                    type TEXT NOT NULL
-                );",
-                "CREATE TABLE recurring_types (
-                    id INTEGER PRIMARY KEY,
-                    type TEXT NOT NULL
-                );",
-            ];
-            for query in sql_create_statements {
-                match conn.execute(query, ()) {
-                    Ok(_) => (),
-                    Err(error) => panic!("Error creating database tables: {}", error),
-                }
-            }
-            let sql_populate_statements = vec![
-                "INSERT INTO contact_info_types (type) 
-                 VALUES 
-                    ('Phone'),
-                    ('Whatsapp'),
-                    ('Email')
-                ",
-                "INSERT INTO activity_types (type)
-                 VALUES 
-                    ('Phone'),
-                    ('InPerson'),
-                    ('Online')
-                ",
-                "INSERT INTO recurring_type (type)
-                 VALUES
-                    ('Daily'),
-                    ('Weekly'),
-                    ('Fortnightly'),
-                    ('Monthly'),
-                    ('Quarterly'),
-                    ('Biannual'),
-                    ('Yearly')
-                ",
-            ];
-            for query in sql_populate_statements {
-                match conn.execute(query, ()) {
-                    Ok(_) => (),
-                    Err(error) => panic!("Error populating database tables: {}", error),
-                }
-            }
-            println!("Database initialised");
+            match prm::init_db(&conn) {
+                Ok(_) => println!("Database initialised"),
+                Err(_) => panic!("Error initialising database"),
+            };
         }
         Commands::Add(add) => {
             match add.entity {
@@ -242,7 +150,7 @@ fn main() {
 
                     let person = Person::new(name, birthday_obj, contact_info);
                     println!("[DEBUG] Person: {:#?}", person);
-                    match person.save(&conn) {
+                    match person.add(&conn) {
                         Ok(_) => println!("{} added successfully", person.name),
                         Err(_) => panic!("Error while adding {}", person.name),
                     };
