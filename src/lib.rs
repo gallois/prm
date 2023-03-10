@@ -1,5 +1,7 @@
 use chrono::prelude::*;
 use rusqlite::{params, Connection};
+use std::convert::AsRef;
+use strum_macros::AsRefStr;
 
 #[derive(Debug)]
 pub struct Person {
@@ -36,6 +38,7 @@ impl DbOperations for Person {
             Some(birthday) => birthday.to_string(),
             None => "".to_string(),
         };
+
         match conn.execute(
             "INSERT INTO people (name, birthday) VALUES (?1, ?2)",
             params![self.name, birthday_str],
@@ -45,6 +48,60 @@ impl DbOperations for Person {
             }
             Err(_) => return Err(DbOperationsError),
         }
+
+        if self.contact_info.len() > 0 {
+            let (ci_type, ci_value): (String, &str) = match &self.contact_info[0].contact_info_type
+            {
+                ContactInfoType::Phone(value) => (
+                    ContactInfoType::Phone(value.clone()).as_ref().to_owned(),
+                    value.as_ref(),
+                ),
+                ContactInfoType::WhatsApp(value) => (
+                    ContactInfoType::WhatsApp(value.clone()).as_ref().to_owned(),
+                    value.as_ref(),
+                ),
+                ContactInfoType::Email(value) => (
+                    ContactInfoType::Email(value.clone()).as_ref().to_owned(),
+                    value.as_ref(),
+                ),
+            };
+
+            // TODO error handling
+            let mut stmt = conn
+                .prepare("SELECT id FROM people WHERE name = ?")
+                .unwrap();
+            let mut rows = stmt.query(params![self.name]).unwrap();
+            let mut ids: Vec<u32> = Vec::new();
+            while let Some(row) = rows.next().unwrap() {
+                ids.push(row.get(0).unwrap());
+            }
+
+            // TODO error handling
+            let mut stmt = conn
+                .prepare("SELECT id FROM contact_info_types WHERE type = ?")
+                .unwrap();
+            let mut rows = stmt.query(params![ci_type]).unwrap();
+            let mut types: Vec<u32> = Vec::new();
+            while let Some(row) = rows.next().unwrap() {
+                types.push(row.get(0).unwrap());
+            }
+
+            match conn.execute(
+                "INSERT INTO contact_info (
+                    person_id, 
+                    contact_info_type_id, 
+                    contact_info_details
+                )
+                    VALUES (?1, ?2, ?3)",
+                params![ids[0], types[0], ci_value],
+            ) {
+                Ok(updated) => {
+                    println!("[DEBUG] {} rows were updated", updated);
+                }
+                Err(_) => return Err(DbOperationsError),
+            }
+        }
+
         Ok(self)
     }
 }
@@ -126,7 +183,7 @@ pub struct ContactInfo {
     pub contact_info_type: ContactInfoType,
 }
 
-#[derive(Debug)]
+#[derive(Debug, AsRefStr)]
 pub enum ContactInfoType {
     Phone(String),
     WhatsApp(String),
@@ -227,7 +284,8 @@ pub fn init_db(conn: &Connection) -> Result<(), DbOperationsError> {
     ];
     for query in sql_create_statements {
         match conn.execute(query, ()) {
-            Ok(_) => println!("Database tables created"),
+            // Improve message
+            Ok(_) => println!("Database table created"),
             Err(error) => {
                 println!("Error creating database tables: {}", error);
                 return Err(DbOperationsError);
@@ -238,7 +296,7 @@ pub fn init_db(conn: &Connection) -> Result<(), DbOperationsError> {
         "INSERT INTO contact_info_types (type) 
          VALUES 
             ('Phone'),
-            ('Whatsapp'),
+            ('WhatsApp'),
             ('Email')
         ",
         "INSERT INTO activity_types (type)
@@ -247,7 +305,7 @@ pub fn init_db(conn: &Connection) -> Result<(), DbOperationsError> {
             ('InPerson'),
             ('Online')
         ",
-        "INSERT INTO recurring_type (type)
+        "INSERT INTO recurring_types (type)
          VALUES
             ('Daily'),
             ('Weekly'),
@@ -260,7 +318,8 @@ pub fn init_db(conn: &Connection) -> Result<(), DbOperationsError> {
     ];
     for query in sql_populate_statements {
         match conn.execute(query, ()) {
-            Ok(_) => println!("Database tables populated"),
+            // Improve message
+            Ok(_) => println!("Database table populated"),
             Err(error) => {
                 println!("Error populating database tables: {}", error);
                 return Err(DbOperationsError);
