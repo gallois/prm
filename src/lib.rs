@@ -133,7 +133,39 @@ impl Activity {
     }
 }
 
-#[derive(Debug)]
+impl DbOperations for Activity {
+    // TODO add people <> activity
+    fn add(&self, conn: &Connection) -> Result<&Activity, DbOperationsError> {
+        let activity_type_str = self.activity_type.as_ref();
+        // TODO error handling
+        let mut stmt = conn
+            .prepare("SELECT id FROM activity_types WHERE type = ?")
+            .unwrap();
+        let mut rows = stmt.query(params![activity_type_str]).unwrap();
+        let mut types: Vec<u32> = Vec::new();
+        while let Some(row) = rows.next().unwrap() {
+            types.push(row.get(0).unwrap());
+        }
+
+        let date_str = self.date.to_string();
+
+        match conn.execute(
+            "INSERT INTO 
+                activities (name, type, date, content)
+                VALUES (?1, ?2, ?3, ?4)
+            ",
+            params![self.name, types[0], date_str, self.content],
+        ) {
+            Ok(updated) => {
+                println!("[DEBUG] {} rows were updated", updated);
+            }
+            Err(_) => return Err(DbOperationsError),
+        }
+        Ok(self)
+    }
+}
+
+#[derive(Debug, AsRefStr)]
 pub enum ActivityType {
     Phone,
     InPerson,
