@@ -151,8 +151,8 @@ fn main() {
                     let person = Person::new(name, birthday_obj, contact_info);
                     println!("[DEBUG] Person: {:#?}", person);
                     match person.add(&conn) {
-                        Ok(_) => println!("{} added successfully", person.name),
-                        Err(_) => panic!("Error while adding {}", person.name),
+                        Ok(_) => println!("{:#?} added successfully", person),
+                        Err(_) => panic!("Error while adding {:#?}", person),
                     };
                 }
                 // TODO will require linking to a person
@@ -177,6 +177,10 @@ fn main() {
 
                     let activity = Activity::new(name, activity_type, date_obj, content, vec![]);
                     println!("Activity: {:#?}", activity);
+                    match activity.add(&conn) {
+                        Ok(_) => println!("{:#?} added successfully", activity),
+                        Err(_) => panic!("Error while adding {:#?}", activity),
+                    };
                 }
                 // TODO link to people
                 Entity::Reminder {
@@ -207,6 +211,10 @@ fn main() {
                     let reminder =
                         Reminder::new(name, date_obj, description, recurring_type, vec![]);
                     println!("Reminder: {:#?}", reminder);
+                    match reminder.add(&conn) {
+                        Ok(_) => println!("{:#?} added successfully", reminder),
+                        Err(_) => panic!("Error while adding {:#?}", reminder),
+                    };
                 }
                 Entity::Notes { content } => {
                     let date = Utc::now().date_naive();

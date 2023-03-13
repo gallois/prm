@@ -5,7 +5,7 @@ use strum_macros::AsRefStr;
 
 #[derive(Debug)]
 pub struct Person {
-    pub name: String,
+    name: String,
     birthday: Option<NaiveDate>,
     contact_info: Vec<ContactInfo>,
     activities: Vec<Activity>,
@@ -137,6 +137,8 @@ impl DbOperations for Activity {
     // TODO add people <> activity
     fn add(&self, conn: &Connection) -> Result<&Activity, DbOperationsError> {
         let activity_type_str = self.activity_type.as_ref();
+        let date_str = self.date.to_string();
+
         // TODO error handling
         let mut stmt = conn
             .prepare("SELECT id FROM activity_types WHERE type = ?")
@@ -146,8 +148,6 @@ impl DbOperations for Activity {
         while let Some(row) = rows.next().unwrap() {
             types.push(row.get(0).unwrap());
         }
-
-        let date_str = self.date.to_string();
 
         match conn.execute(
             "INSERT INTO 
@@ -199,7 +199,43 @@ impl Reminder {
     }
 }
 
-#[derive(Debug)]
+impl DbOperations for Reminder {
+    // TODO add people <> reminder
+    fn add(&self, conn: &Connection) -> Result<&Reminder, DbOperationsError> {
+        let recurring_str = match &self.recurring {
+            Some(recurring_type) => recurring_type.as_ref(),
+            None => "",
+        };
+
+        let date_str = self.date.to_string();
+
+        // TODO error handling
+        let mut stmt = conn
+            .prepare("SELECT id FROM recurring_types WHERE type = ?")
+            .unwrap();
+        let mut rows = stmt.query(params![recurring_str]).unwrap();
+        let mut types: Vec<u32> = Vec::new();
+        while let Some(row) = rows.next().unwrap() {
+            types.push(row.get(0).unwrap());
+        }
+
+        match conn.execute(
+            "INSERT INTO 
+                reminders (name, date, recurring, description)
+                VALUES (?1, ?2, ?3, ?4)
+            ",
+            params![self.name, date_str, recurring_str, self.description],
+        ) {
+            Ok(updated) => {
+                println!("[DEBUG] {} rows were updated", updated);
+            }
+            Err(_) => return Err(DbOperationsError),
+        }
+        Ok(self)
+    }
+}
+
+#[derive(Debug, AsRefStr)]
 pub enum RecurringType {
     Daily,
     Weekly,
