@@ -221,6 +221,10 @@ fn main() {
 
                     let note = Notes::new(date, content, vec![]);
                     println!("Note: {:#?}", note);
+                    match note.add(&conn) {
+                        Ok(_) => println!("{:#?} added successfully", note),
+                        Err(_) => panic!("Error while adding {:#?}", note),
+                    };
                 }
             }
         }

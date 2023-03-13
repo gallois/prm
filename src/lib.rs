@@ -275,6 +275,27 @@ impl Notes {
     }
 }
 
+impl DbOperations for Notes {
+    // TODO add people <> notes
+    fn add(&self, conn: &Connection) -> Result<&Notes, DbOperationsError> {
+        let date_str = self.date.to_string();
+
+        match conn.execute(
+            "INSERT INTO 
+                notes (date, content)
+                VALUES (?1, ?2)
+            ",
+            params![date_str, self.content],
+        ) {
+            Ok(updated) => {
+                println!("[DEBUG] {} rows were updated", updated);
+            }
+            Err(_) => return Err(DbOperationsError),
+        }
+        Ok(self)
+    }
+}
+
 enum EntityType {
     Person(Person),
     Activity(Activity),
