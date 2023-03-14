@@ -1,8 +1,8 @@
 use chrono::prelude::*;
 use clap::{Args, Parser, Subcommand};
 use prm::{
-    Activity, ActivityType, ContactInfo, ContactInfoType, DbOperations, DbOperationsError, Notes,
-    Person, RecurringType, Reminder,
+    Activity, ActivityType, ContactInfo, ContactInfoType, DbOperations, Notes, Person,
+    RecurringType, Reminder,
 };
 use rusqlite::Connection;
 
