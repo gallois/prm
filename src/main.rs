@@ -45,27 +45,29 @@ struct AddArgs {
 enum Entity {
     Person {
         name: String,
-        #[arg(short, long, required = false)]
+        #[arg(short, long)]
         birthday: Option<String>,
-        #[arg(short, long, required = false)]
+        #[arg(short, long)]
         contact_info: Option<String>,
     },
     Activity {
         name: String,
-        #[arg(short, long, required = true)]
+        #[arg(short, long)]
         activity_type: String,
-        #[arg(short, long, required = true)]
+        #[arg(short, long)]
         date: String,
-        #[arg(short, long, required = true)]
+        #[arg(short, long)]
         content: String,
+        #[arg(short, long)]
+        people: Option<Vec<String>>,
     },
     Reminder {
         name: String,
-        #[arg(short, long, required = true)]
+        #[arg(short, long)]
         date: String,
-        #[arg(short, long, required = false)]
+        #[arg(short, long)]
         recurring: Option<String>,
-        #[arg(long, required = false)]
+        #[arg(long)]
         description: Option<String>,
         // TODO add person
     },
@@ -161,6 +163,7 @@ fn main() {
                     activity_type,
                     date,
                     content,
+                    people,
                 } => {
                     let activity_type = match activity_type.as_str() {
                         "phone" => ActivityType::Phone,
@@ -175,7 +178,14 @@ fn main() {
                         Err(error) => panic!("Error parsing date: {}", error),
                     };
 
-                    let activity = Activity::new(name, activity_type, date_obj, content, vec![]);
+                    // TODO handle multiple people arg
+                    let people_vec = match people {
+                        Some(people) => Person::get_by_names(&conn, people),
+                        None => vec![],
+                    };
+
+                    let activity =
+                        Activity::new(name, activity_type, date_obj, content, people_vec);
                     println!("Activity: {:#?}", activity);
                     match activity.add(&conn) {
                         Ok(_) => println!("{:#?} added successfully", activity),

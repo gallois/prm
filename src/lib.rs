@@ -1,5 +1,5 @@
 use chrono::prelude::*;
-use rusqlite::{params, Connection};
+use rusqlite::{params, params_from_iter, Connection};
 use std::convert::AsRef;
 use strum_macros::AsRefStr;
 
@@ -28,6 +28,56 @@ impl Person {
             reminders: vec![],
             notes: vec![],
         }
+    }
+
+    pub fn get_by_name(conn: &Connection, name: &str) -> Option<Person> {
+        let mut stmt = conn
+            .prepare("SELECT * FROM people WHERE name = ?1 COLLATE NOCASE")
+            .expect("Invalid SQL statement");
+        let mut rows = stmt.query(params![name]).unwrap();
+        match rows.next() {
+            Ok(row) => match row {
+                Some(row) => Some(Person {
+                    name: row.get(1).unwrap(),
+                    birthday: None,
+                    contact_info: vec![],
+                    activities: vec![],
+                    reminders: vec![],
+                    notes: vec![],
+                }),
+                None => return None,
+            },
+            Err(_) => return None,
+        }
+    }
+
+    pub fn get_by_names(conn: &Connection, names: Vec<String>) -> Vec<Person> {
+        if names.is_empty() {
+            return vec![];
+        }
+
+        let vars = repeat_vars(names.len());
+        let sql = format!(
+            "SELECT * FROM people WHERE name in ({}) COLLATE NOCASE",
+            vars
+        );
+
+        let mut stmt = conn.prepare(&sql).expect("Invalid SQL statement");
+        let rows = stmt
+            .query_map(params_from_iter(names.iter()), |row| row.get(1))
+            .unwrap();
+        let mut people = vec![];
+        for name in rows {
+            people.push(Person {
+                name: name.unwrap(),
+                birthday: None,
+                contact_info: vec![],
+                activities: vec![],
+                reminders: vec![],
+                notes: vec![],
+            })
+        }
+        people
     }
 }
 
@@ -416,4 +466,18 @@ pub fn init_db(conn: &Connection) -> Result<(), DbOperationsError> {
         }
     }
     Ok(())
+}
+
+// Helper function to return a comma-separated sequence of `?`.
+// - `repeat_vars(0) => panic!(...)`
+// - `repeat_vars(1) => "?"`
+// - `repeat_vars(2) => "?,?"`
+// - `repeat_vars(3) => "?,?,?"`
+// - ...
+fn repeat_vars(count: usize) -> String {
+    assert_ne!(count, 0);
+    let mut s = "?,".repeat(count);
+    // Remove trailing comma
+    s.pop();
+    s
 }
