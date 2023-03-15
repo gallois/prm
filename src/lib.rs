@@ -5,6 +5,7 @@ use strum_macros::AsRefStr;
 
 #[derive(Debug)]
 pub struct Person {
+    id: u64,
     name: String,
     birthday: Option<NaiveDate>,
     contact_info: Vec<ContactInfo>,
@@ -16,11 +17,13 @@ pub struct Person {
 impl Person {
     // TODO create a macro for generating all these `new` functions
     pub fn new(
+        id: u64,
         name: String,
         birthday: Option<NaiveDate>,
         contact_info: Vec<ContactInfo>,
     ) -> Person {
         Person {
+            id,
             name,
             birthday,
             contact_info,
@@ -38,6 +41,7 @@ impl Person {
         match rows.next() {
             Ok(row) => match row {
                 Some(row) => Some(Person {
+                    id: row.get(0).unwrap(),
                     name: row.get(1).unwrap(),
                     birthday: None,
                     contact_info: vec![],
@@ -62,21 +66,30 @@ impl Person {
             vars
         );
 
-        let mut stmt = conn.prepare(&sql).expect("Invalid SQL statement");
-        let rows = stmt
-            .query_map(params_from_iter(names.iter()), |row| row.get(1))
-            .unwrap();
         let mut people = vec![];
-        for name in rows {
-            people.push(Person {
-                name: name.unwrap(),
-                birthday: None,
-                contact_info: vec![],
-                activities: vec![],
-                reminders: vec![],
-                notes: vec![],
+        let mut stmt = conn.prepare(&sql).expect("Invalid SQL statement");
+        let rows: _ = stmt
+            .query_map(params_from_iter(names.iter()), |row| {
+                Ok(Person::new(
+                    row.get(0).unwrap(),
+                    row.get(1).unwrap(),
+                    Some(
+                        NaiveDate::parse_from_str(
+                            String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
+                            "%Y-%m-%d",
+                        )
+                        .unwrap_or_default(),
+                    ),
+                    // Some(NaiveDate::parse_from_str(row.get(2).unwrap(), "%Y-%m-%d").unwrap()),
+                    vec![],
+                ))
             })
+            .unwrap();
+
+        for person in rows.into_iter() {
+            people.push(person.unwrap());
         }
+
         people
     }
 }
@@ -158,6 +171,7 @@ impl DbOperations for Person {
 
 #[derive(Debug)]
 pub struct Activity {
+    id: u64,
     name: String,
     activity_type: ActivityType,
     date: NaiveDate,
@@ -167,6 +181,7 @@ pub struct Activity {
 
 impl Activity {
     pub fn new(
+        id: u64,
         name: String,
         activity_type: ActivityType,
         date: NaiveDate,
@@ -174,6 +189,7 @@ impl Activity {
         people: Vec<Person>,
     ) -> Activity {
         Activity {
+            id,
             name,
             activity_type,
             date,
@@ -211,6 +227,45 @@ impl DbOperations for Activity {
             }
             Err(_) => return Err(DbOperationsError),
         }
+
+        let mut stmt = conn
+            .prepare(
+                "SELECT 
+                        * 
+                    FROM 
+                        activities 
+                    WHERE 
+                        name = ?1
+                        AND type = ?2
+                        AND date = ?3
+                        AND content = ?4
+                    ",
+            )
+            .unwrap();
+        let mut rows = stmt
+            .query(params![self.name, types[0], date_str, self.content])
+            .unwrap();
+        let mut ids: Vec<u32> = Vec::new();
+        while let Some(row) = rows.next().unwrap() {
+            ids.push(row.get(0).unwrap());
+        }
+
+        for person in &self.people {
+            match conn.execute(
+                "INSERT INTO people_activities (
+                    person_id, 
+                    activity_id
+                )
+                    VALUES (?1, ?2)",
+                params![person.id, ids[0]],
+            ) {
+                Ok(updated) => {
+                    println!("[DEBUG] {} rows were updated", updated);
+                }
+                Err(_) => return Err(DbOperationsError),
+            }
+        }
+
         Ok(self)
     }
 }
@@ -224,6 +279,7 @@ pub enum ActivityType {
 
 #[derive(Debug)]
 pub struct Reminder {
+    id: u64,
     name: String,
     date: NaiveDate,
     description: Option<String>,
@@ -233,6 +289,7 @@ pub struct Reminder {
 
 impl Reminder {
     pub fn new(
+        id: u64,
         name: String,
         date: NaiveDate,
         description: Option<String>,
@@ -240,6 +297,7 @@ impl Reminder {
         people: Vec<Person>,
     ) -> Reminder {
         Reminder {
+            id,
             name,
             date,
             description,
@@ -310,14 +368,16 @@ pub enum ContactInfoType {
 
 #[derive(Debug)]
 pub struct Notes {
+    id: u64,
     date: NaiveDate,
     content: String,
     people: Vec<Person>,
 }
 
 impl Notes {
-    pub fn new(date: NaiveDate, content: String, people: Vec<Person>) -> Notes {
+    pub fn new(id: u64, date: NaiveDate, content: String, people: Vec<Person>) -> Notes {
         Notes {
+            id,
             date,
             content,
             people,

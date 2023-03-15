@@ -150,8 +150,7 @@ fn main() {
                         None => (),
                     }
 
-                    let person = Person::new(name, birthday_obj, contact_info);
-                    println!("[DEBUG] Person: {:#?}", person);
+                    let person = Person::new(0, name, birthday_obj, contact_info);
                     match person.add(&conn) {
                         Ok(_) => println!("{:#?} added successfully", person),
                         Err(_) => panic!("Error while adding {:#?}", person),
@@ -178,15 +177,13 @@ fn main() {
                         Err(error) => panic!("Error parsing date: {}", error),
                     };
 
-                    // TODO handle multiple people arg
                     let people_vec = match people {
                         Some(people) => Person::get_by_names(&conn, people),
                         None => vec![],
                     };
 
                     let activity =
-                        Activity::new(name, activity_type, date_obj, content, people_vec);
-                    println!("Activity: {:#?}", activity);
+                        Activity::new(0, name, activity_type, date_obj, content, people_vec);
                     match activity.add(&conn) {
                         Ok(_) => println!("{:#?} added successfully", activity),
                         Err(_) => panic!("Error while adding {:#?}", activity),
@@ -219,7 +216,7 @@ fn main() {
                     };
 
                     let reminder =
-                        Reminder::new(name, date_obj, description, recurring_type, vec![]);
+                        Reminder::new(0, name, date_obj, description, recurring_type, vec![]);
                     println!("Reminder: {:#?}", reminder);
                     match reminder.add(&conn) {
                         Ok(_) => println!("{:#?} added successfully", reminder),
@@ -229,7 +226,7 @@ fn main() {
                 Entity::Notes { content } => {
                     let date = Utc::now().date_naive();
 
-                    let note = Notes::new(date, content, vec![]);
+                    let note = Notes::new(0, date, content, vec![]);
                     println!("Note: {:#?}", note);
                     match note.add(&conn) {
                         Ok(_) => println!("{:#?} added successfully", note),
