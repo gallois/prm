@@ -346,13 +346,6 @@ impl DbOperations for Notes {
     }
 }
 
-enum EntityType {
-    Person(Person),
-    Activity(Activity),
-    Reminder(Reminder),
-    Notes(Notes),
-}
-
 pub struct DbOperationsError;
 
 pub trait DbOperations {
