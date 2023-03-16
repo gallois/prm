@@ -159,7 +159,6 @@ fn main() {
                         Err(_) => panic!("Error while adding {:#?}", person),
                     };
                 }
-                // TODO will require linking to a person
                 Entity::Activity {
                     name,
                     activity_type,
@@ -188,7 +187,6 @@ fn main() {
                         Err(_) => panic!("Error while adding {:#?}", activity),
                     };
                 }
-                // TODO link to people
                 Entity::Reminder {
                     name,
                     date,

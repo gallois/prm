@@ -80,7 +80,6 @@ impl Person {
                         )
                         .unwrap_or_default(),
                     ),
-                    // Some(NaiveDate::parse_from_str(row.get(2).unwrap(), "%Y-%m-%d").unwrap()),
                     vec![],
                 ))
             })
