@@ -59,7 +59,7 @@ enum Entity {
         #[arg(short, long)]
         content: String,
         #[arg(short, long)]
-        people: Option<Vec<String>>,
+        people: Vec<String>,
     },
     Reminder {
         name: String,
@@ -69,10 +69,12 @@ enum Entity {
         recurring: Option<String>,
         #[arg(long)]
         description: Option<String>,
-        // TODO add person
+        #[arg(short, long)]
+        people: Vec<String>,
     },
     Notes {
         content: String,
+        // TODO add person
     },
 }
 
@@ -177,13 +179,9 @@ fn main() {
                         Err(error) => panic!("Error parsing date: {}", error),
                     };
 
-                    let people_vec = match people {
-                        Some(people) => Person::get_by_names(&conn, people),
-                        None => vec![],
-                    };
+                    let people = Person::get_by_names(&conn, people);
 
-                    let activity =
-                        Activity::new(0, name, activity_type, date_obj, content, people_vec);
+                    let activity = Activity::new(0, name, activity_type, date_obj, content, people);
                     match activity.add(&conn) {
                         Ok(_) => println!("{:#?} added successfully", activity),
                         Err(_) => panic!("Error while adding {:#?}", activity),
@@ -195,6 +193,7 @@ fn main() {
                     date,
                     recurring,
                     description,
+                    people,
                 } => {
                     let recurring_type = match recurring {
                         Some(recurring_type_str) => match recurring_type_str.as_str() {
@@ -215,8 +214,10 @@ fn main() {
                         Err(error) => panic!("Error parsing date: {}", error),
                     };
 
+                    let people = Person::get_by_names(&conn, people);
+
                     let reminder =
-                        Reminder::new(0, name, date_obj, description, recurring_type, vec![]);
+                        Reminder::new(0, name, date_obj, description, recurring_type, people);
                     println!("Reminder: {:#?}", reminder);
                     match reminder.add(&conn) {
                         Ok(_) => println!("{:#?} added successfully", reminder),

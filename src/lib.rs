@@ -134,7 +134,7 @@ impl DbOperations for Person {
                 .prepare("SELECT id FROM people WHERE name = ?")
                 .unwrap();
             let mut rows = stmt.query(params![self.name]).unwrap();
-            let mut ids: Vec<u32> = Vec::new();
+            let mut ids: Vec<u64> = Vec::new();
             while let Some(row) = rows.next().unwrap() {
                 ids.push(row.get(0).unwrap());
             }
@@ -245,7 +245,7 @@ impl DbOperations for Activity {
         let mut rows = stmt
             .query(params![self.name, types[0], date_str, self.content])
             .unwrap();
-        let mut ids: Vec<u32> = Vec::new();
+        let mut ids: Vec<u64> = Vec::new();
         while let Some(row) = rows.next().unwrap() {
             ids.push(row.get(0).unwrap());
         }
@@ -339,6 +339,48 @@ impl DbOperations for Reminder {
             }
             Err(_) => return Err(DbOperationsError),
         }
+
+        let mut stmt = conn
+            .prepare(
+                "SELECT 
+                    * 
+                FROM 
+                    reminders 
+                WHERE
+                    name = ?1
+                    AND date = ?2
+                    AND recurring = ?3
+                    AND description = ?4
+                ",
+            )
+            .unwrap();
+
+        let mut ids: Vec<u64> = Vec::new();
+
+        let mut rows = stmt
+            .query(params![self.name, date_str, types[0], self.description])
+            .unwrap();
+
+        while let Some(row) = rows.next().unwrap() {
+            ids.push(row.get(0).unwrap());
+        }
+
+        for person in &self.people {
+            match conn.execute(
+                "INSERT INTO people_reminders (
+                    person_id, 
+                    reminder_id
+                )
+                    VALUES (?1, ?2)",
+                params![person.id, ids[0]],
+            ) {
+                Ok(updated) => {
+                    println!("[DEBUG] {} rows were updated", updated);
+                }
+                Err(_) => return Err(DbOperationsError),
+            }
+        }
+
         Ok(self)
     }
 }
