@@ -111,6 +111,7 @@ impl DbOperations for Person {
             }
             Err(_) => return Err(DbOperationsError),
         }
+        let id = conn.last_insert_rowid();
 
         if self.contact_info.len() > 0 {
             let (ci_type, ci_value): (String, &str) = match &self.contact_info[0].contact_info_type
@@ -131,16 +132,6 @@ impl DbOperations for Person {
 
             // TODO error handling
             let mut stmt = conn
-                .prepare("SELECT id FROM people WHERE name = ?")
-                .unwrap();
-            let mut rows = stmt.query(params![self.name]).unwrap();
-            let mut ids: Vec<u64> = Vec::new();
-            while let Some(row) = rows.next().unwrap() {
-                ids.push(row.get(0).unwrap());
-            }
-
-            // TODO error handling
-            let mut stmt = conn
                 .prepare("SELECT id FROM contact_info_types WHERE type = ?")
                 .unwrap();
             let mut rows = stmt.query(params![ci_type]).unwrap();
@@ -156,7 +147,7 @@ impl DbOperations for Person {
                     contact_info_details
                 )
                     VALUES (?1, ?2, ?3)",
-                params![ids[0], types[0], ci_value],
+                params![id, types[0], ci_value],
             ) {
                 Ok(updated) => {
                     println!("[DEBUG] {} rows were updated", updated);
@@ -200,7 +191,6 @@ impl Activity {
 }
 
 impl DbOperations for Activity {
-    // TODO add people <> activity
     fn add(&self, conn: &Connection) -> Result<&Activity, DbOperationsError> {
         let activity_type_str = self.activity_type.as_ref();
         let date_str = self.date.to_string();
@@ -228,27 +218,7 @@ impl DbOperations for Activity {
             Err(_) => return Err(DbOperationsError),
         }
 
-        let mut stmt = conn
-            .prepare(
-                "SELECT 
-                        * 
-                    FROM 
-                        activities 
-                    WHERE 
-                        name = ?1
-                        AND type = ?2
-                        AND date = ?3
-                        AND content = ?4
-                    ",
-            )
-            .unwrap();
-        let mut rows = stmt
-            .query(params![self.name, types[0], date_str, self.content])
-            .unwrap();
-        let mut ids: Vec<u64> = Vec::new();
-        while let Some(row) = rows.next().unwrap() {
-            ids.push(row.get(0).unwrap());
-        }
+        let id = conn.last_insert_rowid();
 
         for person in &self.people {
             match conn.execute(
@@ -257,7 +227,7 @@ impl DbOperations for Activity {
                     activity_id
                 )
                     VALUES (?1, ?2)",
-                params![person.id, ids[0]],
+                params![person.id, id],
             ) {
                 Ok(updated) => {
                     println!("[DEBUG] {} rows were updated", updated);
@@ -308,7 +278,6 @@ impl Reminder {
 }
 
 impl DbOperations for Reminder {
-    // TODO add people <> reminder
     fn add(&self, conn: &Connection) -> Result<&Reminder, DbOperationsError> {
         let recurring_str = match &self.recurring {
             Some(recurring_type) => recurring_type.as_ref(),
@@ -340,30 +309,7 @@ impl DbOperations for Reminder {
             Err(_) => return Err(DbOperationsError),
         }
 
-        let mut stmt = conn
-            .prepare(
-                "SELECT 
-                    * 
-                FROM 
-                    reminders 
-                WHERE
-                    name = ?1
-                    AND date = ?2
-                    AND recurring = ?3
-                    AND description = ?4
-                ",
-            )
-            .unwrap();
-
-        let mut ids: Vec<u64> = Vec::new();
-
-        let mut rows = stmt
-            .query(params![self.name, date_str, types[0], self.description])
-            .unwrap();
-
-        while let Some(row) = rows.next().unwrap() {
-            ids.push(row.get(0).unwrap());
-        }
+        let id = conn.last_insert_rowid();
 
         for person in &self.people {
             match conn.execute(
@@ -372,7 +318,7 @@ impl DbOperations for Reminder {
                     reminder_id
                 )
                     VALUES (?1, ?2)",
-                params![person.id, ids[0]],
+                params![person.id, id],
             ) {
                 Ok(updated) => {
                     println!("[DEBUG] {} rows were updated", updated);
