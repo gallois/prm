@@ -74,7 +74,8 @@ enum Entity {
     },
     Notes {
         content: String,
-        // TODO add person
+        #[arg(short, long)]
+        people: Vec<String>,
     },
 }
 
@@ -224,10 +225,12 @@ fn main() {
                         Err(_) => panic!("Error while adding {:#?}", reminder),
                     };
                 }
-                Entity::Notes { content } => {
+                Entity::Notes { content, people } => {
                     let date = Utc::now().date_naive();
 
-                    let note = Notes::new(0, date, content, vec![]);
+                    let people = Person::get_by_names(&conn, people);
+
+                    let note = Notes::new(0, date, content, people);
                     println!("Note: {:#?}", note);
                     match note.add(&conn) {
                         Ok(_) => println!("{:#?} added successfully", note),

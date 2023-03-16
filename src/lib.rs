@@ -374,7 +374,6 @@ impl Notes {
 }
 
 impl DbOperations for Notes {
-    // TODO add people <> notes
     fn add(&self, conn: &Connection) -> Result<&Notes, DbOperationsError> {
         let date_str = self.date.to_string();
 
@@ -390,6 +389,25 @@ impl DbOperations for Notes {
             }
             Err(_) => return Err(DbOperationsError),
         }
+
+        let id = &conn.last_insert_rowid();
+
+        for person in &self.people {
+            match conn.execute(
+                "INSERT INTO people_notes (
+                    person_id, 
+                    note_id
+                )
+                    VALUES (?1, ?2)",
+                params![person.id, id],
+            ) {
+                Ok(updated) => {
+                    println!("[DEBUG] {} rows were updated", updated);
+                }
+                Err(_) => return Err(DbOperationsError),
+            }
+        }
+
         Ok(self)
     }
 }
