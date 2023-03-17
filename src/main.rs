@@ -101,14 +101,14 @@ fn main() {
                     let mut birthday_obj: Option<NaiveDate> = None;
                     match birthday {
                         Some(birthday_str) => {
-                            // TODO extract common logic, e.g. parsing dates
-                            let birthday_result =
-                                NaiveDate::parse_from_str(&birthday_str, "%Y-%m-%d");
-                            // TODO allow for entering date without year
                             // TODO proper error handling and messaging
-                            match birthday_result {
+                            match prm::parse_from_str_ymd(&birthday_str) {
                                 Ok(date) => birthday_obj = Some(date),
-                                Err(error) => panic!("Error parsing birthday: {}", error),
+                                // Err(error) => panic!("Error parsing birthday: {}", error),
+                                Err(error) => match prm::parse_from_str_md(&birthday_str) {
+                                    Ok(date) => birthday_obj = Some(date),
+                                    Err(error) => panic!("Error parsing birthday: {}", error),
+                                },
                             }
                         }
                         None => (),
@@ -174,7 +174,7 @@ fn main() {
                         _ => panic!("Unknown activity type"),
                     };
 
-                    let date_obj = match NaiveDate::parse_from_str(date.as_str(), "%Y-%m-%d") {
+                    let date_obj = match prm::parse_from_str_ymd(date.as_str()) {
                         Ok(date) => date,
                         Err(error) => panic!("Error parsing date: {}", error),
                     };
@@ -208,7 +208,7 @@ fn main() {
                         None => None,
                     };
 
-                    let date_obj = match NaiveDate::parse_from_str(date.as_str(), "%Y-%m-%d") {
+                    let date_obj = match prm::parse_from_str_ymd(date.as_str()) {
                         Ok(date) => date,
                         Err(error) => panic!("Error parsing date: {}", error),
                     };

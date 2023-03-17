@@ -74,9 +74,8 @@ impl Person {
                     row.get(0).unwrap(),
                     row.get(1).unwrap(),
                     Some(
-                        NaiveDate::parse_from_str(
+                        crate::parse_from_str_ymd(
                             String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
-                            "%Y-%m-%d",
                         )
                         .unwrap_or_default(),
                     ),
@@ -538,4 +537,12 @@ fn repeat_vars(count: usize) -> String {
     // Remove trailing comma
     s.pop();
     s
+}
+
+pub fn parse_from_str_ymd(date: &str) -> Result<NaiveDate, chrono::ParseError> {
+    NaiveDate::parse_from_str(date, "%Y-%m-%d")
+}
+
+pub fn parse_from_str_md(date: &str) -> Result<NaiveDate, chrono::ParseError> {
+    NaiveDate::parse_from_str(format!("1-{}", date).as_ref(), "%Y-%m-%d")
 }
