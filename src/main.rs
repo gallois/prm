@@ -104,7 +104,6 @@ fn main() {
                             // TODO proper error handling and messaging
                             match prm::parse_from_str_ymd(&birthday_str) {
                                 Ok(date) => birthday_obj = Some(date),
-                                // Err(error) => panic!("Error parsing birthday: {}", error),
                                 Err(_) => match prm::parse_from_str_md(&birthday_str) {
                                     Ok(date) => birthday_obj = Some(date),
                                     Err(error) => panic!("Error parsing birthday: {}", error),

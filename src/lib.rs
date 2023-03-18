@@ -544,5 +544,5 @@ pub fn parse_from_str_ymd(date: &str) -> Result<NaiveDate, chrono::ParseError> {
 }
 
 pub fn parse_from_str_md(date: &str) -> Result<NaiveDate, chrono::ParseError> {
-    NaiveDate::parse_from_str(format!("1-{}", date).as_ref(), "%Y-%m-%d")
+    parse_from_str_ymd(format!("1-{}", date).as_ref())
 }
