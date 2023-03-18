@@ -16,10 +16,7 @@ struct Cli {
 enum Commands {
     Init {},
     Add(AddArgs),
-    #[command(arg_required_else_help = true)]
-    Show {
-        entity: String,
-    },
+    Show(ShowArgs),
     #[command(arg_required_else_help = true)]
     Edit {
         entity: String,
@@ -38,11 +35,18 @@ enum Commands {
 #[command(args_conflicts_with_subcommands = true)]
 struct AddArgs {
     #[command(subcommand)]
-    entity: Entity,
+    entity: AddEntity,
+}
+
+#[derive(Args)]
+#[command(args_conflicts_with_subcommands = true)]
+struct ShowArgs {
+    #[command(subcommand)]
+    entity: ShowEntity,
 }
 
 #[derive(Subcommand)]
-enum Entity {
+enum AddEntity {
     Person {
         name: String,
         #[arg(short, long)]
@@ -79,6 +83,15 @@ enum Entity {
     },
 }
 
+#[derive(Subcommand)]
+enum ShowEntity {
+    Person {
+        #[arg(short, long)]
+        name: String,
+        // Filter by birthday etc.
+    },
+}
+
 fn main() {
     let args = Cli::parse();
 
@@ -93,7 +106,7 @@ fn main() {
         }
         Commands::Add(add) => {
             match add.entity {
-                Entity::Person {
+                AddEntity::Person {
                     name,
                     birthday,
                     contact_info,
@@ -158,7 +171,7 @@ fn main() {
                         Err(_) => panic!("Error while adding {:#?}", person),
                     };
                 }
-                Entity::Activity {
+                AddEntity::Activity {
                     name,
                     activity_type,
                     date,
@@ -186,7 +199,7 @@ fn main() {
                         Err(_) => panic!("Error while adding {:#?}", activity),
                     };
                 }
-                Entity::Reminder {
+                AddEntity::Reminder {
                     name,
                     date,
                     recurring,
@@ -222,7 +235,7 @@ fn main() {
                         Err(_) => panic!("Error while adding {:#?}", reminder),
                     };
                 }
-                Entity::Notes { content, people } => {
+                AddEntity::Notes { content, people } => {
                     let date = Utc::now().date_naive();
 
                     let people = Person::get_by_names(&conn, people);
@@ -236,9 +249,12 @@ fn main() {
                 }
             }
         }
-        Commands::Show { entity } => {
-            println!("Showing {}", entity);
-        }
+        Commands::Show(show) => match show.entity {
+            ShowEntity::Person { name } => {
+                let person = prm::Person::get_by_name(&conn, &name);
+                println!("got person: {:#?}", person);
+            }
+        },
         Commands::Edit { entity } => {
             println!("Editing {}", entity);
         }
