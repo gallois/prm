@@ -55,7 +55,7 @@ impl Person {
                         // contact_info: vec![],
                         contact_info: crate::get_contact_info_by_person(&conn, person_id),
                         activities: crate::get_activities_by_person(&conn, person_id),
-                        reminders: vec![],
+                        reminders: crate::get_reminders_by_person(&conn, person_id),
                         notes: vec![],
                     })
                 }
@@ -358,7 +358,7 @@ impl DbOperations for Reminder {
     }
 }
 
-#[derive(Debug, AsRefStr)]
+#[derive(Debug, AsRefStr, EnumString)]
 pub enum RecurringType {
     Daily,
     Weekly,
@@ -486,6 +486,59 @@ pub trait DbOperations {
         Self: Sized;
 }
 
+fn get_reminders_by_person(conn: &Connection, person_id: u64) -> Vec<Reminder> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT
+            *
+        FROM
+            people_reminders
+        WHERE
+            person_id = ?
+        ",
+        )
+        .unwrap();
+
+    let mut rows = stmt.query(params![person_id]).unwrap();
+    let mut reminder_ids: Vec<u64> = vec![];
+    while let Some(row) = rows.next().unwrap() {
+        reminder_ids.push(row.get(0).unwrap());
+    }
+
+    if reminder_ids.is_empty() {
+        return vec![];
+    }
+
+    let vars = repeat_vars(reminder_ids.len());
+    let sql = format!("SELECT * from reminders WHERE id IN ({})", vars);
+    let mut stmt = conn.prepare(&sql).expect("Invalid SQL statement");
+
+    let rows = stmt
+        .query_map(params_from_iter(reminder_ids.iter()), |row| {
+            Ok(Reminder::new(
+                row.get(0).unwrap(),
+                row.get(1).unwrap(),
+                crate::parse_from_str_ymd(
+                    String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
+                )
+                .unwrap_or_default(),
+                row.get(3).unwrap(),
+                Some(
+                    RecurringType::from_str(row.get::<usize, String>(4).unwrap().as_str()).unwrap(),
+                ),
+                vec![],
+            ))
+        })
+        .unwrap();
+
+    let mut reminders = vec![];
+    for reminder in rows {
+        reminders.push(reminder.unwrap());
+    }
+
+    reminders
+}
+
 fn get_contact_info_by_person(conn: &Connection, person_id: u64) -> Vec<ContactInfo> {
     let mut stmt = conn
         .prepare(
@@ -533,6 +586,10 @@ fn get_activities_by_person(conn: &Connection, person_id: u64) -> Vec<Activity> 
     let mut activity_ids: Vec<u64> = vec![];
     while let Some(row) = rows.next().unwrap() {
         activity_ids.push(row.get(0).unwrap());
+    }
+
+    if activity_ids.is_empty() {
+        return vec![];
     }
 
     let vars = repeat_vars(activity_ids.len());
