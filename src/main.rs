@@ -1,7 +1,7 @@
 use chrono::prelude::*;
 use clap::{Args, Parser, Subcommand};
 use prm::{
-    Activity, ActivityType, ContactInfo, ContactInfoType, DbOperations, Notes, Person,
+    Activity, ActivityType, ContactInfo, ContactInfoType, DbOperations, Note, Person,
     RecurringType, Reminder,
 };
 use rusqlite::Connection;
@@ -234,7 +234,7 @@ fn main() {
 
                     let people = Person::get_by_names(&conn, people);
 
-                    let note = Notes::new(0, date, content, people);
+                    let note = Note::new(0, date, content, people);
                     println!("Note: {:#?}", note);
                     match note.add(&conn) {
                         Ok(_) => println!("{:#?} added successfully", note),

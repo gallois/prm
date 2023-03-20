@@ -11,7 +11,7 @@ pub struct Person {
     contact_info: Vec<ContactInfo>,
     activities: Vec<Activity>,
     reminders: Vec<Reminder>,
-    notes: Vec<Notes>,
+    notes: Vec<Note>,
 }
 
 impl Person {
@@ -56,7 +56,7 @@ impl Person {
                         contact_info: crate::get_contact_info_by_person(&conn, person_id),
                         activities: crate::get_activities_by_person(&conn, person_id),
                         reminders: crate::get_reminders_by_person(&conn, person_id),
-                        notes: vec![],
+                        notes: crate::get_notes_by_person(&conn, person_id),
                     })
                 }
                 None => return None,
@@ -421,16 +421,16 @@ impl ContactInfoType {
 }
 
 #[derive(Debug)]
-pub struct Notes {
+pub struct Note {
     id: u64,
     date: NaiveDate,
     content: String,
     people: Vec<Person>,
 }
 
-impl Notes {
-    pub fn new(id: u64, date: NaiveDate, content: String, people: Vec<Person>) -> Notes {
-        Notes {
+impl Note {
+    pub fn new(id: u64, date: NaiveDate, content: String, people: Vec<Person>) -> Note {
+        Note {
             id,
             date,
             content,
@@ -439,8 +439,8 @@ impl Notes {
     }
 }
 
-impl DbOperations for Notes {
-    fn add(&self, conn: &Connection) -> Result<&Notes, DbOperationsError> {
+impl DbOperations for Note {
+    fn add(&self, conn: &Connection) -> Result<&Note, DbOperationsError> {
         let date_str = self.date.to_string();
 
         match conn.execute(
@@ -484,6 +484,55 @@ pub trait DbOperations {
     fn add(&self, conn: &Connection) -> Result<&Self, DbOperationsError>
     where
         Self: Sized;
+}
+
+fn get_notes_by_person(conn: &Connection, person_id: u64) -> Vec<Note> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT
+            *
+        FROM
+            people_notes
+        WHERE
+            person_id = ?
+        ",
+        )
+        .unwrap();
+
+    let mut rows = stmt.query(params![person_id]).unwrap();
+    let mut note_ids: Vec<u64> = vec![];
+    while let Some(row) = rows.next().unwrap() {
+        note_ids.push(row.get(0).unwrap());
+    }
+
+    if note_ids.is_empty() {
+        return vec![];
+    }
+
+    let vars = repeat_vars(note_ids.len());
+    let sql = format!("SELECT * from notes WHERE id IN ({})", vars);
+    let mut stmt = conn.prepare(&sql).expect("Invalid SQL statement");
+
+    let rows = stmt
+        .query_map(params_from_iter(note_ids.iter()), |row| {
+            Ok(Note::new(
+                row.get(0).unwrap(),
+                crate::parse_from_str_ymd(
+                    String::from(row.get::<usize, String>(1).unwrap_or_default()).as_str(),
+                )
+                .unwrap_or_default(),
+                row.get(2).unwrap(),
+                vec![],
+            ))
+        })
+        .unwrap();
+
+    let mut notes = vec![];
+    for note in rows {
+        notes.push(note.unwrap());
+    }
+
+    notes
 }
 
 fn get_reminders_by_person(conn: &Connection, person_id: u64) -> Vec<Reminder> {
