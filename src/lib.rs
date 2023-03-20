@@ -43,7 +43,12 @@ impl Person {
                 Some(row) => Some(Person {
                     id: row.get(0).unwrap(),
                     name: row.get(1).unwrap(),
-                    birthday: None,
+                    birthday: Some(
+                        crate::parse_from_str_ymd(
+                            String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
+                        )
+                        .unwrap_or_default(),
+                    ),
                     contact_info: vec![],
                     activities: crate::get_activities_by_person(&conn, row.get(0).unwrap()),
                     reminders: vec![],
