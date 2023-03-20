@@ -1,7 +1,35 @@
+pub mod db;
+
+pub use crate::db::{db_helpers, db_interface};
+
 use chrono::prelude::*;
 use rusqlite::{params, params_from_iter, Connection};
 use std::{convert::AsRef, str::FromStr};
 use strum_macros::{AsRefStr, EnumString};
+
+pub mod helpers {
+    // Helper function to return a comma-separated sequence of `?`.
+    // - `repeat_vars(0) => panic!(...)`
+    // - `repeat_vars(1) => "?"`
+    // - `repeat_vars(2) => "?,?"`
+    // - `repeat_vars(3) => "?,?,?"`
+    // - ...
+    pub fn repeat_vars(count: usize) -> String {
+        assert_ne!(count, 0);
+        let mut s = "?,".repeat(count);
+        // Remove trailing comma
+        s.pop();
+        s
+    }
+
+    pub fn parse_from_str_ymd(date: &str) -> Result<chrono::NaiveDate, chrono::ParseError> {
+        chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d")
+    }
+
+    pub fn parse_from_str_md(date: &str) -> Result<chrono::NaiveDate, chrono::ParseError> {
+        parse_from_str_ymd(format!("1-{}", date).as_ref())
+    }
+}
 
 #[derive(Debug)]
 pub struct Person {
@@ -46,17 +74,21 @@ impl Person {
                         id: person_id,
                         name: row.get(1).unwrap(),
                         birthday: Some(
-                            crate::parse_from_str_ymd(
+                            crate::helpers::parse_from_str_ymd(
                                 String::from(row.get::<usize, String>(2).unwrap_or_default())
                                     .as_str(),
                             )
                             .unwrap_or_default(),
                         ),
                         // contact_info: vec![],
-                        contact_info: crate::get_contact_info_by_person(&conn, person_id),
-                        activities: crate::get_activities_by_person(&conn, person_id),
-                        reminders: crate::get_reminders_by_person(&conn, person_id),
-                        notes: crate::get_notes_by_person(&conn, person_id),
+                        contact_info: crate::db::db_helpers::get_contact_info_by_person(
+                            &conn, person_id,
+                        ),
+                        activities: crate::db::db_helpers::get_activities_by_person(
+                            &conn, person_id,
+                        ),
+                        reminders: crate::db::db_helpers::get_reminders_by_person(&conn, person_id),
+                        notes: crate::db::db_helpers::get_notes_by_person(&conn, person_id),
                     })
                 }
                 None => return None,
@@ -70,7 +102,7 @@ impl Person {
             return vec![];
         }
 
-        let vars = repeat_vars(names.len());
+        let vars = crate::helpers::repeat_vars(names.len());
         let sql = format!(
             "SELECT * FROM people WHERE name IN ({}) COLLATE NOCASE",
             vars
@@ -84,7 +116,7 @@ impl Person {
                     row.get(0).unwrap(),
                     row.get(1).unwrap(),
                     Some(
-                        crate::parse_from_str_ymd(
+                        crate::helpers::parse_from_str_ymd(
                             String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
                         )
                         .unwrap_or_default(),
@@ -102,8 +134,11 @@ impl Person {
     }
 }
 
-impl DbOperations for Person {
-    fn add(&self, conn: &Connection) -> Result<&Person, DbOperationsError> {
+impl crate::db::db_interface::DbOperations for Person {
+    fn add(
+        &self,
+        conn: &Connection,
+    ) -> Result<&Person, crate::db::db_interface::DbOperationsError> {
         // TODO make all db operations atomic
         let birthday_str = match self.birthday {
             Some(birthday) => birthday.to_string(),
@@ -117,7 +152,7 @@ impl DbOperations for Person {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
             }
-            Err(_) => return Err(DbOperationsError),
+            Err(_) => return Err(crate::db::db_interface::DbOperationsError),
         }
         let id = conn.last_insert_rowid();
 
@@ -160,7 +195,7 @@ impl DbOperations for Person {
                 Ok(updated) => {
                     println!("[DEBUG] {} rows were updated", updated);
                 }
-                Err(_) => return Err(DbOperationsError),
+                Err(_) => return Err(crate::db::db_interface::DbOperationsError),
             }
         }
 
@@ -198,8 +233,11 @@ impl Activity {
     }
 }
 
-impl DbOperations for Activity {
-    fn add(&self, conn: &Connection) -> Result<&Activity, DbOperationsError> {
+impl crate::db::db_interface::DbOperations for Activity {
+    fn add(
+        &self,
+        conn: &Connection,
+    ) -> Result<&Activity, crate::db::db_interface::DbOperationsError> {
         let activity_type_str = self.activity_type.as_ref();
         let date_str = self.date.to_string();
 
@@ -223,7 +261,7 @@ impl DbOperations for Activity {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
             }
-            Err(_) => return Err(DbOperationsError),
+            Err(_) => return Err(crate::db::db_interface::DbOperationsError),
         }
 
         let id = conn.last_insert_rowid();
@@ -240,7 +278,7 @@ impl DbOperations for Activity {
                 Ok(updated) => {
                     println!("[DEBUG] {} rows were updated", updated);
                 }
-                Err(_) => return Err(DbOperationsError),
+                Err(_) => return Err(crate::db::db_interface::DbOperationsError),
             }
         }
 
@@ -304,8 +342,11 @@ impl Reminder {
     }
 }
 
-impl DbOperations for Reminder {
-    fn add(&self, conn: &Connection) -> Result<&Reminder, DbOperationsError> {
+impl crate::db::db_interface::DbOperations for Reminder {
+    fn add(
+        &self,
+        conn: &Connection,
+    ) -> Result<&Reminder, crate::db::db_interface::DbOperationsError> {
         let recurring_str = match &self.recurring {
             Some(recurring_type) => recurring_type.as_ref(),
             None => "",
@@ -333,7 +374,7 @@ impl DbOperations for Reminder {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
             }
-            Err(_) => return Err(DbOperationsError),
+            Err(_) => return Err(crate::db::db_interface::DbOperationsError),
         }
 
         let id = conn.last_insert_rowid();
@@ -350,7 +391,7 @@ impl DbOperations for Reminder {
                 Ok(updated) => {
                     println!("[DEBUG] {} rows were updated", updated);
                 }
-                Err(_) => return Err(DbOperationsError),
+                Err(_) => return Err(crate::db::db_interface::DbOperationsError),
             }
         }
 
@@ -439,8 +480,8 @@ impl Note {
     }
 }
 
-impl DbOperations for Note {
-    fn add(&self, conn: &Connection) -> Result<&Note, DbOperationsError> {
+impl crate::db::db_interface::DbOperations for Note {
+    fn add(&self, conn: &Connection) -> Result<&Note, crate::db::db_interface::DbOperationsError> {
         let date_str = self.date.to_string();
 
         match conn.execute(
@@ -453,7 +494,7 @@ impl DbOperations for Note {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
             }
-            Err(_) => return Err(DbOperationsError),
+            Err(_) => return Err(crate::db::db_interface::DbOperationsError),
         }
 
         let id = &conn.last_insert_rowid();
@@ -470,330 +511,10 @@ impl DbOperations for Note {
                 Ok(updated) => {
                     println!("[DEBUG] {} rows were updated", updated);
                 }
-                Err(_) => return Err(DbOperationsError),
+                Err(_) => return Err(crate::db::db_interface::DbOperationsError),
             }
         }
 
         Ok(self)
     }
-}
-
-pub struct DbOperationsError;
-
-pub trait DbOperations {
-    fn add(&self, conn: &Connection) -> Result<&Self, DbOperationsError>
-    where
-        Self: Sized;
-}
-
-fn get_notes_by_person(conn: &Connection, person_id: u64) -> Vec<Note> {
-    let mut stmt = conn
-        .prepare(
-            "SELECT
-            *
-        FROM
-            people_notes
-        WHERE
-            person_id = ?
-        ",
-        )
-        .unwrap();
-
-    let mut rows = stmt.query(params![person_id]).unwrap();
-    let mut note_ids: Vec<u64> = vec![];
-    while let Some(row) = rows.next().unwrap() {
-        note_ids.push(row.get(0).unwrap());
-    }
-
-    if note_ids.is_empty() {
-        return vec![];
-    }
-
-    let vars = repeat_vars(note_ids.len());
-    let sql = format!("SELECT * from notes WHERE id IN ({})", vars);
-    let mut stmt = conn.prepare(&sql).expect("Invalid SQL statement");
-
-    let rows = stmt
-        .query_map(params_from_iter(note_ids.iter()), |row| {
-            Ok(Note::new(
-                row.get(0).unwrap(),
-                crate::parse_from_str_ymd(
-                    String::from(row.get::<usize, String>(1).unwrap_or_default()).as_str(),
-                )
-                .unwrap_or_default(),
-                row.get(2).unwrap(),
-                vec![],
-            ))
-        })
-        .unwrap();
-
-    let mut notes = vec![];
-    for note in rows {
-        notes.push(note.unwrap());
-    }
-
-    notes
-}
-
-fn get_reminders_by_person(conn: &Connection, person_id: u64) -> Vec<Reminder> {
-    let mut stmt = conn
-        .prepare(
-            "SELECT
-            *
-        FROM
-            people_reminders
-        WHERE
-            person_id = ?
-        ",
-        )
-        .unwrap();
-
-    let mut rows = stmt.query(params![person_id]).unwrap();
-    let mut reminder_ids: Vec<u64> = vec![];
-    while let Some(row) = rows.next().unwrap() {
-        reminder_ids.push(row.get(0).unwrap());
-    }
-
-    if reminder_ids.is_empty() {
-        return vec![];
-    }
-
-    let vars = repeat_vars(reminder_ids.len());
-    let sql = format!("SELECT * from reminders WHERE id IN ({})", vars);
-    let mut stmt = conn.prepare(&sql).expect("Invalid SQL statement");
-
-    let rows = stmt
-        .query_map(params_from_iter(reminder_ids.iter()), |row| {
-            Ok(Reminder::new(
-                row.get(0).unwrap(),
-                row.get(1).unwrap(),
-                crate::parse_from_str_ymd(
-                    String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
-                )
-                .unwrap_or_default(),
-                row.get(3).unwrap(),
-                Some(
-                    RecurringType::from_str(row.get::<usize, String>(4).unwrap().as_str()).unwrap(),
-                ),
-                vec![],
-            ))
-        })
-        .unwrap();
-
-    let mut reminders = vec![];
-    for reminder in rows {
-        reminders.push(reminder.unwrap());
-    }
-
-    reminders
-}
-
-fn get_contact_info_by_person(conn: &Connection, person_id: u64) -> Vec<ContactInfo> {
-    let mut stmt = conn
-        .prepare(
-            "SELECT 
-                * 
-            FROM
-                contact_info
-            WHERE
-                person_id = ?",
-        )
-        .unwrap();
-
-    let mut contact_info_vec: Vec<ContactInfo> = vec![];
-    let rows = stmt
-        .query_map(params![person_id], |row| {
-            Ok(ContactInfo::new(
-                row.get(0).unwrap(),
-                row.get(1).unwrap(),
-                crate::ContactInfoType::get_by_id(&conn, row.get(2).unwrap()).unwrap(),
-                row.get(3).unwrap(),
-            ))
-        })
-        .unwrap();
-
-    for contact_info in rows {
-        contact_info_vec.push(contact_info.unwrap());
-    }
-
-    contact_info_vec
-}
-
-fn get_activities_by_person(conn: &Connection, person_id: u64) -> Vec<Activity> {
-    let mut stmt = conn
-        .prepare(
-            "SELECT 
-                activity_id 
-            FROM
-                people_activities
-            WHERE
-                person_id = ?",
-        )
-        .unwrap();
-
-    let mut rows = stmt.query(params![person_id]).unwrap();
-    let mut activity_ids: Vec<u64> = vec![];
-    while let Some(row) = rows.next().unwrap() {
-        activity_ids.push(row.get(0).unwrap());
-    }
-
-    if activity_ids.is_empty() {
-        return vec![];
-    }
-
-    let vars = repeat_vars(activity_ids.len());
-    let sql = format!("SELECT * FROM activities WHERE id IN ({})", vars);
-    let mut stmt = conn.prepare(&sql).expect("Invalid SQL statement");
-
-    let rows = stmt
-        .query_map(params_from_iter(activity_ids.iter()), |row| {
-            Ok(Activity::new(
-                row.get(0).unwrap(),
-                row.get(1).unwrap(),
-                crate::ActivityType::get_by_id(&conn, row.get(2).unwrap()).unwrap(),
-                crate::parse_from_str_ymd(
-                    String::from(row.get::<usize, String>(3).unwrap_or_default()).as_str(),
-                )
-                .unwrap_or_default(),
-                row.get(4).unwrap(),
-                vec![],
-            ))
-        })
-        .unwrap();
-
-    let mut activities = vec![];
-    for activity in rows {
-        activities.push(activity.unwrap());
-    }
-
-    activities
-}
-
-pub fn init_db(conn: &Connection) -> Result<(), DbOperationsError> {
-    let sql_create_statements = vec![
-        "CREATE TABLE people (
-            id INTEGER PRIMARY KEY,
-            name TEXT NOT NULL,
-            birthday TEXT
-        );",
-        "CREATE TABLE activities (
-            id INTEGER PRIMARY KEY,
-            name TEXT NOT NULL,
-            type INTEGER NOT NULL,
-            date TEXT NOT NULL,
-            content TEXT
-        );",
-        "CREATE TABLE reminders (
-            id INTEGER PRIMARY KEY,
-            name TEXT NOT NULL,
-            date TEXT NOT NULL,
-            description TEXT,
-            recurring INTEGER NOT NULL
-        );",
-        "CREATE TABLE notes (
-            id INTEGER PRIMARY KEY, 
-            date TEXT NOT NULL,
-            content TEXT NOT NULL
-        );",
-        "CREATE TABLE contact_info (
-            id INTEGER PRIMARY KEY,
-            person_id INTEGER NOT NULL,
-            contact_info_type_id INTEGER NOT NULL,
-            contact_info_details TEXT
-        );",
-        "CREATE TABLE contact_info_types (
-            id INTEGER PRIMARY KEY,
-            type TEXT NOT NULL
-        );",
-        "CREATE TABLE people_activities (
-            id INTEGER PRIMARY KEY,
-            person_id INTEGER NOT NULL,
-            activity_id INTEGER NOT NULL
-        );",
-        "CREATE TABLE people_reminders (
-            id INTEGER PRIMARY KEY,
-            person_id INTEGER NOT NULL,
-            reminder_id INTEGER NOT NULL
-        );",
-        "CREATE TABLE people_notes (
-            id INTEGER PRIMARY KEY,
-            person_id INTEGER NOT NULL,
-            note_id INTEGER NOT NULL
-        );",
-        "CREATE TABLE activity_types (
-            id INTEGER PRIMARY KEY,
-            type TEXT NOT NULL
-        );",
-        "CREATE TABLE recurring_types (
-            id INTEGER PRIMARY KEY,
-            type TEXT NOT NULL
-        );",
-    ];
-    for query in sql_create_statements {
-        match conn.execute(query, ()) {
-            // Improve message
-            Ok(_) => println!("Database table created"),
-            Err(error) => {
-                println!("Error creating database tables: {}", error);
-                return Err(DbOperationsError);
-            }
-        }
-    }
-    let sql_populate_statements = vec![
-        "INSERT INTO contact_info_types (type) 
-         VALUES 
-            ('Phone'),
-            ('WhatsApp'),
-            ('Email')
-        ",
-        "INSERT INTO activity_types (type)
-         VALUES 
-            ('Phone'),
-            ('InPerson'),
-            ('Online')
-        ",
-        "INSERT INTO recurring_types (type)
-         VALUES
-            ('Daily'),
-            ('Weekly'),
-            ('Fortnightly'),
-            ('Monthly'),
-            ('Quarterly'),
-            ('Biannual'),
-            ('Yearly')
-        ",
-    ];
-    for query in sql_populate_statements {
-        match conn.execute(query, ()) {
-            // Improve message
-            Ok(_) => println!("Database table populated"),
-            Err(error) => {
-                println!("Error populating database tables: {}", error);
-                return Err(DbOperationsError);
-            }
-        }
-    }
-    Ok(())
-}
-
-// Helper function to return a comma-separated sequence of `?`.
-// - `repeat_vars(0) => panic!(...)`
-// - `repeat_vars(1) => "?"`
-// - `repeat_vars(2) => "?,?"`
-// - `repeat_vars(3) => "?,?,?"`
-// - ...
-fn repeat_vars(count: usize) -> String {
-    assert_ne!(count, 0);
-    let mut s = "?,".repeat(count);
-    // Remove trailing comma
-    s.pop();
-    s
-}
-
-pub fn parse_from_str_ymd(date: &str) -> Result<NaiveDate, chrono::ParseError> {
-    NaiveDate::parse_from_str(date, "%Y-%m-%d")
-}
-
-pub fn parse_from_str_md(date: &str) -> Result<NaiveDate, chrono::ParseError> {
-    parse_from_str_ymd(format!("1-{}", date).as_ref())
 }

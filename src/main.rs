@@ -1,8 +1,8 @@
 use chrono::prelude::*;
 use clap::{Args, Parser, Subcommand};
+use prm::db::db_interface::DbOperations;
 use prm::{
-    Activity, ActivityType, ContactInfo, ContactInfoType, DbOperations, Note, Person,
-    RecurringType, Reminder,
+    Activity, ActivityType, ContactInfo, ContactInfoType, Note, Person, RecurringType, Reminder,
 };
 use rusqlite::Connection;
 
@@ -99,7 +99,7 @@ fn main() {
 
     match args.command {
         Commands::Init {} => {
-            match prm::init_db(&conn) {
+            match prm::db::db_helpers::init_db(&conn) {
                 Ok(_) => println!("Database initialised"),
                 Err(_) => panic!("Error initialising database"),
             };
@@ -115,9 +115,9 @@ fn main() {
                     match birthday {
                         Some(birthday_str) => {
                             // TODO proper error handling and messaging
-                            match prm::parse_from_str_ymd(&birthday_str) {
+                            match prm::helpers::parse_from_str_ymd(&birthday_str) {
                                 Ok(date) => birthday_obj = Some(date),
-                                Err(_) => match prm::parse_from_str_md(&birthday_str) {
+                                Err(_) => match prm::helpers::parse_from_str_md(&birthday_str) {
                                     Ok(date) => birthday_obj = Some(date),
                                     Err(error) => panic!("Error parsing birthday: {}", error),
                                 },
@@ -180,7 +180,7 @@ fn main() {
                         _ => panic!("Unknown activity type"),
                     };
 
-                    let date_obj = match prm::parse_from_str_ymd(date.as_str()) {
+                    let date_obj = match prm::helpers::parse_from_str_ymd(date.as_str()) {
                         Ok(date) => date,
                         Err(error) => panic!("Error parsing date: {}", error),
                     };
@@ -214,7 +214,7 @@ fn main() {
                         None => None,
                     };
 
-                    let date_obj = match prm::parse_from_str_ymd(date.as_str()) {
+                    let date_obj = match prm::helpers::parse_from_str_ymd(date.as_str()) {
                         Ok(date) => date,
                         Err(error) => panic!("Error parsing date: {}", error),
                     };
