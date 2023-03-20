@@ -251,10 +251,7 @@ fn main() {
         }
         Commands::Show(show) => match show.entity {
             ShowEntity::Person { name } => {
-                // TODO think of a better way to populate the activities field without
-                //      having to expose the it
-                let mut person = prm::Person::get_by_name(&conn, &name).unwrap();
-                person.activities = prm::get_activities_by_person(&conn, person.id);
+                let person = prm::Person::get_by_name(&conn, &name).unwrap();
                 println!("got person: {:#?}", person);
             }
         },

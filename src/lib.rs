@@ -5,11 +5,11 @@ use strum_macros::{AsRefStr, EnumString};
 
 #[derive(Debug)]
 pub struct Person {
-    pub id: u64,
+    id: u64,
     name: String,
     birthday: Option<NaiveDate>,
     contact_info: Vec<ContactInfo>,
-    pub activities: Vec<Activity>,
+    activities: Vec<Activity>,
     reminders: Vec<Reminder>,
     notes: Vec<Notes>,
 }
@@ -45,7 +45,7 @@ impl Person {
                     name: row.get(1).unwrap(),
                     birthday: None,
                     contact_info: vec![],
-                    activities: vec![],
+                    activities: crate::get_activities_by_person(&conn, row.get(0).unwrap()),
                     reminders: vec![],
                     notes: vec![],
                 }),
@@ -437,7 +437,7 @@ pub trait DbOperations {
         Self: Sized;
 }
 
-pub fn get_activities_by_person(conn: &Connection, person_id: u64) -> Vec<Activity> {
+fn get_activities_by_person(conn: &Connection, person_id: u64) -> Vec<Activity> {
     let mut stmt = conn
         .prepare(
             "SELECT 
