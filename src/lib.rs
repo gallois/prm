@@ -1,15 +1,15 @@
 use chrono::prelude::*;
 use rusqlite::{params, params_from_iter, Connection};
-use std::convert::AsRef;
-use strum_macros::AsRefStr;
+use std::{convert::AsRef, str::FromStr};
+use strum_macros::{AsRefStr, EnumString};
 
 #[derive(Debug)]
 pub struct Person {
-    id: u64,
+    pub id: u64,
     name: String,
     birthday: Option<NaiveDate>,
     contact_info: Vec<ContactInfo>,
-    activities: Vec<Activity>,
+    pub activities: Vec<Activity>,
     reminders: Vec<Reminder>,
     notes: Vec<Notes>,
 }
@@ -62,7 +62,7 @@ impl Person {
 
         let vars = repeat_vars(names.len());
         let sql = format!(
-            "SELECT * FROM people WHERE name in ({}) COLLATE NOCASE",
+            "SELECT * FROM people WHERE name IN ({}) COLLATE NOCASE",
             vars
         );
 
@@ -238,11 +238,30 @@ impl DbOperations for Activity {
     }
 }
 
-#[derive(Debug, AsRefStr)]
+#[derive(Debug, AsRefStr, EnumString)]
 pub enum ActivityType {
     Phone,
     InPerson,
     Online,
+}
+
+impl ActivityType {
+    fn get_by_id(conn: &Connection, id: u64) -> Option<ActivityType> {
+        let mut stmt = conn
+            .prepare("SELECT type FROM activity_types WHERE id = ?")
+            .unwrap();
+        let mut rows = stmt.query(params![id]).unwrap();
+
+        match rows.next() {
+            Ok(row) => match row {
+                Some(row) => Some(
+                    ActivityType::from_str(row.get::<usize, String>(0).unwrap().as_str()).unwrap(),
+                ),
+                None => None,
+            },
+            Err(_) => None,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -416,6 +435,52 @@ pub trait DbOperations {
     fn add(&self, conn: &Connection) -> Result<&Self, DbOperationsError>
     where
         Self: Sized;
+}
+
+pub fn get_activities_by_person(conn: &Connection, person_id: u64) -> Vec<Activity> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT 
+                activity_id 
+            FROM
+                people_activities
+            WHERE
+                person_id = ?",
+        )
+        .unwrap();
+
+    let mut rows = stmt.query(params![person_id]).unwrap();
+    let mut activity_ids: Vec<u64> = vec![];
+    while let Some(row) = rows.next().unwrap() {
+        activity_ids.push(row.get(0).unwrap());
+    }
+
+    let vars = repeat_vars(activity_ids.len());
+    let sql = format!("SELECT * FROM activities WHERE id IN ({})", vars);
+    let mut stmt = conn.prepare(&sql).expect("Invalid SQL statement");
+
+    let rows = stmt
+        .query_map(params_from_iter(activity_ids.iter()), |row| {
+            Ok(Activity::new(
+                row.get(0).unwrap(),
+                row.get(1).unwrap(),
+                crate::ActivityType::get_by_id(&conn, row.get(2).unwrap()).unwrap(),
+                crate::parse_from_str_ymd(
+                    String::from(row.get::<usize, String>(3).unwrap_or_default()).as_str(),
+                )
+                .unwrap_or_default(),
+                row.get(4).unwrap(),
+                vec![],
+            ))
+        })
+        .unwrap();
+
+    let mut activities = vec![];
+    for activity in rows {
+        activities.push(activity.unwrap());
+    }
+
+    activities
 }
 
 pub fn init_db(conn: &Connection) -> Result<(), DbOperationsError> {
