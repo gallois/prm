@@ -40,20 +40,25 @@ impl Person {
         let mut rows = stmt.query(params![name]).unwrap();
         match rows.next() {
             Ok(row) => match row {
-                Some(row) => Some(Person {
-                    id: row.get(0).unwrap(),
-                    name: row.get(1).unwrap(),
-                    birthday: Some(
-                        crate::parse_from_str_ymd(
-                            String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
-                        )
-                        .unwrap_or_default(),
-                    ),
-                    contact_info: vec![],
-                    activities: crate::get_activities_by_person(&conn, row.get(0).unwrap()),
-                    reminders: vec![],
-                    notes: vec![],
-                }),
+                Some(row) => {
+                    let person_id = row.get(0).unwrap();
+                    Some(Person {
+                        id: person_id,
+                        name: row.get(1).unwrap(),
+                        birthday: Some(
+                            crate::parse_from_str_ymd(
+                                String::from(row.get::<usize, String>(2).unwrap_or_default())
+                                    .as_str(),
+                            )
+                            .unwrap_or_default(),
+                        ),
+                        // contact_info: vec![],
+                        contact_info: crate::get_contact_info_by_person(&conn, person_id),
+                        activities: crate::get_activities_by_person(&conn, person_id),
+                        reminders: vec![],
+                        notes: vec![],
+                    })
+                }
                 None => return None,
             },
             Err(_) => return None,
@@ -366,14 +371,53 @@ pub enum RecurringType {
 
 #[derive(Debug)]
 pub struct ContactInfo {
+    id: u64,
+    person_id: u64,
     pub contact_info_type: ContactInfoType,
+    details: String,
 }
 
-#[derive(Debug, AsRefStr)]
+impl ContactInfo {
+    fn new(
+        id: u64,
+        person_id: u64,
+        contact_info_type: ContactInfoType,
+        details: String,
+    ) -> ContactInfo {
+        ContactInfo {
+            id,
+            person_id,
+            contact_info_type,
+            details,
+        }
+    }
+}
+
+#[derive(Debug, AsRefStr, EnumString)]
 pub enum ContactInfoType {
     Phone(String),
     WhatsApp(String),
     Email(String),
+}
+
+impl ContactInfoType {
+    fn get_by_id(conn: &Connection, id: u64) -> Option<ContactInfoType> {
+        let mut stmt = conn
+            .prepare("SELECT type FROM contact_info_types WHERE id = ?")
+            .unwrap();
+        let mut rows = stmt.query(params![id]).unwrap();
+
+        match rows.next() {
+            Ok(row) => match row {
+                Some(row) => Some(
+                    ContactInfoType::from_str(row.get::<usize, String>(0).unwrap().as_str())
+                        .unwrap(),
+                ),
+                None => None,
+            },
+            Err(_) => None,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -440,6 +484,37 @@ pub trait DbOperations {
     fn add(&self, conn: &Connection) -> Result<&Self, DbOperationsError>
     where
         Self: Sized;
+}
+
+fn get_contact_info_by_person(conn: &Connection, person_id: u64) -> Vec<ContactInfo> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT 
+                * 
+            FROM
+                contact_info
+            WHERE
+                person_id = ?",
+        )
+        .unwrap();
+
+    let mut contact_info_vec: Vec<ContactInfo> = vec![];
+    let rows = stmt
+        .query_map(params![person_id], |row| {
+            Ok(ContactInfo::new(
+                row.get(0).unwrap(),
+                row.get(1).unwrap(),
+                crate::ContactInfoType::get_by_id(&conn, row.get(2).unwrap()).unwrap(),
+                row.get(3).unwrap(),
+            ))
+        })
+        .unwrap();
+
+    for contact_info in rows {
+        contact_info_vec.push(contact_info.unwrap());
+    }
+
+    contact_info_vec
 }
 
 fn get_activities_by_person(conn: &Connection, person_id: u64) -> Vec<Activity> {

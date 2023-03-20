@@ -157,13 +157,7 @@ fn main() {
                         }
                     }
 
-                    let mut contact_info: Vec<ContactInfo> = Vec::new();
-                    match contact_info_type {
-                        Some(contact_info_type) => {
-                            contact_info.push(ContactInfo { contact_info_type })
-                        }
-                        None => (),
-                    }
+                    let contact_info: Vec<ContactInfo> = Vec::new();
 
                     let person = Person::new(0, name, birthday_obj, contact_info);
                     match person.add(&conn) {
