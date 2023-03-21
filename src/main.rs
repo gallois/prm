@@ -88,7 +88,12 @@ enum ShowEntity {
     Person {
         #[arg(short, long)]
         name: String,
-        // Filter by birthday etc.
+        // TODO Filter by birthday etc.
+    },
+    Activity {
+        #[arg(short, long)]
+        name: String,
+        // TODO Filter by people etc.
     },
 }
 
@@ -247,6 +252,11 @@ fn main() {
             ShowEntity::Person { name } => {
                 let person = prm::Person::get_by_name(&conn, &name).unwrap();
                 println!("got person: {:#?}", person);
+            }
+            ShowEntity::Activity { name } => {
+                // TODO likely useful to return a vector of activities
+                let activity = prm::Activity::get_by_name(&conn, &name).unwrap();
+                println!("got activity: {:#?}", activity);
             }
         },
         Commands::Edit { entity } => {

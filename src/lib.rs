@@ -80,7 +80,6 @@ impl Person {
                             )
                             .unwrap_or_default(),
                         ),
-                        // contact_info: vec![],
                         contact_info: crate::db::db_helpers::get_contact_info_by_person(
                             &conn, person_id,
                         ),
@@ -229,6 +228,35 @@ impl Activity {
             date,
             content,
             people,
+        }
+    }
+
+    // TODO remove duplication between different entities
+    pub fn get_by_name(conn: &Connection, name: &str) -> Option<Activity> {
+        let mut stmt = conn
+            .prepare("SELECT * FROM activities WHERE name = ?1 COLLATE NOCASE")
+            .expect("Invalid SQL statement");
+        let mut rows = stmt.query(params![name]).unwrap();
+        match rows.next() {
+            Ok(row) => match row {
+                Some(row) => {
+                    let activity_id = row.get(0).unwrap();
+                    Some(Activity {
+                        id: activity_id,
+                        name: row.get(1).unwrap(),
+                        activity_type: crate::ActivityType::get_by_id(&conn, row.get(2).unwrap())
+                            .unwrap(),
+                        date: crate::helpers::parse_from_str_ymd(
+                            String::from(row.get::<usize, String>(3).unwrap_or_default()).as_str(),
+                        )
+                        .unwrap_or_default(),
+                        content: row.get(4).unwrap(),
+                        people: crate::db::db_helpers::get_people_by_activity(&conn, activity_id),
+                    })
+                }
+                None => return None,
+            },
+            Err(_) => return None,
         }
     }
 }
