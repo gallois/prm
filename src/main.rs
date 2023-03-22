@@ -95,6 +95,11 @@ enum ShowEntity {
         name: String,
         // TODO Filter by people etc.
     },
+    Reminder {
+        #[arg(short, long)]
+        name: String,
+        // TODO Filters
+    },
 }
 
 fn main() {
@@ -257,6 +262,10 @@ fn main() {
                 // TODO likely useful to return a vector of activities
                 let activity = prm::Activity::get_by_name(&conn, &name).unwrap();
                 println!("got activity: {:#?}", activity);
+            }
+            ShowEntity::Reminder { name } => {
+                let reminder = prm::Reminder::get_by_name(&conn, &name).unwrap();
+                println!("got reminder: {:#?}", reminder);
             }
         },
         Commands::Edit { entity } => {

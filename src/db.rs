@@ -71,7 +71,7 @@ pub mod db_helpers {
         let mut stmt = conn
             .prepare(
                 "SELECT
-            *
+            reminder_id
         FROM
             people_reminders
         WHERE
@@ -91,7 +91,7 @@ pub mod db_helpers {
         }
 
         let vars = crate::helpers::repeat_vars(reminder_ids.len());
-        let sql = format!("SELECT * from reminders WHERE id IN ({})", vars);
+        let sql = format!("SELECT * FROM reminders WHERE id IN ({})", vars);
         let mut stmt = conn.prepare(&sql).expect("Invalid SQL statement");
 
         let rows = stmt
@@ -104,12 +104,7 @@ pub mod db_helpers {
                     )
                     .unwrap_or_default(),
                     row.get(3).unwrap(),
-                    Some(
-                        crate::RecurringType::from_str(
-                            row.get::<usize, String>(4).unwrap().as_str(),
-                        )
-                        .unwrap(),
-                    ),
+                    crate::RecurringType::get_by_id(&conn, row.get(4).unwrap()),
                     vec![],
                 ))
             })
@@ -211,6 +206,66 @@ pub mod db_helpers {
     }
 
     // TODO remove duplication with similar functions
+    pub fn get_people_by_reminder(
+        conn: &crate::Connection,
+        reminder_id: u64,
+    ) -> Vec<crate::Person> {
+        let mut stmt = conn
+            .prepare(
+                "SELECT
+                        person_id
+                    FROM
+                        people_reminders
+                    WHERE
+                        reminder_id = ?",
+            )
+            .expect("Invalid SQL statement");
+
+        let mut rows = stmt.query(crate::params![reminder_id]).unwrap();
+        let mut people_ids: Vec<u64> = vec![];
+        while let Some(row) = rows.next().unwrap() {
+            people_ids.push(row.get(0).unwrap());
+        }
+
+        if people_ids.is_empty() {
+            return vec![];
+        }
+
+        let vars = crate::helpers::repeat_vars(people_ids.len());
+        let sql = format!("SELECT * FROM people WHERE id IN ({})", vars);
+        let mut stmt = conn.prepare(&sql).expect("Invalid SQL statement");
+
+        let rows = stmt
+            .query_map(crate::params_from_iter(people_ids.iter()), |row| {
+                let person_id = row.get(0).unwrap();
+                Ok(crate::Person {
+                    id: person_id,
+                    name: row.get(1).unwrap(),
+                    birthday: Some(
+                        crate::helpers::parse_from_str_ymd(
+                            String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
+                        )
+                        .unwrap_or_default(),
+                    ),
+                    contact_info: crate::db::db_helpers::get_contact_info_by_person(
+                        &conn, person_id,
+                    ),
+                    activities: crate::db::db_helpers::get_activities_by_person(&conn, person_id),
+                    reminders: crate::db::db_helpers::get_reminders_by_person(&conn, person_id),
+                    notes: crate::db::db_helpers::get_notes_by_person(&conn, person_id),
+                })
+            })
+            .unwrap();
+
+        let mut activities = vec![];
+        for activity in rows {
+            activities.push(activity.unwrap());
+        }
+
+        activities
+    }
+
+    // TODO remove duplication with similar functions
     pub fn get_people_by_activity(
         conn: &crate::Connection,
         activity_id: u64,
@@ -218,11 +273,11 @@ pub mod db_helpers {
         let mut stmt = conn
             .prepare(
                 "SELECT
-                        activity_id
+                        person_id
                     FROM
                         people_activities
                     WHERE
-                        person_id = ?",
+                        activity_id = ?",
             )
             .expect("Invalid SQL statement");
 

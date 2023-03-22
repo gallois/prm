@@ -368,6 +368,34 @@ impl Reminder {
             people,
         }
     }
+
+    // TODO remove duplication between different entities
+    pub fn get_by_name(conn: &Connection, name: &str) -> Option<Reminder> {
+        let mut stmt = conn
+            .prepare("SELECT * FROM reminders WHERE name = ?1 COLLATE NOCASE")
+            .expect("Invalid SQL statement");
+        let mut rows = stmt.query(params![name]).unwrap();
+        match rows.next() {
+            Ok(row) => match row {
+                Some(row) => {
+                    let reminder_id = row.get(0).unwrap();
+                    Some(Reminder {
+                        id: reminder_id,
+                        name: row.get(1).unwrap(),
+                        date: crate::helpers::parse_from_str_ymd(
+                            String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
+                        )
+                        .unwrap_or_default(),
+                        description: row.get(3).unwrap(),
+                        recurring: crate::RecurringType::get_by_id(&conn, row.get(4).unwrap()),
+                        people: crate::db::db_helpers::get_people_by_reminder(&conn, reminder_id),
+                    })
+                }
+                None => return None,
+            },
+            Err(_) => return None,
+        }
+    }
 }
 
 impl crate::db::db_interface::DbOperations for Reminder {
@@ -397,7 +425,7 @@ impl crate::db::db_interface::DbOperations for Reminder {
                 reminders (name, date, recurring, description)
                 VALUES (?1, ?2, ?3, ?4)
             ",
-            params![self.name, date_str, recurring_str, self.description],
+            params![self.name, date_str, types[0], self.description],
         ) {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
@@ -436,6 +464,25 @@ pub enum RecurringType {
     Quarterly,
     Biannual,
     Yearly,
+}
+
+impl RecurringType {
+    fn get_by_id(conn: &Connection, id: u64) -> Option<RecurringType> {
+        let mut stmt = conn
+            .prepare("SELECT type FROM recurring_types WHERE id = ?")
+            .unwrap();
+        let mut rows = stmt.query(params![id]).unwrap();
+
+        match rows.next() {
+            Ok(row) => match row {
+                Some(row) => Some(
+                    RecurringType::from_str(row.get::<usize, String>(0).unwrap().as_str()).unwrap(),
+                ),
+                None => None,
+            },
+            Err(_) => None,
+        }
+    }
 }
 
 #[derive(Debug)]
