@@ -432,6 +432,42 @@ impl Reminder {
             Err(_) => return None,
         }
     }
+
+    pub fn get_all(conn: &Connection, include_past: bool) -> Vec<Reminder> {
+        let mut sql = String::from("");
+        let base_sql = "SELECT * FROM reminders";
+        if include_past {
+            sql = format!("{}", base_sql);
+        } else {
+            sql = format!("{} WHERE date > DATE()", base_sql);
+        }
+
+        let mut stmt = conn.prepare(&sql).expect("Invalid SQL statement");
+        let mut rows = stmt
+            .query_map([], |row| {
+                let reminder_id = row.get(0).unwrap();
+                Ok(Reminder {
+                    id: reminder_id,
+                    name: row.get(1).unwrap(),
+                    date: crate::helpers::parse_from_str_ymd(
+                        String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
+                    )
+                    .unwrap_or_default(),
+                    description: row.get(3).unwrap(),
+                    recurring: crate::RecurringType::get_by_id(&conn, row.get(4).unwrap()),
+                    people: crate::db::db_helpers::get_people_by_reminder(&conn, reminder_id),
+                })
+            })
+            .unwrap();
+
+        let mut reminders = Vec::new();
+
+        for reminder in rows.into_iter() {
+            reminders.push(reminder.unwrap());
+        }
+
+        reminders
+    }
 }
 
 impl crate::db::db_interface::DbOperations for Reminder {

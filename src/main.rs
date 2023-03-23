@@ -1,4 +1,5 @@
 use chrono::prelude::*;
+use clap::builder::ArgAction;
 use clap::{Args, Parser, Subcommand};
 use prm::db::db_interface::DbOperations;
 use prm::{
@@ -114,6 +115,10 @@ enum ShowEntity {
 enum ListEntity {
     // TODO add some filtering
     Person,
+    Reminders {
+        #[arg(short, long, action = ArgAction::SetTrue)]
+        include_past: bool,
+    },
 }
 
 fn main() {
@@ -296,6 +301,10 @@ fn main() {
             ListEntity::Person {} => {
                 let people = Person::get_all(&conn);
                 println!("listing people: {:#?}", people);
+            }
+            ListEntity::Reminders { include_past } => {
+                let reminders = Reminder::get_all(&conn, include_past);
+                println!("listing reminders: {:#?}", reminders);
             }
         },
     }
