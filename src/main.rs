@@ -100,6 +100,11 @@ enum ShowEntity {
         name: String,
         // TODO Filters
     },
+    Notes {
+        #[arg(short, long)]
+        person: String,
+        // TODO Filters
+    },
 }
 
 fn main() {
@@ -266,6 +271,10 @@ fn main() {
             ShowEntity::Reminder { name } => {
                 let reminder = prm::Reminder::get_by_name(&conn, &name).unwrap();
                 println!("got reminder: {:#?}", reminder);
+            }
+            ShowEntity::Notes { person } => {
+                let note = prm::Note::get_by_person(&conn, person);
+                println!("got note: {:#?}", note);
             }
         },
         Commands::Edit { entity } => {

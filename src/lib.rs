@@ -553,6 +553,14 @@ impl Note {
             people,
         }
     }
+
+    pub fn get_by_person(conn: &Connection, person: String) -> Vec<Note> {
+        let person = crate::Person::get_by_name(&conn, &person);
+        match person {
+            Some(person) => person.notes,
+            None => vec![],
+        }
+    }
 }
 
 impl crate::db::db_interface::DbOperations for Note {
