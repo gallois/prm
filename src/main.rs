@@ -25,10 +25,7 @@ enum Commands {
     Remove {
         entity: String,
     },
-    #[command(arg_required_else_help = true)]
-    List {
-        entity: String,
-    },
+    List(ListArgs),
 }
 
 #[derive(Args)]
@@ -43,6 +40,12 @@ struct AddArgs {
 struct ShowArgs {
     #[command(subcommand)]
     entity: ShowEntity,
+}
+#[derive(Args)]
+#[command(args_conflicts_with_subcommands = true)]
+struct ListArgs {
+    #[command(subcommand)]
+    entity: ListEntity,
 }
 
 #[derive(Subcommand)]
@@ -105,6 +108,12 @@ enum ShowEntity {
         person: String,
         // TODO Filters
     },
+}
+
+#[derive(Subcommand)]
+enum ListEntity {
+    // TODO add some filtering
+    Person,
 }
 
 fn main() {
@@ -283,8 +292,11 @@ fn main() {
         Commands::Remove { entity } => {
             println!("Removing {}", entity);
         }
-        Commands::List { entity } => {
-            println!("Listing {}", entity);
-        }
+        Commands::List(list) => match list.entity {
+            ListEntity::Person {} => {
+                let people = Person::get_all(&conn);
+                println!("listing people: {:#?}", people);
+            }
+        },
     }
 }
