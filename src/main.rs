@@ -115,10 +115,12 @@ enum ShowEntity {
 enum ListEntity {
     // TODO add some filtering
     Person,
+    Activity,
     Reminders {
         #[arg(short, long, action = ArgAction::SetTrue)]
         include_past: bool,
     },
+    Notes,
 }
 
 fn main() {
@@ -302,9 +304,17 @@ fn main() {
                 let people = Person::get_all(&conn);
                 println!("listing people: {:#?}", people);
             }
+            ListEntity::Activity {} => {
+                let activities = Activity::get_all(&conn);
+                println!("listing activities: {:#?}", activities);
+            }
             ListEntity::Reminders { include_past } => {
                 let reminders = Reminder::get_all(&conn, include_past);
                 println!("listing reminders: {:#?}", reminders);
+            }
+            ListEntity::Notes {} => {
+                let notes = Note::get_all(&conn);
+                println!("listing notes: {:#?}", notes);
             }
         },
     }

@@ -295,6 +295,38 @@ impl Activity {
             Err(_) => return None,
         }
     }
+
+    pub fn get_all(conn: &Connection) -> Vec<Activity> {
+        let mut stmt = conn
+            .prepare("SELECT * FROM activities")
+            .expect("Invalid SQL statement");
+
+        let mut rows = stmt
+            .query_map([], |row| {
+                let activity_id = row.get(0).unwrap();
+                Ok(Activity {
+                    id: activity_id,
+                    name: row.get(1).unwrap(),
+                    activity_type: crate::ActivityType::get_by_id(&conn, row.get(2).unwrap())
+                        .unwrap(),
+                    date: crate::helpers::parse_from_str_ymd(
+                        String::from(row.get::<usize, String>(3).unwrap_or_default()).as_str(),
+                    )
+                    .unwrap_or_default(),
+                    content: row.get(4).unwrap(),
+                    people: crate::db::db_helpers::get_people_by_activity(&conn, activity_id),
+                })
+            })
+            .unwrap();
+
+        let mut activities = Vec::new();
+
+        for activity in rows.into_iter() {
+            activities.push(activity.unwrap());
+        }
+
+        activities
+    }
 }
 
 impl crate::db::db_interface::DbOperations for Activity {
@@ -632,6 +664,35 @@ impl Note {
             Some(person) => person.notes,
             None => vec![],
         }
+    }
+
+    pub fn get_all(conn: &Connection) -> Vec<Note> {
+        let mut stmt = conn
+            .prepare("SELECT * FROM notes")
+            .expect("Invalid SQL statement");
+
+        let mut rows = stmt
+            .query_map([], |row| {
+                let note_id = row.get(0).unwrap();
+                Ok(Note {
+                    id: note_id,
+                    date: crate::helpers::parse_from_str_ymd(
+                        String::from(row.get::<usize, String>(1).unwrap_or_default()).as_str(),
+                    )
+                    .unwrap_or_default(),
+                    content: row.get(2).unwrap(),
+                    people: crate::db::db_helpers::get_people_by_note(&conn, note_id),
+                })
+            })
+            .unwrap();
+
+        let mut notes = Vec::new();
+
+        for note in rows.into_iter() {
+            notes.push(note.unwrap());
+        }
+
+        notes
     }
 }
 
