@@ -181,7 +181,7 @@ impl crate::db::db_interface::DbOperations for Person {
         };
 
         match conn.execute(
-            "INSERT INTO people (name, birthday) VALUES (?1, ?2)",
+            "INSERT INTO people (name, birthday, deleted) VALUES (?1, ?2, FALSE)",
             params![self.name, birthday_str],
         ) {
             Ok(updated) => {
@@ -222,9 +222,10 @@ impl crate::db::db_interface::DbOperations for Person {
                 "INSERT INTO contact_info (
                     person_id, 
                     contact_info_type_id, 
-                    contact_info_details
+                    contact_info_details,
+                    deleted
                 )
-                    VALUES (?1, ?2, ?3)",
+                    VALUES (?1, ?2, ?3, FALSE)",
                 params![id, types[0], ci_value],
             ) {
                 Ok(updated) => {
@@ -349,8 +350,8 @@ impl crate::db::db_interface::DbOperations for Activity {
 
         match conn.execute(
             "INSERT INTO 
-                activities (name, type, date, content)
-                VALUES (?1, ?2, ?3, ?4)
+                activities (name, type, date, content, deleted)
+                VALUES (?1, ?2, ?3, ?4, FALSE)
             ",
             params![self.name, types[0], date_str, self.content],
         ) {
@@ -366,9 +367,10 @@ impl crate::db::db_interface::DbOperations for Activity {
             match conn.execute(
                 "INSERT INTO people_activities (
                     person_id, 
-                    activity_id
+                    activity_id,
+                    deleted
                 )
-                    VALUES (?1, ?2)",
+                    VALUES (?1, ?2, FALSE)",
                 params![person.id, id],
             ) {
                 Ok(updated) => {
@@ -526,8 +528,8 @@ impl crate::db::db_interface::DbOperations for Reminder {
 
         match conn.execute(
             "INSERT INTO 
-                reminders (name, date, recurring, description)
-                VALUES (?1, ?2, ?3, ?4)
+                reminders (name, date, recurring, description, deleted)
+                VALUES (?1, ?2, ?3, ?4, FALSE)
             ",
             params![self.name, date_str, types[0], self.description],
         ) {
@@ -543,9 +545,10 @@ impl crate::db::db_interface::DbOperations for Reminder {
             match conn.execute(
                 "INSERT INTO people_reminders (
                     person_id, 
-                    reminder_id
+                    reminder_id,
+                    deleted
                 )
-                    VALUES (?1, ?2)",
+                    VALUES (?1, ?2, FALSE)",
                 params![person.id, id],
             ) {
                 Ok(updated) => {
@@ -702,8 +705,8 @@ impl crate::db::db_interface::DbOperations for Note {
 
         match conn.execute(
             "INSERT INTO 
-                notes (date, content)
-                VALUES (?1, ?2)
+                notes (date, content, deleted)
+                VALUES (?1, ?2, FALSE)
             ",
             params![date_str, self.content],
         ) {
@@ -719,9 +722,10 @@ impl crate::db::db_interface::DbOperations for Note {
             match conn.execute(
                 "INSERT INTO people_notes (
                     person_id, 
-                    note_id
+                    note_id,
+                    deleted
                 )
-                    VALUES (?1, ?2)",
+                    VALUES (?1, ?2, FALSE)",
                 params![person.id, id],
             ) {
                 Ok(updated) => {

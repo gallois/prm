@@ -24,6 +24,7 @@ pub mod db_helpers {
             people_notes
         WHERE
             person_id = ?
+            AND deleted = FALSE
         ",
             )
             .unwrap();
@@ -39,7 +40,10 @@ pub mod db_helpers {
         }
 
         let vars = crate::helpers::repeat_vars(note_ids.len());
-        let sql = format!("SELECT * from notes WHERE id IN ({})", vars);
+        let sql = format!(
+            "SELECT * from notes WHERE id IN ({}) AND deleted = FALSE",
+            vars
+        );
         let mut stmt = conn.prepare(&sql).expect("Invalid SQL statement");
 
         let rows = stmt
@@ -76,6 +80,7 @@ pub mod db_helpers {
             people_reminders
         WHERE
             person_id = ?
+            AND deleted = FALSE
         ",
             )
             .unwrap();
@@ -91,7 +96,10 @@ pub mod db_helpers {
         }
 
         let vars = crate::helpers::repeat_vars(reminder_ids.len());
-        let sql = format!("SELECT * FROM reminders WHERE id IN ({})", vars);
+        let sql = format!(
+            "SELECT * FROM reminders WHERE id IN ({}) AND deleted = FALSE",
+            vars
+        );
         let mut stmt = conn.prepare(&sql).expect("Invalid SQL statement");
 
         let rows = stmt
@@ -129,7 +137,9 @@ pub mod db_helpers {
             FROM
                 contact_info
             WHERE
-                person_id = ?",
+                person_id = ?
+                AND deleted = FALSE
+            ",
             )
             .unwrap();
 
@@ -163,7 +173,9 @@ pub mod db_helpers {
             FROM
                 people_activities
             WHERE
-                person_id = ?",
+                person_id = ?
+                AND deleted = FALSE
+            ",
             )
             .unwrap();
 
@@ -178,7 +190,10 @@ pub mod db_helpers {
         }
 
         let vars = crate::helpers::repeat_vars(activity_ids.len());
-        let sql = format!("SELECT * FROM activities WHERE id IN ({})", vars);
+        let sql = format!(
+            "SELECT * FROM activities WHERE id IN ({}) AND deleted = FALSE",
+            vars
+        );
         let mut stmt = conn.prepare(&sql).expect("Invalid SQL statement");
 
         let rows = stmt
@@ -217,7 +232,9 @@ pub mod db_helpers {
                     FROM
                         people_reminders
                     WHERE
-                        reminder_id = ?",
+                        reminder_id = ?
+                        AND deleted = FALSE
+            ",
             )
             .expect("Invalid SQL statement");
 
@@ -232,7 +249,10 @@ pub mod db_helpers {
         }
 
         let vars = crate::helpers::repeat_vars(people_ids.len());
-        let sql = format!("SELECT * FROM people WHERE id IN ({})", vars);
+        let sql = format!(
+            "SELECT * FROM people WHERE id IN ({}) AND deleted = FALSE",
+            vars
+        );
         let mut stmt = conn.prepare(&sql).expect("Invalid SQL statement");
 
         let rows = stmt
@@ -277,7 +297,9 @@ pub mod db_helpers {
                     FROM
                         people_activities
                     WHERE
-                        activity_id = ?",
+                        activity_id = ?
+                        AND deleted = FALSE
+            ",
             )
             .expect("Invalid SQL statement");
 
@@ -292,7 +314,10 @@ pub mod db_helpers {
         }
 
         let vars = crate::helpers::repeat_vars(people_ids.len());
-        let sql = format!("SELECT * FROM people WHERE id IN ({})", vars);
+        let sql = format!(
+            "SELECT * FROM people WHERE id IN ({}) AND deleted = FALSE",
+            vars
+        );
         let mut stmt = conn.prepare(&sql).expect("Invalid SQL statement");
 
         let rows = stmt
@@ -333,7 +358,9 @@ pub mod db_helpers {
                     FROM
                         people_notes
                     WHERE
-                        note_id = ?",
+                        note_id = ?
+                        AND deleted = FALSE
+                    ",
             )
             .expect("Invalid SQL statement");
 
@@ -348,7 +375,10 @@ pub mod db_helpers {
         }
 
         let vars = crate::helpers::repeat_vars(people_ids.len());
-        let sql = format!("SELECT * FROM people WHERE id IN ({})", vars);
+        let sql = format!(
+            "SELECT * FROM people WHERE id IN ({}) AND deleted = FALSE",
+            vars
+        );
         let mut stmt = conn.prepare(&sql).expect("Invalid SQL statement");
 
         let rows = stmt
@@ -387,59 +417,70 @@ pub mod db_helpers {
             "CREATE TABLE people (
             id INTEGER PRIMARY KEY,
             name TEXT NOT NULL,
-            birthday TEXT
+            birthday TEXT,
+            deleted INTEGER NOT NULL
         );",
             "CREATE TABLE activities (
             id INTEGER PRIMARY KEY,
             name TEXT NOT NULL,
             type INTEGER NOT NULL,
             date TEXT NOT NULL,
-            content TEXT
+            content TEXT,
+            deleted INTEGER NOT NULL
         );",
             "CREATE TABLE reminders (
             id INTEGER PRIMARY KEY,
             name TEXT NOT NULL,
             date TEXT NOT NULL,
             description TEXT,
-            recurring INTEGER NOT NULL
+            recurring INTEGER NOT NULL,
+            deleted INTEGER NOT NULL
         );",
             "CREATE TABLE notes (
             id INTEGER PRIMARY KEY, 
             date TEXT NOT NULL,
-            content TEXT NOT NULL
+            content TEXT NOT NULL,
+            deleted INTEGER NOT NULL
         );",
             "CREATE TABLE contact_info (
             id INTEGER PRIMARY KEY,
             person_id INTEGER NOT NULL,
             contact_info_type_id INTEGER NOT NULL,
-            contact_info_details TEXT
+            contact_info_details TEXT,
+            deleted INTEGER NOT NULL
         );",
             "CREATE TABLE contact_info_types (
             id INTEGER PRIMARY KEY,
-            type TEXT NOT NULL
+            type TEXT NOT NULL,
+            deleted INTEGER NOT NULL
         );",
             "CREATE TABLE people_activities (
             id INTEGER PRIMARY KEY,
             person_id INTEGER NOT NULL,
-            activity_id INTEGER NOT NULL
+            activity_id INTEGER NOT NULL,
+            deleted INTEGER NOT NULL
         );",
             "CREATE TABLE people_reminders (
             id INTEGER PRIMARY KEY,
             person_id INTEGER NOT NULL,
-            reminder_id INTEGER NOT NULL
+            reminder_id INTEGER NOT NULL,
+            deleted INTEGER NOT NULL
         );",
             "CREATE TABLE people_notes (
             id INTEGER PRIMARY KEY,
             person_id INTEGER NOT NULL,
-            note_id INTEGER NOT NULL
+            note_id INTEGER NOT NULL,
+            deleted INTEGER NOT NULL
         );",
             "CREATE TABLE activity_types (
             id INTEGER PRIMARY KEY,
-            type TEXT NOT NULL
+            type TEXT NOT NULL,
+            deleted INTEGER NOT NULL
         );",
             "CREATE TABLE recurring_types (
             id INTEGER PRIMARY KEY,
-            type TEXT NOT NULL
+            type TEXT NOT NULL,
+            deleted INTEGER NOT NULL
         );",
         ];
         for query in sql_create_statements {
@@ -453,27 +494,27 @@ pub mod db_helpers {
             }
         }
         let sql_populate_statements = vec![
-            "INSERT INTO contact_info_types (type) 
+            "INSERT INTO contact_info_types (type, deleted)
          VALUES 
-            ('Phone'),
-            ('WhatsApp'),
-            ('Email')
+            ('Phone', FALSE),
+            ('WhatsApp', FALSE),
+            ('Email', FALSE)
         ",
-            "INSERT INTO activity_types (type)
+            "INSERT INTO activity_types (type, deleted)
          VALUES 
-            ('Phone'),
-            ('InPerson'),
-            ('Online')
+            ('Phone', FALSE),
+            ('InPerson', FALSE),
+            ('Online', FALSE)
         ",
-            "INSERT INTO recurring_types (type)
+            "INSERT INTO recurring_types (type, deleted)
          VALUES
-            ('Daily'),
-            ('Weekly'),
-            ('Fortnightly'),
-            ('Monthly'),
-            ('Quarterly'),
-            ('Biannual'),
-            ('Yearly')
+            ('Daily', FALSE),
+            ('Weekly', FALSE),
+            ('Fortnightly', FALSE),
+            ('Monthly', FALSE),
+            ('Quarterly', FALSE),
+            ('Biannual', FALSE),
+            ('Yearly', FALSE)
         ",
         ];
         for query in sql_populate_statements {
