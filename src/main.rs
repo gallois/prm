@@ -22,10 +22,7 @@ enum Commands {
     Edit {
         entity: String,
     },
-    #[command(arg_required_else_help = true)]
-    Remove {
-        entity: String,
-    },
+    Remove(RemoveArgs),
     List(ListArgs),
 }
 
@@ -47,6 +44,13 @@ struct ShowArgs {
 struct ListArgs {
     #[command(subcommand)]
     entity: ListEntity,
+}
+
+#[derive(Args)]
+#[command(args_conflicts_with_subcommands = true)]
+struct RemoveArgs {
+    #[command(subcommand)]
+    entity: RemoveEntity,
 }
 
 #[derive(Subcommand)]
@@ -121,6 +125,27 @@ enum ListEntity {
         include_past: bool,
     },
     Notes,
+}
+
+// TODO add other means of removing
+#[derive(Subcommand)]
+enum RemoveEntity {
+    Person {
+        #[arg(short, long)]
+        name: String,
+    },
+    // Activity {
+    //     #[arg(short, long)]
+    //     name: String,
+    // },
+    // Reminder {
+    //     #[arg(short, long)]
+    //     name: String,
+    // },
+    // Notes {
+    //     #[arg(short, long)]
+    //     person: String,
+    // },
 }
 
 fn main() {
@@ -296,9 +321,13 @@ fn main() {
         Commands::Edit { entity } => {
             println!("Editing {}", entity);
         }
-        Commands::Remove { entity } => {
-            println!("Removing {}", entity);
-        }
+        Commands::Remove(remove) => match remove.entity {
+            RemoveEntity::Person { name } => {
+                let person = prm::Person::get_by_name(&conn, &name);
+                // TODO implement remove
+                println!("removed: {:#?}", person);
+            }
+        },
         Commands::List(list) => match list.entity {
             ListEntity::Person {} => {
                 let people = Person::get_all(&conn);
