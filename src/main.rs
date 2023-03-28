@@ -323,8 +323,11 @@ fn main() {
         }
         Commands::Remove(remove) => match remove.entity {
             RemoveEntity::Person { name } => {
-                let person = prm::Person::get_by_name(&conn, &name);
-                // TODO implement remove
+                let person = prm::Person::get_by_name(&conn, &name).unwrap();
+                match person.remove(&conn) {
+                    Ok(_) => println!("{:#?} added successfully", person),
+                    Err(_) => panic!("Error while adding {:#?}", person),
+                };
                 println!("removed: {:#?}", person);
             }
         },

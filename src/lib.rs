@@ -237,6 +237,28 @@ impl crate::db::db_interface::DbOperations for Person {
 
         Ok(self)
     }
+
+    fn remove(
+        &self,
+        conn: &Connection,
+    ) -> Result<&Person, crate::db::db_interface::DbOperationsError> {
+        match conn.execute(
+            "UPDATE 
+                    people 
+                SET
+                    deleted = TRUE
+                WHERE
+                    id = ?1",
+            [self.id],
+        ) {
+            Ok(updated) => {
+                println!("[DEBUG] {} rows were updated", updated);
+            }
+            Err(_) => return Err(crate::db::db_interface::DbOperationsError),
+        }
+
+        Ok(self)
+    }
 }
 
 #[derive(Debug)]
@@ -381,6 +403,10 @@ impl crate::db::db_interface::DbOperations for Activity {
         }
 
         Ok(self)
+    }
+
+    fn remove(&self, conn: &crate::Connection) -> Result<&Self, db_interface::DbOperationsError> {
+        panic!("Not yet implemented")
     }
 }
 
@@ -560,6 +586,10 @@ impl crate::db::db_interface::DbOperations for Reminder {
 
         Ok(self)
     }
+
+    fn remove(&self, conn: &crate::Connection) -> Result<&Self, db_interface::DbOperationsError> {
+        panic!("Not yet implemented")
+    }
 }
 
 #[derive(Debug, AsRefStr, EnumString)]
@@ -736,5 +766,9 @@ impl crate::db::db_interface::DbOperations for Note {
         }
 
         Ok(self)
+    }
+
+    fn remove(&self, conn: &crate::Connection) -> Result<&Self, db_interface::DbOperationsError> {
+        panic!("Not yet implemented")
     }
 }

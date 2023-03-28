@@ -7,6 +7,8 @@ pub mod db_interface {
         fn add(&self, conn: &crate::Connection) -> Result<&Self, DbOperationsError>
         where
             Self: Sized;
+
+        fn remove(&self, conn: &crate::Connection) -> Result<&Self, DbOperationsError>;
     }
 }
 
