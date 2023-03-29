@@ -603,7 +603,22 @@ impl crate::db::db_interface::DbOperations for Reminder {
     }
 
     fn remove(&self, conn: &crate::Connection) -> Result<&Self, db_interface::DbOperationsError> {
-        panic!("Not yet implemented")
+        match conn.execute(
+            "UPDATE 
+                    reminders 
+                SET
+                    deleted = TRUE
+                WHERE
+                    id = ?1",
+            [self.id],
+        ) {
+            Ok(updated) => {
+                println!("[DEBUG] {} rows were updated", updated);
+            }
+            Err(_) => return Err(crate::db::db_interface::DbOperationsError),
+        }
+
+        Ok(self)
     }
 }
 

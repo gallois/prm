@@ -138,10 +138,10 @@ enum RemoveEntity {
         #[arg(short, long)]
         name: String,
     },
-    // Reminder {
-    //     #[arg(short, long)]
-    //     name: String,
-    // },
+    Reminder {
+        #[arg(short, long)]
+        name: String,
+    },
     // Notes {
     //     #[arg(short, long)]
     //     person: String,
@@ -337,6 +337,14 @@ fn main() {
                     Err(_) => panic!("Error while adding {:#?}", activity),
                 };
                 println!("removed: {:#?}", activity);
+            }
+            RemoveEntity::Reminder { name } => {
+                let reminder = prm::Reminder::get_by_name(&conn, &name).unwrap();
+                match reminder.remove(&conn) {
+                    Ok(_) => println!("{:#?} added successfully", reminder),
+                    Err(_) => panic!("Error while adding {:#?}", reminder),
+                };
+                println!("removed: {:#?}", reminder);
             }
         },
         Commands::List(list) => match list.entity {
