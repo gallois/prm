@@ -134,10 +134,10 @@ enum RemoveEntity {
         #[arg(short, long)]
         name: String,
     },
-    // Activity {
-    //     #[arg(short, long)]
-    //     name: String,
-    // },
+    Activity {
+        #[arg(short, long)]
+        name: String,
+    },
     // Reminder {
     //     #[arg(short, long)]
     //     name: String,
@@ -325,10 +325,18 @@ fn main() {
             RemoveEntity::Person { name } => {
                 let person = prm::Person::get_by_name(&conn, &name).unwrap();
                 match person.remove(&conn) {
-                    Ok(_) => println!("{:#?} added successfully", person),
-                    Err(_) => panic!("Error while adding {:#?}", person),
+                    Ok(_) => println!("{:#?} removed successfully", person),
+                    Err(_) => panic!("Error while removing {:#?}", person),
                 };
                 println!("removed: {:#?}", person);
+            }
+            RemoveEntity::Activity { name } => {
+                let activity = prm::Activity::get_by_name(&conn, &name).unwrap();
+                match activity.remove(&conn) {
+                    Ok(_) => println!("{:#?} added successfully", activity),
+                    Err(_) => panic!("Error while adding {:#?}", activity),
+                };
+                println!("removed: {:#?}", activity);
             }
         },
         Commands::List(list) => match list.entity {
