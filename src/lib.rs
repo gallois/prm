@@ -721,6 +721,35 @@ impl Note {
         }
     }
 
+    pub fn get_by_id(conn: &Connection, id: u64) -> Option<Note> {
+        let mut stmt = conn
+            .prepare("SELECT * FROM notes WHERE id = ?1")
+            .expect("Invalid SQL statement");
+
+        let mut rows = stmt
+            .query_map([id], |row| {
+                let note_id = row.get(0).unwrap();
+                Ok(Note {
+                    id: note_id,
+                    date: crate::helpers::parse_from_str_ymd(
+                        String::from(row.get::<usize, String>(1).unwrap_or_default()).as_str(),
+                    )
+                    .unwrap_or_default(),
+                    content: row.get(2).unwrap(),
+                    people: crate::db::db_helpers::get_people_by_note(&conn, note_id),
+                })
+            })
+            .unwrap();
+
+        let mut note: Option<Note> = None;
+
+        for row in rows.into_iter() {
+            note = Some(row.unwrap());
+        }
+
+        note
+    }
+
     pub fn get_by_person(conn: &Connection, person: String) -> Vec<Note> {
         let person = crate::Person::get_by_name(&conn, &person);
         match person {
@@ -799,6 +828,21 @@ impl crate::db::db_interface::DbOperations for Note {
     }
 
     fn remove(&self, conn: &crate::Connection) -> Result<&Self, db_interface::DbOperationsError> {
-        panic!("Not yet implemented")
+        match conn.execute(
+            "UPDATE 
+                    notes 
+                SET
+                    deleted = TRUE
+                WHERE
+                    id = ?1",
+            [self.id],
+        ) {
+            Ok(updated) => {
+                println!("[DEBUG] {} rows were updated", updated);
+            }
+            Err(_) => return Err(crate::db::db_interface::DbOperationsError),
+        }
+
+        Ok(self)
     }
 }

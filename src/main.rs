@@ -142,10 +142,10 @@ enum RemoveEntity {
         #[arg(short, long)]
         name: String,
     },
-    // Notes {
-    //     #[arg(short, long)]
-    //     person: String,
-    // },
+    Note {
+        #[arg(short, long)]
+        id: u64,
+    },
 }
 
 fn main() {
@@ -345,6 +345,22 @@ fn main() {
                     Err(_) => panic!("Error while adding {:#?}", reminder),
                 };
                 println!("removed: {:#?}", reminder);
+            }
+            RemoveEntity::Note { id } => {
+                let note = prm::Note::get_by_id(&conn, id);
+                match note {
+                    Some(note) => {
+                        match note.remove(&conn) {
+                            Ok(_) => println!("{:#?} added successfully", note),
+                            Err(_) => panic!("Error while adding {:#?}", note),
+                        };
+                        println!("removed: {:#?}", note);
+                    }
+                    None => {
+                        println!("Could not find note with id: {}", id);
+                        return;
+                    }
+                };
             }
         },
         Commands::List(list) => match list.entity {
