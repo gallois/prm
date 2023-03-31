@@ -3,6 +3,7 @@ pub mod db;
 pub use crate::db::{db_helpers, db_interface};
 
 use chrono::prelude::*;
+use db::db_interface::DbOperations;
 use rusqlite::{params, params_from_iter, Connection};
 use std::{convert::AsRef, str::FromStr};
 use strum_macros::{AsRefStr, EnumString};
@@ -29,6 +30,13 @@ pub mod helpers {
     pub fn parse_from_str_md(date: &str) -> Result<chrono::NaiveDate, chrono::ParseError> {
         parse_from_str_ymd(format!("1-{}", date).as_ref())
     }
+}
+
+pub enum Entities<A, B, C, D> {
+    Person(A),
+    Activity(B),
+    Reminder(C),
+    Note(D),
 }
 
 #[derive(Debug)]
@@ -166,41 +174,6 @@ impl Person {
         }
 
         people
-    }
-
-    pub fn get_by_id(conn: &Connection, id: u64) -> Option<Person> {
-        let mut stmt = conn
-            .prepare("SELECT * FROM people WHERE id = ?1")
-            .expect("Invalid SQL statement");
-        let mut rows = stmt.query(params![id]).unwrap();
-        match rows.next() {
-            Ok(row) => match row {
-                Some(row) => {
-                    let person_id = row.get(0).unwrap();
-                    Some(Person {
-                        id: person_id,
-                        name: row.get(1).unwrap(),
-                        birthday: Some(
-                            crate::helpers::parse_from_str_ymd(
-                                String::from(row.get::<usize, String>(2).unwrap_or_default())
-                                    .as_str(),
-                            )
-                            .unwrap_or_default(),
-                        ),
-                        contact_info: crate::db::db_helpers::get_contact_info_by_person(
-                            &conn, person_id,
-                        ),
-                        activities: crate::db::db_helpers::get_activities_by_person(
-                            &conn, person_id,
-                        ),
-                        reminders: crate::db::db_helpers::get_reminders_by_person(&conn, person_id),
-                        notes: crate::db::db_helpers::get_notes_by_person(&conn, person_id),
-                    })
-                }
-                None => return None,
-            },
-            Err(_) => return None,
-        }
     }
 
     // TODO might be a good idea to edit activities, reminders and notes
@@ -359,6 +332,44 @@ impl crate::db::db_interface::DbOperations for Person {
         }
 
         Ok(self)
+    }
+
+    fn get_by_id(
+        conn: &crate::Connection,
+        id: u64,
+    ) -> Option<Entities<crate::Person, crate::Activity, crate::Reminder, crate::Note>> {
+        let mut stmt = conn
+            .prepare("SELECT * FROM people WHERE id = ?1")
+            .expect("Invalid SQL statement");
+        let mut rows = stmt.query(params![id]).unwrap();
+        match rows.next() {
+            Ok(row) => match row {
+                Some(row) => {
+                    let person_id = row.get(0).unwrap();
+                    Some(Entities::Person(Person {
+                        id: person_id,
+                        name: row.get(1).unwrap(),
+                        birthday: Some(
+                            crate::helpers::parse_from_str_ymd(
+                                String::from(row.get::<usize, String>(2).unwrap_or_default())
+                                    .as_str(),
+                            )
+                            .unwrap_or_default(),
+                        ),
+                        contact_info: crate::db::db_helpers::get_contact_info_by_person(
+                            &conn, person_id,
+                        ),
+                        activities: crate::db::db_helpers::get_activities_by_person(
+                            &conn, person_id,
+                        ),
+                        reminders: crate::db::db_helpers::get_reminders_by_person(&conn, person_id),
+                        notes: crate::db::db_helpers::get_notes_by_person(&conn, person_id),
+                    }))
+                }
+                None => return None,
+            },
+            Err(_) => return None,
+        }
     }
 }
 
@@ -523,6 +534,37 @@ impl crate::db::db_interface::DbOperations for Activity {
         }
 
         Ok(self)
+    }
+
+    fn get_by_id(
+        conn: &crate::Connection,
+        id: u64,
+    ) -> Option<Entities<crate::Person, crate::Activity, crate::Reminder, crate::Note>> {
+        let mut stmt = conn
+            .prepare("SELECT * FROM activities WHERE id = ?1")
+            .expect("Invalid SQL statement");
+        let mut rows = stmt.query(params![id]).unwrap();
+        match rows.next() {
+            Ok(row) => match row {
+                Some(row) => {
+                    let activity_id = row.get(0).unwrap();
+                    Some(Entities::Activity(Activity {
+                        id: activity_id,
+                        name: row.get(1).unwrap(),
+                        activity_type: crate::ActivityType::get_by_id(&conn, row.get(2).unwrap())
+                            .unwrap(),
+                        date: crate::helpers::parse_from_str_ymd(
+                            String::from(row.get::<usize, String>(3).unwrap_or_default()).as_str(),
+                        )
+                        .unwrap_or_default(),
+                        content: row.get(4).unwrap(),
+                        people: crate::db::db_helpers::get_people_by_activity(&conn, activity_id),
+                    }))
+                }
+                None => return None,
+            },
+            Err(_) => return None,
+        }
     }
 }
 
@@ -721,6 +763,36 @@ impl crate::db::db_interface::DbOperations for Reminder {
 
         Ok(self)
     }
+
+    fn get_by_id(
+        conn: &crate::Connection,
+        id: u64,
+    ) -> Option<Entities<crate::Person, crate::Activity, crate::Reminder, crate::Note>> {
+        let mut stmt = conn
+            .prepare("SELECT * FROM reminders WHERE id = ?1")
+            .expect("Invalid SQL statement");
+        let mut rows = stmt.query(params![id]).unwrap();
+        match rows.next() {
+            Ok(row) => match row {
+                Some(row) => {
+                    let reminder_id = row.get(0).unwrap();
+                    Some(Entities::Reminder(Reminder {
+                        id: reminder_id,
+                        name: row.get(1).unwrap(),
+                        date: crate::helpers::parse_from_str_ymd(
+                            String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
+                        )
+                        .unwrap_or_default(),
+                        description: row.get(3).unwrap(),
+                        recurring: crate::RecurringType::get_by_id(&conn, row.get(4).unwrap()),
+                        people: crate::db::db_helpers::get_people_by_reminder(&conn, reminder_id),
+                    }))
+                }
+                None => return None,
+            },
+            Err(_) => return None,
+        }
+    }
 }
 
 #[derive(Debug, AsRefStr, EnumString)]
@@ -822,35 +894,6 @@ impl Note {
         }
     }
 
-    pub fn get_by_id(conn: &Connection, id: u64) -> Option<Note> {
-        let mut stmt = conn
-            .prepare("SELECT * FROM notes WHERE id = ?1")
-            .expect("Invalid SQL statement");
-
-        let mut rows = stmt
-            .query_map([id], |row| {
-                let note_id = row.get(0).unwrap();
-                Ok(Note {
-                    id: note_id,
-                    date: crate::helpers::parse_from_str_ymd(
-                        String::from(row.get::<usize, String>(1).unwrap_or_default()).as_str(),
-                    )
-                    .unwrap_or_default(),
-                    content: row.get(2).unwrap(),
-                    people: crate::db::db_helpers::get_people_by_note(&conn, note_id),
-                })
-            })
-            .unwrap();
-
-        let mut note: Option<Note> = None;
-
-        for row in rows.into_iter() {
-            note = Some(row.unwrap());
-        }
-
-        note
-    }
-
     pub fn get_by_person(conn: &Connection, person: String) -> Vec<Note> {
         let person = crate::Person::get_by_name(&conn, &person);
         match person {
@@ -945,5 +988,33 @@ impl crate::db::db_interface::DbOperations for Note {
         }
 
         Ok(self)
+    }
+
+    fn get_by_id(
+        conn: &crate::Connection,
+        id: u64,
+    ) -> Option<Entities<crate::Person, crate::Activity, crate::Reminder, crate::Note>> {
+        let mut stmt = conn
+            .prepare("SELECT * FROM reminders WHERE id = ?1")
+            .expect("Invalid SQL statement");
+        let mut rows = stmt.query(params![id]).unwrap();
+        match rows.next() {
+            Ok(row) => match row {
+                Some(row) => {
+                    let note_id = row.get(0).unwrap();
+                    Some(Entities::Note(Note {
+                        id: note_id,
+                        date: crate::helpers::parse_from_str_ymd(
+                            String::from(row.get::<usize, String>(1).unwrap_or_default()).as_str(),
+                        )
+                        .unwrap_or_default(),
+                        content: row.get(2).unwrap(),
+                        people: crate::db::db_helpers::get_people_by_note(&conn, note_id),
+                    }))
+                }
+                None => return None,
+            },
+            Err(_) => return None,
+        }
     }
 }

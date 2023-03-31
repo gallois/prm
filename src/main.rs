@@ -366,8 +366,10 @@ fn main() {
                                 println!("You must set at least one of `name`, `birthday` or `contact_info`");
                                 return;
                             }
-                            person.update(name, birthday, contact_info);
-                            println!("Updated person: {:#?}", person);
+                            if let prm::Entities::Person(mut person) = person {
+                                person.update(name, birthday, contact_info);
+                                println!("Updated person: {:#?}", person);
+                            }
                         }
                         None => {
                             println!("Could not find person with id {}", id);
@@ -389,16 +391,16 @@ fn main() {
             RemoveEntity::Activity { name } => {
                 let activity = prm::Activity::get_by_name(&conn, &name).unwrap();
                 match activity.remove(&conn) {
-                    Ok(_) => println!("{:#?} added successfully", activity),
-                    Err(_) => panic!("Error while adding {:#?}", activity),
+                    Ok(_) => println!("{:#?} removed successfully", activity),
+                    Err(_) => panic!("Error while removing {:#?}", activity),
                 };
                 println!("removed: {:#?}", activity);
             }
             RemoveEntity::Reminder { name } => {
                 let reminder = prm::Reminder::get_by_name(&conn, &name).unwrap();
                 match reminder.remove(&conn) {
-                    Ok(_) => println!("{:#?} added successfully", reminder),
-                    Err(_) => panic!("Error while adding {:#?}", reminder),
+                    Ok(_) => println!("{:#?} removed successfully", reminder),
+                    Err(_) => panic!("Error while removing {:#?}", reminder),
                 };
                 println!("removed: {:#?}", reminder);
             }
@@ -406,11 +408,13 @@ fn main() {
                 let note = prm::Note::get_by_id(&conn, id);
                 match note {
                     Some(note) => {
-                        match note.remove(&conn) {
-                            Ok(_) => println!("{:#?} added successfully", note),
-                            Err(_) => panic!("Error while adding {:#?}", note),
-                        };
-                        println!("removed: {:#?}", note);
+                        if let prm::Entities::Note(note) = note {
+                            match note.remove(&conn) {
+                                Ok(_) => println!("{:#?} removed successfully", note),
+                                Err(_) => panic!("Error while removing {:#?}", note),
+                            };
+                            println!("removed: {:#?}", note);
+                        }
                     }
                     None => {
                         println!("Could not find note with id: {}", id);
