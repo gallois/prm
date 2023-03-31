@@ -4,9 +4,7 @@ pub mod db_interface {
     pub struct DbOperationsError;
 
     pub trait DbOperations {
-        fn add(&self, conn: &crate::Connection) -> Result<&Self, DbOperationsError>
-        where
-            Self: Sized;
+        fn add(&self, conn: &crate::Connection) -> Result<&Self, DbOperationsError>;
 
         fn remove(&self, conn: &crate::Connection) -> Result<&Self, DbOperationsError>;
     }

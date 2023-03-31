@@ -18,10 +18,7 @@ enum Commands {
     Init {},
     Add(AddArgs),
     Show(ShowArgs),
-    #[command(arg_required_else_help = true)]
-    Edit {
-        entity: String,
-    },
+    Edit(EditArgs),
     Remove(RemoveArgs),
     List(ListArgs),
 }
@@ -39,6 +36,14 @@ struct ShowArgs {
     #[command(subcommand)]
     entity: ShowEntity,
 }
+
+#[derive(Args)]
+#[command(args_conflicts_with_subcommands = true)]
+struct EditArgs {
+    #[command(subcommand)]
+    entity: EditEntity,
+}
+
 #[derive(Args)]
 #[command(args_conflicts_with_subcommands = true)]
 struct ListArgs {
@@ -112,6 +117,21 @@ enum ShowEntity {
         #[arg(short, long)]
         person: String,
         // TODO Filters
+    },
+}
+
+#[derive(Subcommand)]
+enum EditEntity {
+    // TODO implement the remaining properties
+    Person {
+        #[arg(short, long)]
+        id: u64,
+        #[arg(short, long)]
+        name: Option<String>,
+        #[arg(short, long)]
+        birthday: Option<String>,
+        #[arg(short, long)]
+        contact_info: Option<String>,
     },
 }
 
@@ -318,8 +338,30 @@ fn main() {
                 println!("got note: {:#?}", note);
             }
         },
-        Commands::Edit { entity } => {
-            println!("Editing {}", entity);
+        Commands::Edit(edit) => {
+            match edit.entity {
+                EditEntity::Person {
+                    id,
+                    name,
+                    birthday,
+                    contact_info,
+                } => {
+                    let person = prm::Person::get_by_id(&conn, id);
+
+                    match person {
+                        Some(person) => {
+                            if [name, birthday, contact_info].iter().all(Option::is_none) {
+                                println!("You must set at least one of `name`, `birthday` or `contact_info`");
+                                return;
+                            }
+                        }
+                        None => {
+                            println!("Could not find person with id {}", id);
+                            return;
+                        }
+                    }
+                }
+            }
         }
         Commands::Remove(remove) => match remove.entity {
             RemoveEntity::Person { name } => {

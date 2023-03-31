@@ -167,6 +167,41 @@ impl Person {
 
         people
     }
+
+    pub fn get_by_id(conn: &Connection, id: u64) -> Option<Person> {
+        let mut stmt = conn
+            .prepare("SELECT * FROM people WHERE id = ?1")
+            .expect("Invalid SQL statement");
+        let mut rows = stmt.query(params![id]).unwrap();
+        match rows.next() {
+            Ok(row) => match row {
+                Some(row) => {
+                    let person_id = row.get(0).unwrap();
+                    Some(Person {
+                        id: person_id,
+                        name: row.get(1).unwrap(),
+                        birthday: Some(
+                            crate::helpers::parse_from_str_ymd(
+                                String::from(row.get::<usize, String>(2).unwrap_or_default())
+                                    .as_str(),
+                            )
+                            .unwrap_or_default(),
+                        ),
+                        contact_info: crate::db::db_helpers::get_contact_info_by_person(
+                            &conn, person_id,
+                        ),
+                        activities: crate::db::db_helpers::get_activities_by_person(
+                            &conn, person_id,
+                        ),
+                        reminders: crate::db::db_helpers::get_reminders_by_person(&conn, person_id),
+                        notes: crate::db::db_helpers::get_notes_by_person(&conn, person_id),
+                    })
+                }
+                None => return None,
+            },
+            Err(_) => return None,
+        }
+    }
 }
 
 impl crate::db::db_interface::DbOperations for Person {
