@@ -234,7 +234,15 @@ fn main() {
                         }
                     }
 
-                    let contact_info: Vec<ContactInfo> = Vec::new();
+                    let mut contact_info: Vec<ContactInfo> = Vec::new();
+                    if let Some(contact_info_type) = contact_info_type {
+                        contact_info.push(prm::ContactInfo::new(
+                            0,
+                            0,
+                            contact_info_type,
+                            contact_info_split[1].clone(),
+                        ));
+                    }
 
                     let person = Person::new(0, name, birthday_obj, contact_info);
                     match person.add(&conn) {

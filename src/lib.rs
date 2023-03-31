@@ -762,7 +762,7 @@ pub struct ContactInfo {
 }
 
 impl ContactInfo {
-    fn new(
+    pub fn new(
         id: u64,
         person_id: u64,
         contact_info_type: ContactInfoType,
