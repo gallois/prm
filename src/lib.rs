@@ -202,6 +202,72 @@ impl Person {
             Err(_) => return None,
         }
     }
+
+    // TODO might be a good idea to edit activities, reminders and notes
+    pub fn update(
+        &mut self,
+        name: Option<String>,
+        birthday: Option<String>,
+        contact_info: Option<String>,
+    ) -> &Self {
+        // TODO clean up duplication between this and main.rs
+        if let Some(name) = name {
+            self.name = name;
+        }
+        if let Some(birthday) = birthday {
+            let mut birthday_obj: Option<NaiveDate> = None;
+            // TODO proper error handling and messaging
+            match crate::helpers::parse_from_str_ymd(&birthday) {
+                Ok(date) => birthday_obj = Some(date),
+                Err(_) => match crate::helpers::parse_from_str_md(&birthday) {
+                    Ok(date) => birthday_obj = Some(date),
+                    Err(error) => panic!("Error parsing birthday: {}", error),
+                },
+            }
+            self.birthday = birthday_obj;
+        }
+
+        let contact_info_split: Vec<String>;
+        let mut contact_info_type: Option<ContactInfoType> = None;
+        // TODO allow for multiple contact info on creation
+        match contact_info {
+            Some(contact_info_str) => {
+                contact_info_split = contact_info_str.split(":").map(|x| x.to_string()).collect()
+            }
+            None => contact_info_split = vec![],
+        }
+
+        if contact_info_split.len() > 0 {
+            match contact_info_split[0].as_str() {
+                "phone" => {
+                    contact_info_type = Some(ContactInfoType::Phone(contact_info_split[1].clone()))
+                }
+                "whatsapp" => {
+                    contact_info_type =
+                        Some(ContactInfoType::WhatsApp(contact_info_split[1].clone()))
+                }
+                "email" => {
+                    contact_info_type = Some(ContactInfoType::Email(contact_info_split[1].clone()))
+                }
+                // TODO proper error handling and messaging
+                _ => panic!("Unknown contact info type"),
+            }
+        }
+
+        let mut contact_info: Vec<ContactInfo> = Vec::new();
+        if let Some(contact_info_type) = contact_info_type {
+            contact_info.push(ContactInfo::new(
+                0,
+                self.id,
+                contact_info_type,
+                contact_info_split[1].clone(),
+            ));
+        }
+
+        self.contact_info = contact_info;
+
+        self
+    }
 }
 
 impl crate::db::db_interface::DbOperations for Person {

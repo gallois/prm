@@ -188,6 +188,7 @@ fn main() {
                     contact_info,
                 } => {
                     let mut birthday_obj: Option<NaiveDate> = None;
+                    // TODO if let would be better
                     match birthday {
                         Some(birthday_str) => {
                             // TODO proper error handling and messaging
@@ -349,11 +350,16 @@ fn main() {
                     let person = prm::Person::get_by_id(&conn, id);
 
                     match person {
-                        Some(person) => {
-                            if [name, birthday, contact_info].iter().all(Option::is_none) {
+                        Some(mut person) => {
+                            if [name.clone(), birthday.clone(), contact_info.clone()]
+                                .iter()
+                                .all(Option::is_none)
+                            {
                                 println!("You must set at least one of `name`, `birthday` or `contact_info`");
                                 return;
                             }
+                            person.update(name, birthday, contact_info);
+                            println!("Updated person: {:#?}", person);
                         }
                         None => {
                             println!("Could not find person with id {}", id);
