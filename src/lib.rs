@@ -32,11 +32,11 @@ pub mod helpers {
     }
 }
 
-pub enum Entities<A, B, C, D> {
-    Person(A),
-    Activity(B),
-    Reminder(C),
-    Note(D),
+pub enum Entities {
+    Person(Person),
+    Activity(Activity),
+    Reminder(Reminder),
+    Note(Note),
 }
 
 #[derive(Debug)]
@@ -334,10 +334,7 @@ impl crate::db::db_interface::DbOperations for Person {
         Ok(self)
     }
 
-    fn get_by_id(
-        conn: &crate::Connection,
-        id: u64,
-    ) -> Option<Entities<crate::Person, crate::Activity, crate::Reminder, crate::Note>> {
+    fn get_by_id(conn: &crate::Connection, id: u64) -> Option<Entities> {
         let mut stmt = conn
             .prepare("SELECT * FROM people WHERE id = ?1")
             .expect("Invalid SQL statement");
@@ -536,10 +533,7 @@ impl crate::db::db_interface::DbOperations for Activity {
         Ok(self)
     }
 
-    fn get_by_id(
-        conn: &crate::Connection,
-        id: u64,
-    ) -> Option<Entities<crate::Person, crate::Activity, crate::Reminder, crate::Note>> {
+    fn get_by_id(conn: &crate::Connection, id: u64) -> Option<Entities> {
         let mut stmt = conn
             .prepare("SELECT * FROM activities WHERE id = ?1")
             .expect("Invalid SQL statement");
@@ -764,10 +758,7 @@ impl crate::db::db_interface::DbOperations for Reminder {
         Ok(self)
     }
 
-    fn get_by_id(
-        conn: &crate::Connection,
-        id: u64,
-    ) -> Option<Entities<crate::Person, crate::Activity, crate::Reminder, crate::Note>> {
+    fn get_by_id(conn: &crate::Connection, id: u64) -> Option<Entities> {
         let mut stmt = conn
             .prepare("SELECT * FROM reminders WHERE id = ?1")
             .expect("Invalid SQL statement");
@@ -990,10 +981,7 @@ impl crate::db::db_interface::DbOperations for Note {
         Ok(self)
     }
 
-    fn get_by_id(
-        conn: &crate::Connection,
-        id: u64,
-    ) -> Option<Entities<crate::Person, crate::Activity, crate::Reminder, crate::Note>> {
+    fn get_by_id(conn: &crate::Connection, id: u64) -> Option<Entities> {
         let mut stmt = conn
             .prepare("SELECT * FROM reminders WHERE id = ?1")
             .expect("Invalid SQL statement");

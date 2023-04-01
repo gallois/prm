@@ -8,10 +8,7 @@ pub mod db_interface {
 
         fn remove(&self, conn: &crate::Connection) -> Result<&Self, DbOperationsError>;
 
-        fn get_by_id(
-            conn: &crate::Connection,
-            id: u64,
-        ) -> Option<crate::Entities<crate::Person, crate::Activity, crate::Reminder, crate::Note>>;
+        fn get_by_id(conn: &crate::Connection, id: u64) -> Option<crate::Entities>;
     }
 }
 
