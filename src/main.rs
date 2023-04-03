@@ -368,6 +368,9 @@ fn main() {
                             }
                             if let prm::Entities::Person(mut person) = person {
                                 person.update(name, birthday, contact_info);
+                                person.save(&conn).expect(
+                                    format!("Failed to update person: {:#?}", person).as_str(),
+                                );
                                 println!("Updated person: {:#?}", person);
                             }
                         }

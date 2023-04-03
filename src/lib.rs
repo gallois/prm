@@ -3,7 +3,6 @@ pub mod db;
 pub use crate::db::{db_helpers, db_interface};
 
 use chrono::prelude::*;
-use db::db_interface::DbOperations;
 use rusqlite::{params, params_from_iter, Connection};
 use std::{convert::AsRef, str::FromStr};
 use strum_macros::{AsRefStr, EnumString};
@@ -334,6 +333,77 @@ impl crate::db::db_interface::DbOperations for Person {
         Ok(self)
     }
 
+    fn save(
+        &self,
+        conn: &Connection,
+    ) -> Result<&Person, crate::db::db_interface::DbOperationsError> {
+        let birthday_str = match self.birthday {
+            Some(birthday) => birthday.to_string(),
+            None => "".to_string(),
+        };
+
+        match conn.execute(
+            "UPDATE
+                people
+            SET
+                name = ?1,
+                birthday = ?2
+            WHERE
+                id = ?3",
+            params![self.name, birthday_str, self.id],
+        ) {
+            Ok(updated) => {
+                println!("[DEBUG] {} rows were updated", updated);
+            }
+            Err(_) => return Err(crate::db::db_interface::DbOperationsError),
+        }
+
+        if self.contact_info.len() > 0 {
+            let (ci_type, ci_value): (String, &str) = match &self.contact_info[0].contact_info_type
+            {
+                ContactInfoType::Phone(value) => (
+                    ContactInfoType::Phone(value.clone()).as_ref().to_owned(),
+                    value.as_ref(),
+                ),
+                ContactInfoType::WhatsApp(value) => (
+                    ContactInfoType::WhatsApp(value.clone()).as_ref().to_owned(),
+                    value.as_ref(),
+                ),
+                ContactInfoType::Email(value) => (
+                    ContactInfoType::Email(value.clone()).as_ref().to_owned(),
+                    value.as_ref(),
+                ),
+            };
+
+            // TODO error handling
+            let mut stmt = conn
+                .prepare("SELECT id FROM contact_info_types WHERE type = ?")
+                .unwrap();
+            let mut rows = stmt.query(params![ci_type]).unwrap();
+            let mut types: Vec<u32> = Vec::new();
+            while let Some(row) = rows.next().unwrap() {
+                types.push(row.get(0).unwrap());
+            }
+
+            match conn.execute(
+                "UPDATE
+                    contact_info 
+                SET
+                    person_id = ?1,
+                    contact_info_type_id = ?2,
+                    contact_info_details = ?3",
+                params![self.id, types[0], ci_value],
+            ) {
+                Ok(updated) => {
+                    println!("[DEBUG] {} rows were updated", updated);
+                }
+                Err(_) => return Err(crate::db::db_interface::DbOperationsError),
+            }
+        }
+
+        Ok(self)
+    }
+
     fn get_by_id(conn: &crate::Connection, id: u64) -> Option<Entities> {
         let mut stmt = conn
             .prepare("SELECT * FROM people WHERE id = ?1")
@@ -533,6 +603,12 @@ impl crate::db::db_interface::DbOperations for Activity {
         Ok(self)
     }
 
+    fn save(
+        &self,
+        conn: &Connection,
+    ) -> Result<&Activity, crate::db::db_interface::DbOperationsError> {
+        panic!("not yet implemented")
+    }
     fn get_by_id(conn: &crate::Connection, id: u64) -> Option<Entities> {
         let mut stmt = conn
             .prepare("SELECT * FROM activities WHERE id = ?1")
@@ -758,6 +834,13 @@ impl crate::db::db_interface::DbOperations for Reminder {
         Ok(self)
     }
 
+    fn save(
+        &self,
+        conn: &Connection,
+    ) -> Result<&Reminder, crate::db::db_interface::DbOperationsError> {
+        panic!("not yet implemented")
+    }
+
     fn get_by_id(conn: &crate::Connection, id: u64) -> Option<Entities> {
         let mut stmt = conn
             .prepare("SELECT * FROM reminders WHERE id = ?1")
@@ -979,6 +1062,10 @@ impl crate::db::db_interface::DbOperations for Note {
         }
 
         Ok(self)
+    }
+
+    fn save(&self, conn: &Connection) -> Result<&Note, crate::db::db_interface::DbOperationsError> {
+        panic!("not yet implemented")
     }
 
     fn get_by_id(conn: &crate::Connection, id: u64) -> Option<Entities> {

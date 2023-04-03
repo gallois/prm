@@ -1,22 +1,16 @@
-use rusqlite::{params, params_from_iter, Connection};
-
 pub mod db_interface {
+    #[derive(Debug)]
     pub struct DbOperationsError;
 
     pub trait DbOperations {
         fn add(&self, conn: &crate::Connection) -> Result<&Self, DbOperationsError>;
-
         fn remove(&self, conn: &crate::Connection) -> Result<&Self, DbOperationsError>;
-
+        fn save(&self, conn: &crate::Connection) -> Result<&Self, DbOperationsError>;
         fn get_by_id(conn: &crate::Connection, id: u64) -> Option<crate::Entities>;
     }
 }
 
 pub mod db_helpers {
-    use std::str::FromStr;
-
-    use crate::helpers::repeat_vars;
-
     pub fn get_notes_by_person(conn: &crate::Connection, person_id: u64) -> Vec<crate::Note> {
         let mut stmt = conn
             .prepare(
