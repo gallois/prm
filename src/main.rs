@@ -138,8 +138,8 @@ enum EditEntity {
 #[derive(Subcommand)]
 enum ListEntity {
     // TODO add some filtering
-    Person,
-    Activity,
+    People,
+    Activities,
     Reminders {
         #[arg(short, long, action = ArgAction::SetTrue)]
         include_past: bool,
@@ -427,11 +427,11 @@ fn main() {
             }
         },
         Commands::List(list) => match list.entity {
-            ListEntity::Person {} => {
+            ListEntity::People {} => {
                 let people = Person::get_all(&conn);
                 println!("listing people: {:#?}", people);
             }
-            ListEntity::Activity {} => {
+            ListEntity::Activities {} => {
                 let activities = Activity::get_all(&conn);
                 println!("listing activities: {:#?}", activities);
             }
