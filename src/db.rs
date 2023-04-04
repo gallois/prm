@@ -7,6 +7,7 @@ pub mod db_interface {
         fn remove(&self, conn: &crate::Connection) -> Result<&Self, DbOperationsError>;
         fn save(&self, conn: &crate::Connection) -> Result<&Self, DbOperationsError>;
         fn get_by_id(conn: &crate::Connection, id: u64) -> Option<crate::Entities>;
+        // TODO get_all
     }
 }
 

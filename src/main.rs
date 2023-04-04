@@ -133,6 +133,18 @@ enum EditEntity {
         #[arg(short, long)]
         contact_info: Option<String>,
     },
+    Activity {
+        #[arg(short, long)]
+        id: u64,
+        #[arg(short, long)]
+        name: Option<String>,
+        #[arg(short, long)]
+        activity_type: Option<String>,
+        #[arg(short, long)]
+        date: Option<String>,
+        #[arg(short, long)]
+        content: Option<String>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -375,7 +387,44 @@ fn main() {
                             }
                         }
                         None => {
-                            println!("Could not find person with id {}", id);
+                            println!("Could not find person id {}", id);
+                            return;
+                        }
+                    }
+                }
+                EditEntity::Activity {
+                    id,
+                    name,
+                    activity_type,
+                    date,
+                    content,
+                } => {
+                    let activity = prm::Activity::get_by_id(&conn, id);
+
+                    match activity {
+                        Some(mut activity) => {
+                            if [
+                                name.clone(),
+                                activity_type.clone(),
+                                date.clone(),
+                                content.clone(),
+                            ]
+                            .iter()
+                            .all(Option::is_none)
+                            {
+                                println!("You must set at least one of `name`, `activity_type`, `date' or `content`");
+                                return;
+                            }
+                            if let prm::Entities::Activity(mut activity) = activity {
+                                activity.update(name, activity_type, date, content);
+                                activity.save(&conn).expect(
+                                    format!("Failed to update activity: {:#?}", activity).as_str(),
+                                );
+                                println!("Updated activity: {:#?}", activity);
+                            }
+                        }
+                        None => {
+                            println!("Could not find activity id {}", id);
                             return;
                         }
                     }

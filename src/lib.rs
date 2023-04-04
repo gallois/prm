@@ -175,7 +175,7 @@ impl Person {
         people
     }
 
-    // TODO might be a good idea to edit activities, reminders and notes
+    // TODO might be a good idea to edit activities, reminders and notes vectors
     pub fn update(
         &mut self,
         name: Option<String>,
@@ -529,6 +529,51 @@ impl Activity {
 
         activities
     }
+
+    // TODO might be a good idea to edit people
+    pub fn update(
+        &mut self,
+        name: Option<String>,
+        activity_type: Option<String>,
+        date: Option<String>,
+        content: Option<String>,
+    ) -> &Self {
+        // TODO clean up duplication between this and main.rs
+        if let Some(name) = name {
+            self.name = name;
+        }
+
+        if let Some(activity_type) = activity_type {
+            let activity_type = match activity_type.as_str() {
+                "phone" => ActivityType::Phone,
+                "in_person" => ActivityType::InPerson,
+                "online" => ActivityType::Online,
+                // TODO proper error handling and messaging
+                _ => panic!("Unknown activity type"),
+            };
+
+            self.activity_type = activity_type;
+        }
+
+        if let Some(date) = date {
+            let mut date_obj: Option<NaiveDate> = None;
+            // TODO proper error handling and messaging
+            match crate::helpers::parse_from_str_ymd(&date) {
+                Ok(date) => date_obj = Some(date),
+                Err(_) => match crate::helpers::parse_from_str_md(&date) {
+                    Ok(date) => date_obj = Some(date),
+                    Err(error) => panic!("Error parsing date: {}", error),
+                },
+            }
+            self.date = date_obj.unwrap();
+        }
+
+        if let Some(content) = content {
+            self.content = content;
+        }
+
+        self
+    }
 }
 
 impl crate::db::db_interface::DbOperations for Activity {
@@ -607,7 +652,43 @@ impl crate::db::db_interface::DbOperations for Activity {
         &self,
         conn: &Connection,
     ) -> Result<&Activity, crate::db::db_interface::DbOperationsError> {
-        panic!("not yet implemented")
+        let activity_type_str = self.activity_type.as_ref();
+
+        // TODO error handling
+        let mut stmt = conn
+            .prepare("SELECT id FROM activity_types WHERE type = ?")
+            .unwrap();
+        let mut rows = stmt.query(params![activity_type_str]).unwrap();
+        let mut types: Vec<u32> = Vec::new();
+        while let Some(row) = rows.next().unwrap() {
+            types.push(row.get(0).unwrap());
+        }
+
+        match conn.execute(
+            "UPDATE
+                activities
+            SET
+                name = ?1,
+                type = ?2
+                date = ?3,
+                content = ?4,
+            WHERE
+                id = ?5",
+            params![
+                self.name,
+                types[0],
+                self.date.to_string(),
+                self.content,
+                self.id,
+            ],
+        ) {
+            Ok(updated) => {
+                println!("[DEBUG] {} rows were updated", updated);
+            }
+            Err(_) => return Err(crate::db::db_interface::DbOperationsError),
+        }
+
+        Ok(self)
     }
     fn get_by_id(conn: &crate::Connection, id: u64) -> Option<Entities> {
         let mut stmt = conn
