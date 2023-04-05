@@ -669,9 +669,9 @@ impl crate::db::db_interface::DbOperations for Activity {
                 activities
             SET
                 name = ?1,
-                type = ?2
+                type = ?2,
                 date = ?3,
-                content = ?4,
+                content = ?4
             WHERE
                 id = ?5",
             params![
