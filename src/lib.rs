@@ -385,14 +385,25 @@ impl crate::db::db_interface::DbOperations for Person {
                 types.push(row.get(0).unwrap());
             }
 
+            let mut stmt = conn
+                .prepare("SELECT id FROM contact_info WHERE person_id = ?")
+                .unwrap();
+            let mut rows = stmt.query(params![self.id]).unwrap();
+            let mut ci_ids: Vec<u32> = Vec::new();
+            while let Some(row) = rows.next().unwrap() {
+                ci_ids.push(row.get(0).unwrap());
+            }
+
             match conn.execute(
                 "UPDATE
                     contact_info 
                 SET
                     person_id = ?1,
                     contact_info_type_id = ?2,
-                    contact_info_details = ?3",
-                params![self.id, types[0], ci_value],
+                    contact_info_details = ?3
+                WHERE
+                    id = ?4",
+                params![self.id, types[0], ci_value, ci_ids[0]],
             ) {
                 Ok(updated) => {
                     println!("[DEBUG] {} rows were updated", updated);
