@@ -823,7 +823,7 @@ impl Reminder {
         }
 
         let mut stmt = conn.prepare(&sql).expect("Invalid SQL statement");
-        let mut rows = stmt
+        let rows = stmt
             .query_map([], |row| {
                 let reminder_id = row.get(0).unwrap();
                 Ok(Reminder {
@@ -847,6 +847,57 @@ impl Reminder {
         }
 
         reminders
+    }
+
+    pub fn update(
+        &mut self,
+        name: Option<String>,
+        date: Option<String>,
+        description: Option<String>,
+        recurring: Option<String>,
+    ) -> &Self {
+        if let Some(name) = name {
+            self.name = name;
+        }
+
+        if let Some(date) = date {
+            let mut date_obj: Option<NaiveDate> = None;
+            // TODO proper error handling and messaging
+            match crate::helpers::parse_from_str_ymd(&date) {
+                Ok(date) => date_obj = Some(date),
+                Err(_) => match crate::helpers::parse_from_str_md(&date) {
+                    Ok(date) => date_obj = Some(date),
+                    Err(error) => panic!("Error parsing date: {}", error),
+                },
+            }
+            self.date = date_obj.unwrap();
+        }
+
+        // TODO we need a way to unset description
+        if let Some(description) = description {
+            self.description = Some(description);
+        }
+
+        // TODO remove duplication between here and main.rs
+        let recurring_type = match recurring {
+            Some(recurring_type_str) => match recurring_type_str.as_str() {
+                "daily" => Some(RecurringType::Daily),
+                "weekly" => Some(RecurringType::Weekly),
+                "fortnightly" => Some(RecurringType::Fortnightly),
+                "monthly" => Some(RecurringType::Monthly),
+                "quarterly" => Some(RecurringType::Quarterly),
+                "biannual" => Some(RecurringType::Biannual),
+                "yearly" => Some(RecurringType::Yearly),
+                _ => panic!("Unknown recurring pattern"),
+            },
+            None => None,
+        };
+
+        if let Some(recurring_type) = recurring_type {
+            self.recurring = Some(recurring_type);
+        }
+
+        self
     }
 }
 

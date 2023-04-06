@@ -145,6 +145,18 @@ enum EditEntity {
         #[arg(short, long)]
         content: Option<String>,
     },
+    Reminder {
+        #[arg(short, long)]
+        id: u64,
+        #[arg(short, long)]
+        name: Option<String>,
+        #[arg(short, long)]
+        date: Option<String>,
+        #[arg(short, long)]
+        description: Option<String>,
+        #[arg(short, long)]
+        recurring: Option<String>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -274,7 +286,7 @@ fn main() {
                         "in_person" => ActivityType::InPerson,
                         "online" => ActivityType::Online,
                         // TODO proper error handling and messaging
-                        _ => panic!("Unknown activity type"),
+                        _ => panic!("Unknown reminder type"),
                     };
 
                     let date_obj = match prm::helpers::parse_from_str_ymd(date.as_str()) {
@@ -284,10 +296,10 @@ fn main() {
 
                     let people = Person::get_by_names(&conn, people);
 
-                    let activity = Activity::new(0, name, activity_type, date_obj, content, people);
-                    match activity.add(&conn) {
-                        Ok(_) => println!("{:#?} added successfully", activity),
-                        Err(_) => panic!("Error while adding {:#?}", activity),
+                    let reminder = Activity::new(0, name, activity_type, date_obj, content, people);
+                    match reminder.add(&conn) {
+                        Ok(_) => println!("{:#?} added successfully", reminder),
+                        Err(_) => panic!("Error while adding {:#?}", reminder),
                     };
                 }
                 AddEntity::Reminder {
@@ -347,8 +359,8 @@ fn main() {
             }
             ShowEntity::Activity { name } => {
                 // TODO likely useful to return a vector of activities
-                let activity = prm::Activity::get_by_name(&conn, &name).unwrap();
-                println!("got activity: {:#?}", activity);
+                let reminder = prm::Activity::get_by_name(&conn, &name).unwrap();
+                println!("got reminder: {:#?}", reminder);
             }
             ShowEntity::Reminder { name } => {
                 let reminder = prm::Reminder::get_by_name(&conn, &name).unwrap();
@@ -399,10 +411,10 @@ fn main() {
                     date,
                     content,
                 } => {
-                    let activity = prm::Activity::get_by_id(&conn, id);
+                    let reminder = prm::Activity::get_by_id(&conn, id);
 
-                    match activity {
-                        Some(mut activity) => {
+                    match reminder {
+                        Some(mut reminder) => {
                             if [
                                 name.clone(),
                                 activity_type.clone(),
@@ -415,16 +427,53 @@ fn main() {
                                 println!("You must set at least one of `name`, `activity_type`, `date' or `content`");
                                 return;
                             }
-                            if let prm::Entities::Activity(mut activity) = activity {
-                                activity.update(name, activity_type, date, content);
-                                activity.save(&conn).expect(
-                                    format!("Failed to update activity: {:#?}", activity).as_str(),
+                            if let prm::Entities::Activity(mut reminder) = reminder {
+                                reminder.update(name, activity_type, date, content);
+                                reminder.save(&conn).expect(
+                                    format!("Failed to update reminder: {:#?}", reminder).as_str(),
                                 );
-                                println!("Updated activity: {:#?}", activity);
+                                println!("Updated reminder: {:#?}", reminder);
                             }
                         }
                         None => {
-                            println!("Could not find activity id {}", id);
+                            println!("Could not find reminder id {}", id);
+                            return;
+                        }
+                    }
+                }
+                EditEntity::Reminder {
+                    id,
+                    name,
+                    date,
+                    description,
+                    recurring,
+                } => {
+                    let reminder = prm::Reminder::get_by_id(&conn, id);
+
+                    match reminder {
+                        Some(mut reminder) => {
+                            if [
+                                name.clone(),
+                                date.clone(),
+                                description.clone(),
+                                recurring.clone(),
+                            ]
+                            .iter()
+                            .all(Option::is_none)
+                            {
+                                println!("You must set at least one of `name`, `date`, `description' or `recurring`");
+                                return;
+                            }
+                            if let prm::Entities::Reminder(mut reminder) = reminder {
+                                reminder.update(name, date, description, recurring);
+                                reminder.save(&conn).expect(
+                                    format!("Failed to update reminder: {:#?}", reminder).as_str(),
+                                );
+                                println!("Updated reminder: {:#?}", reminder);
+                            }
+                        }
+                        None => {
+                            println!("Could not find reminder id {}", id);
                             return;
                         }
                     }
@@ -441,12 +490,12 @@ fn main() {
                 println!("removed: {:#?}", person);
             }
             RemoveEntity::Activity { name } => {
-                let activity = prm::Activity::get_by_name(&conn, &name).unwrap();
-                match activity.remove(&conn) {
-                    Ok(_) => println!("{:#?} removed successfully", activity),
-                    Err(_) => panic!("Error while removing {:#?}", activity),
+                let reminder = prm::Activity::get_by_name(&conn, &name).unwrap();
+                match reminder.remove(&conn) {
+                    Ok(_) => println!("{:#?} removed successfully", reminder),
+                    Err(_) => panic!("Error while removing {:#?}", reminder),
                 };
-                println!("removed: {:#?}", activity);
+                println!("removed: {:#?}", reminder);
             }
             RemoveEntity::Reminder { name } => {
                 let reminder = prm::Reminder::get_by_name(&conn, &name).unwrap();
