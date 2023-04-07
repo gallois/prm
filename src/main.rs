@@ -157,6 +157,14 @@ enum EditEntity {
         #[arg(short, long)]
         recurring: Option<String>,
     },
+    Note {
+        #[arg(short, long)]
+        id: u64,
+        #[arg(short, long)]
+        date: Option<String>,
+        #[arg(short, long)]
+        content: Option<String>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -474,6 +482,27 @@ fn main() {
                         }
                         None => {
                             println!("Could not find reminder id {}", id);
+                            return;
+                        }
+                    }
+                }
+                EditEntity::Note { id, date, content } => {
+                    let note = prm::Note::get_by_id(&conn, id);
+
+                    match note {
+                        Some(mut note) => {
+                            if [date.clone(), content.clone()].iter().all(Option::is_none) {
+                                println!("You must set at least one of `date` or `content`");
+                            }
+                            if let prm::Entities::Note(mut note) = note {
+                                note.update(date, content);
+                                note.save(&conn)
+                                    .expect(format!("Failed to update note: {:#?}", note).as_str());
+                                println!("Updated note: {:#?}", note);
+                            }
+                        }
+                        None => {
+                            println!("Could not find note id {}", id);
                             return;
                         }
                     }

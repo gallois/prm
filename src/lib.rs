@@ -1213,7 +1213,7 @@ impl crate::db::db_interface::DbOperations for Note {
 
     fn get_by_id(conn: &crate::Connection, id: u64) -> Option<Entities> {
         let mut stmt = conn
-            .prepare("SELECT * FROM reminders WHERE id = ?1")
+            .prepare("SELECT * FROM notes WHERE id = ?1")
             .expect("Invalid SQL statement");
         let mut rows = stmt.query(params![id]).unwrap();
         match rows.next() {
