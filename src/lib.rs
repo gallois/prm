@@ -1147,6 +1147,27 @@ impl Note {
 
         notes
     }
+
+    pub fn update(&mut self, date: Option<String>, content: Option<String>) -> &Self {
+        if let Some(date) = date {
+            let mut date_obj: Option<NaiveDate> = None;
+            // TODO proper error handling and messaging
+            match crate::helpers::parse_from_str_ymd(&date) {
+                Ok(date) => date_obj = Some(date),
+                Err(_) => match crate::helpers::parse_from_str_md(&date) {
+                    Ok(date) => date_obj = Some(date),
+                    Err(error) => panic!("Error parsing date: {}", error),
+                },
+            }
+            self.date = date_obj.unwrap();
+        }
+
+        if let Some(content) = content {
+            self.content = content;
+        }
+
+        self
+    }
 }
 
 impl crate::db::db_interface::DbOperations for Note {
