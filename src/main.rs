@@ -152,7 +152,7 @@ enum EditEntity {
         name: Option<String>,
         #[arg(short, long)]
         date: Option<String>,
-        #[arg(short, long)]
+        #[arg(long)]
         description: Option<String>,
         #[arg(short, long)]
         recurring: Option<String>,

@@ -981,7 +981,44 @@ impl crate::db::db_interface::DbOperations for Reminder {
         &self,
         conn: &Connection,
     ) -> Result<&Reminder, crate::db::db_interface::DbOperationsError> {
-        panic!("not yet implemented")
+        // TODO allow for changing people
+        let recurring_str = match &self.recurring {
+            Some(recurring_type) => recurring_type.as_ref(),
+            None => "",
+        };
+
+        let date_str = self.date.to_string();
+
+        // TODO error handling
+        let mut stmt = conn
+            .prepare("SELECT id FROM recurring_types WHERE type = ?")
+            .unwrap();
+        let mut rows = stmt.query(params![recurring_str]).unwrap();
+        let mut types: Vec<u32> = Vec::new();
+        while let Some(row) = rows.next().unwrap() {
+            types.push(row.get(0).unwrap());
+        }
+
+        match conn.execute(
+            "UPDATE
+                reminders 
+            SET
+                name = ?1,
+                date = ?2,
+                recurring = ?3,
+                description = ?4
+            WHERE
+                id = ?5
+            ",
+            params![self.name, date_str, types[0], self.description, self.id],
+        ) {
+            Ok(updated) => {
+                println!("[DEBUG] {} rows were updated", updated);
+            }
+            Err(_) => return Err(crate::db::db_interface::DbOperationsError),
+        }
+
+        Ok(self)
     }
 
     fn get_by_id(conn: &crate::Connection, id: u64) -> Option<Entities> {
