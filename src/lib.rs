@@ -1266,7 +1266,23 @@ impl crate::db::db_interface::DbOperations for Note {
     }
 
     fn save(&self, conn: &Connection) -> Result<&Note, crate::db::db_interface::DbOperationsError> {
-        panic!("not yet implemented")
+        match conn.execute(
+            "UPDATE
+                notes
+            SET
+                date = ?1,
+                content = ?2
+            WHERE
+                id = ?3",
+            params![self.date.to_string(), self.content, self.id],
+        ) {
+            Ok(updated) => {
+                println!("[DEBUG] {} rows were updated", updated);
+            }
+            Err(_) => return Err(crate::db::db_interface::DbOperationsError),
+        }
+
+        Ok(self)
     }
 
     fn get_by_id(conn: &crate::Connection, id: u64) -> Option<Entities> {
