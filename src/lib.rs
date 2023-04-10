@@ -253,6 +253,19 @@ impl crate::db::db_interface::DbOperations for Person {
             None => "".to_string(),
         };
 
+        let mut stmt = conn
+            .prepare("SELECT id FROM people WHERE name = ?")
+            .unwrap();
+        let mut rows = stmt.query(params![self.name]).unwrap();
+        let mut types: Vec<u32> = Vec::new();
+        while let Some(row) = rows.next().unwrap() {
+            types.push(row.get(0).unwrap());
+        }
+
+        if types.len() > 0 {
+            return Err(crate::db::db_interface::DbOperationsError::DuplicateEntry);
+        }
+
         match conn.execute(
             "INSERT INTO people (name, birthday, deleted) VALUES (?1, ?2, FALSE)",
             params![self.name, birthday_str],
@@ -260,7 +273,7 @@ impl crate::db::db_interface::DbOperations for Person {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
             }
-            Err(_) => return Err(crate::db::db_interface::DbOperationsError),
+            Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
         }
         let id = conn.last_insert_rowid();
 
@@ -304,7 +317,7 @@ impl crate::db::db_interface::DbOperations for Person {
                 Ok(updated) => {
                     println!("[DEBUG] {} rows were updated", updated);
                 }
-                Err(_) => return Err(crate::db::db_interface::DbOperationsError),
+                Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
             }
         }
 
@@ -327,7 +340,7 @@ impl crate::db::db_interface::DbOperations for Person {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
             }
-            Err(_) => return Err(crate::db::db_interface::DbOperationsError),
+            Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
         }
 
         Ok(self)
@@ -355,7 +368,7 @@ impl crate::db::db_interface::DbOperations for Person {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
             }
-            Err(_) => return Err(crate::db::db_interface::DbOperationsError),
+            Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
         }
 
         if self.contact_info.len() > 0 {
@@ -408,7 +421,7 @@ impl crate::db::db_interface::DbOperations for Person {
                 Ok(updated) => {
                     println!("[DEBUG] {} rows were updated", updated);
                 }
-                Err(_) => return Err(crate::db::db_interface::DbOperationsError),
+                Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
             }
         }
 
@@ -615,7 +628,7 @@ impl crate::db::db_interface::DbOperations for Activity {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
             }
-            Err(_) => return Err(crate::db::db_interface::DbOperationsError),
+            Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
         }
 
         let id = conn.last_insert_rowid();
@@ -633,7 +646,7 @@ impl crate::db::db_interface::DbOperations for Activity {
                 Ok(updated) => {
                     println!("[DEBUG] {} rows were updated", updated);
                 }
-                Err(_) => return Err(crate::db::db_interface::DbOperationsError),
+                Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
             }
         }
 
@@ -653,7 +666,7 @@ impl crate::db::db_interface::DbOperations for Activity {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
             }
-            Err(_) => return Err(crate::db::db_interface::DbOperationsError),
+            Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
         }
 
         Ok(self)
@@ -696,7 +709,7 @@ impl crate::db::db_interface::DbOperations for Activity {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
             }
-            Err(_) => return Err(crate::db::db_interface::DbOperationsError),
+            Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
         }
 
         Ok(self)
@@ -933,7 +946,7 @@ impl crate::db::db_interface::DbOperations for Reminder {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
             }
-            Err(_) => return Err(crate::db::db_interface::DbOperationsError),
+            Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
         }
 
         let id = conn.last_insert_rowid();
@@ -951,7 +964,7 @@ impl crate::db::db_interface::DbOperations for Reminder {
                 Ok(updated) => {
                     println!("[DEBUG] {} rows were updated", updated);
                 }
-                Err(_) => return Err(crate::db::db_interface::DbOperationsError),
+                Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
             }
         }
 
@@ -971,7 +984,7 @@ impl crate::db::db_interface::DbOperations for Reminder {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
             }
-            Err(_) => return Err(crate::db::db_interface::DbOperationsError),
+            Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
         }
 
         Ok(self)
@@ -1015,7 +1028,7 @@ impl crate::db::db_interface::DbOperations for Reminder {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
             }
-            Err(_) => return Err(crate::db::db_interface::DbOperationsError),
+            Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
         }
 
         Ok(self)
@@ -1221,7 +1234,7 @@ impl crate::db::db_interface::DbOperations for Note {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
             }
-            Err(_) => return Err(crate::db::db_interface::DbOperationsError),
+            Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
         }
 
         let id = &conn.last_insert_rowid();
@@ -1239,7 +1252,7 @@ impl crate::db::db_interface::DbOperations for Note {
                 Ok(updated) => {
                     println!("[DEBUG] {} rows were updated", updated);
                 }
-                Err(_) => return Err(crate::db::db_interface::DbOperationsError),
+                Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
             }
         }
 
@@ -1259,7 +1272,7 @@ impl crate::db::db_interface::DbOperations for Note {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
             }
-            Err(_) => return Err(crate::db::db_interface::DbOperationsError),
+            Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
         }
 
         Ok(self)
@@ -1279,7 +1292,7 @@ impl crate::db::db_interface::DbOperations for Note {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
             }
-            Err(_) => return Err(crate::db::db_interface::DbOperationsError),
+            Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
         }
 
         Ok(self)

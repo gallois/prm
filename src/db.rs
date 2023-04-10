@@ -1,6 +1,9 @@
 pub mod db_interface {
     #[derive(Debug)]
-    pub struct DbOperationsError;
+    pub enum DbOperationsError {
+        DuplicateEntry,
+        GenericError,
+    }
 
     pub trait DbOperations {
         fn add(&self, conn: &crate::Connection) -> Result<&Self, DbOperationsError>;
@@ -486,7 +489,7 @@ pub mod db_helpers {
                 Ok(_) => println!("Database table created"),
                 Err(error) => {
                     println!("Error creating database tables: {}", error);
-                    return Err(crate::db::db_interface::DbOperationsError);
+                    return Err(crate::db::db_interface::DbOperationsError::GenericError);
                 }
             }
         }
@@ -520,7 +523,7 @@ pub mod db_helpers {
                 Ok(_) => println!("Database table populated"),
                 Err(error) => {
                     println!("Error populating database tables: {}", error);
-                    return Err(crate::db::db_interface::DbOperationsError);
+                    return Err(crate::db::db_interface::DbOperationsError::GenericError);
                 }
             }
         }

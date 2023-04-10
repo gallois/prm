@@ -279,7 +279,7 @@ fn main() {
                     let person = Person::new(0, name, birthday_obj, contact_info);
                     match person.add(&conn) {
                         Ok(_) => println!("{:#?} added successfully", person),
-                        Err(_) => panic!("Error while adding {:#?}", person),
+                        Err(err) => panic!("Error while adding {:#?}", person),
                     };
                 }
                 AddEntity::Activity {
