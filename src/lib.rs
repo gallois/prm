@@ -247,24 +247,24 @@ impl crate::db::db_interface::DbOperations for Person {
         &self,
         conn: &Connection,
     ) -> Result<&Person, crate::db::db_interface::DbOperationsError> {
+        let mut stmt = conn
+            .prepare("SELECT id FROM people WHERE name = ?")
+            .unwrap();
+        let mut rows = stmt.query(params![self.name]).unwrap();
+        let mut ids: Vec<u32> = Vec::new();
+        while let Some(row) = rows.next().unwrap() {
+            ids.push(row.get(0).unwrap());
+        }
+
+        if ids.len() > 0 {
+            return Err(crate::db::db_interface::DbOperationsError::DuplicateEntry);
+        }
+
         // TODO make all db operations atomic
         let birthday_str = match self.birthday {
             Some(birthday) => birthday.to_string(),
             None => "".to_string(),
         };
-
-        let mut stmt = conn
-            .prepare("SELECT id FROM people WHERE name = ?")
-            .unwrap();
-        let mut rows = stmt.query(params![self.name]).unwrap();
-        let mut types: Vec<u32> = Vec::new();
-        while let Some(row) = rows.next().unwrap() {
-            types.push(row.get(0).unwrap());
-        }
-
-        if types.len() > 0 {
-            return Err(crate::db::db_interface::DbOperationsError::DuplicateEntry);
-        }
 
         match conn.execute(
             "INSERT INTO people (name, birthday, deleted) VALUES (?1, ?2, FALSE)",
@@ -919,6 +919,19 @@ impl crate::db::db_interface::DbOperations for Reminder {
         &self,
         conn: &Connection,
     ) -> Result<&Reminder, crate::db::db_interface::DbOperationsError> {
+        let mut stmt = conn
+            .prepare("SELECT id FROM reminders WHERE name = ?")
+            .unwrap();
+        let mut rows = stmt.query(params![self.name]).unwrap();
+        let mut ids: Vec<u32> = Vec::new();
+        while let Some(row) = rows.next().unwrap() {
+            ids.push(row.get(0).unwrap());
+        }
+
+        if ids.len() > 0 {
+            return Err(crate::db::db_interface::DbOperationsError::DuplicateEntry);
+        }
+
         let recurring_str = match &self.recurring {
             Some(recurring_type) => recurring_type.as_ref(),
             None => "",
