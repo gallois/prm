@@ -1212,7 +1212,7 @@ impl Note {
 
     pub fn update(&mut self, date: Option<String>, content: Option<String>) -> &Self {
         if let Some(date) = date {
-            let mut date_obj: Option<NaiveDate>;
+            let date_obj: Option<NaiveDate>;
             // TODO proper error handling and messaging
             match crate::helpers::parse_from_str_ymd(&date) {
                 Ok(date) => date_obj = Some(date),
