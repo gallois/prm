@@ -281,7 +281,7 @@ fn main() {
                     let person = Person::new(0, name, birthday_obj, contact_info);
                     match person.add(&conn) {
                         Ok(_) => println!("{:#?} added successfully", person),
-                        Err(err) => panic!("Error while adding {:#?}", person),
+                        Err(_) => panic!("Error while adding {:#?}", person),
                     };
                 }
                 AddEntity::Activity {
@@ -392,7 +392,7 @@ fn main() {
                     let person = prm::Person::get_by_id(&conn, id);
 
                     match person {
-                        Some(mut person) => {
+                        Some(person) => {
                             if [name.clone(), birthday.clone(), contact_info.clone()]
                                 .iter()
                                 .all(Option::is_none)
@@ -424,7 +424,7 @@ fn main() {
                     let reminder = prm::Activity::get_by_id(&conn, id);
 
                     match reminder {
-                        Some(mut reminder) => {
+                        Some(reminder) => {
                             if [
                                 name.clone(),
                                 activity_type.clone(),
@@ -461,7 +461,7 @@ fn main() {
                     let reminder = prm::Reminder::get_by_id(&conn, id);
 
                     match reminder {
-                        Some(mut reminder) => {
+                        Some(reminder) => {
                             if [
                                 name.clone(),
                                 date.clone(),
@@ -492,7 +492,7 @@ fn main() {
                     let note = prm::Note::get_by_id(&conn, id);
 
                     match note {
-                        Some(mut note) => {
+                        Some(note) => {
                             if [date.clone(), content.clone()].iter().all(Option::is_none) {
                                 println!("You must set at least one of `date` or `content`");
                             }

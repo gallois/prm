@@ -144,7 +144,7 @@ impl Person {
             .prepare("SELECT * FROM people")
             .expect("Invalid SQL statement");
 
-        let mut rows = stmt
+        let rows = stmt
             .query_map([], |row| {
                 let person_id = row.get(0).unwrap();
                 Ok(Person {
@@ -187,7 +187,7 @@ impl Person {
             self.name = name;
         }
         if let Some(birthday) = birthday {
-            let mut birthday_obj: Option<NaiveDate> = None;
+            let birthday_obj: Option<NaiveDate>;
             // TODO proper error handling and messaging
             match crate::helpers::parse_from_str_ymd(&birthday) {
                 Ok(date) => birthday_obj = Some(date),
@@ -526,7 +526,7 @@ impl Activity {
             .prepare("SELECT * FROM activities")
             .expect("Invalid SQL statement");
 
-        let mut rows = stmt
+        let rows = stmt
             .query_map([], |row| {
                 let activity_id = row.get(0).unwrap();
                 Ok(Activity {
@@ -579,7 +579,7 @@ impl Activity {
         }
 
         if let Some(date) = date {
-            let mut date_obj: Option<NaiveDate> = None;
+            let date_obj: Option<NaiveDate>;
             // TODO proper error handling and messaging
             match crate::helpers::parse_from_str_ymd(&date) {
                 Ok(date) => date_obj = Some(date),
@@ -826,7 +826,7 @@ impl Reminder {
     }
 
     pub fn get_all(conn: &Connection, include_past: bool) -> Vec<Reminder> {
-        let mut sql = String::from("");
+        let sql: String;
         let base_sql = "SELECT * FROM reminders";
         if include_past {
             sql = format!("{}", base_sql);
@@ -873,7 +873,7 @@ impl Reminder {
         }
 
         if let Some(date) = date {
-            let mut date_obj: Option<NaiveDate> = None;
+            let date_obj: Option<NaiveDate>;
             // TODO proper error handling and messaging
             match crate::helpers::parse_from_str_ymd(&date) {
                 Ok(date) => date_obj = Some(date),
@@ -1186,7 +1186,7 @@ impl Note {
             .prepare("SELECT * FROM notes")
             .expect("Invalid SQL statement");
 
-        let mut rows = stmt
+        let rows = stmt
             .query_map([], |row| {
                 let note_id = row.get(0).unwrap();
                 Ok(Note {
@@ -1212,7 +1212,7 @@ impl Note {
 
     pub fn update(&mut self, date: Option<String>, content: Option<String>) -> &Self {
         if let Some(date) = date {
-            let mut date_obj: Option<NaiveDate> = None;
+            let mut date_obj: Option<NaiveDate>;
             // TODO proper error handling and messaging
             match crate::helpers::parse_from_str_ymd(&date) {
                 Ok(date) => date_obj = Some(date),
