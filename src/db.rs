@@ -15,6 +15,8 @@ pub mod db_interface {
 }
 
 pub mod db_helpers {
+    use crate::ContactInfoType;
+
     pub fn get_notes_by_person(conn: &crate::Connection, person_id: u64) -> Vec<crate::Note> {
         let mut stmt = conn
             .prepare(
@@ -146,11 +148,19 @@ pub mod db_helpers {
         let mut contact_info_vec: Vec<crate::ContactInfo> = vec![];
         let rows = stmt
             .query_map(crate::params![person_id], |row| {
+                let contact_info_type =
+                    crate::ContactInfoType::get_by_id(&conn, row.get(2).unwrap()).unwrap();
+                let contact_info_details: String = row.get(3).unwrap();
+                let contact_info = match contact_info_type {
+                    ContactInfoType::Phone(_) => ContactInfoType::Phone(contact_info_details),
+                    ContactInfoType::WhatsApp(_) => ContactInfoType::WhatsApp(contact_info_details),
+                    ContactInfoType::Email(_) => ContactInfoType::Email(contact_info_details),
+                };
+
                 Ok(crate::ContactInfo::new(
                     row.get(0).unwrap(),
                     row.get(1).unwrap(),
-                    crate::ContactInfoType::get_by_id(&conn, row.get(2).unwrap()).unwrap(),
-                    row.get(3).unwrap(),
+                    contact_info,
                 ))
             })
             .unwrap();

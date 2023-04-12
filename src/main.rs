@@ -64,8 +64,8 @@ enum AddEntity {
         name: String,
         #[arg(short, long)]
         birthday: Option<String>,
-        #[arg(short, long)]
-        contact_info: Option<String>,
+        #[arg(short, long, action=ArgAction::Append)]
+        contact_info: Option<Vec<String>>,
     },
     Activity {
         name: String,
@@ -235,45 +235,47 @@ fn main() {
                         None => (),
                     }
 
-                    let contact_info_split: Vec<String>;
-                    let mut contact_info_type: Option<ContactInfoType> = None;
+                    let mut contact_info_splits: Vec<Vec<String>> = vec![];
+                    let mut contact_info_types: Vec<ContactInfoType> = vec![];
 
-                    // TODO allow for multiple contact info on creation
                     match contact_info {
-                        Some(contact_info_str) => {
-                            contact_info_split =
-                                contact_info_str.split(":").map(|x| x.to_string()).collect()
+                        Some(contact_info_vec) => {
+                            contact_info_vec.into_iter().for_each(|contact_info_str| {
+                                contact_info_splits.push(
+                                    contact_info_str.split(":").map(|x| x.to_string()).collect(),
+                                );
+                            });
                         }
-                        None => contact_info_split = vec![],
+                        None => contact_info_splits = vec![],
                     }
 
-                    if contact_info_split.len() > 0 {
-                        match contact_info_split[0].as_str() {
-                            "phone" => {
-                                contact_info_type =
-                                    Some(ContactInfoType::Phone(contact_info_split[1].clone()))
-                            }
-                            "whatsapp" => {
-                                contact_info_type =
-                                    Some(ContactInfoType::WhatsApp(contact_info_split[1].clone()))
-                            }
-                            "email" => {
-                                contact_info_type =
-                                    Some(ContactInfoType::Email(contact_info_split[1].clone()))
-                            }
-                            // TODO proper error handling and messaging
-                            _ => panic!("Unknown contact info type"),
-                        }
+                    if contact_info_splits.len() > 0 {
+                        contact_info_splits
+                            .into_iter()
+                            .for_each(|contact_info_split| {
+                                match contact_info_split[0].as_str() {
+                                    "phone" => contact_info_types.push(ContactInfoType::Phone(
+                                        contact_info_split[1].clone(),
+                                    )),
+                                    "whatsapp" => contact_info_types.push(
+                                        ContactInfoType::WhatsApp(contact_info_split[1].clone()),
+                                    ),
+                                    "email" => contact_info_types.push(ContactInfoType::Email(
+                                        contact_info_split[1].clone(),
+                                    )),
+                                    // TODO proper error handling and messaging
+                                    _ => panic!("Unknown contact info type"),
+                                }
+                            });
                     }
 
                     let mut contact_info: Vec<ContactInfo> = Vec::new();
-                    if let Some(contact_info_type) = contact_info_type {
-                        contact_info.push(prm::ContactInfo::new(
-                            0,
-                            0,
-                            contact_info_type,
-                            contact_info_split[1].clone(),
-                        ));
+                    if contact_info_types.len() > 0 {
+                        contact_info_types
+                            .into_iter()
+                            .for_each(|contact_info_type| {
+                                contact_info.push(prm::ContactInfo::new(0, 0, contact_info_type));
+                            });
                     }
 
                     let person = Person::new(0, name, birthday_obj, contact_info);

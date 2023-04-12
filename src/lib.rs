@@ -228,12 +228,7 @@ impl Person {
 
         let mut contact_info: Vec<ContactInfo> = Vec::new();
         if let Some(contact_info_type) = contact_info_type {
-            contact_info.push(ContactInfo::new(
-                0,
-                self.id,
-                contact_info_type,
-                contact_info_split[1].clone(),
-            ));
+            contact_info.push(ContactInfo::new(0, self.id, contact_info_type));
         }
 
         self.contact_info = contact_info;
@@ -277,9 +272,10 @@ impl crate::db::db_interface::DbOperations for Person {
         }
         let id = conn.last_insert_rowid();
 
-        if self.contact_info.len() > 0 {
-            let (ci_type, ci_value): (String, &str) = match &self.contact_info[0].contact_info_type
-            {
+        // if self.contact_info.len() > 0 {
+        self.contact_info.iter().for_each(|contact_info| {
+            // let (ci_type, ci_value): (String, &str) = match &self.contact_info[0].contact_info_type
+            let (ci_type, ci_value): (String, &str) = match &contact_info.contact_info_type {
                 ContactInfoType::Phone(value) => (
                     ContactInfoType::Phone(value.clone()).as_ref().to_owned(),
                     value.as_ref(),
@@ -317,9 +313,10 @@ impl crate::db::db_interface::DbOperations for Person {
                 Ok(updated) => {
                     println!("[DEBUG] {} rows were updated", updated);
                 }
-                Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
+                // Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
+                Err(_) => println!("Err"),
             }
-        }
+        });
 
         Ok(self)
     }
@@ -1114,12 +1111,12 @@ pub struct ContactInfo {
 }
 
 impl ContactInfo {
-    pub fn new(
-        id: u64,
-        person_id: u64,
-        contact_info_type: ContactInfoType,
-        details: String,
-    ) -> ContactInfo {
+    pub fn new(id: u64, person_id: u64, contact_info_type: ContactInfoType) -> ContactInfo {
+        let details = match contact_info_type {
+            ContactInfoType::Phone(ref value) => value.to_string(),
+            ContactInfoType::WhatsApp(ref value) => value.to_string(),
+            ContactInfoType::Email(ref value) => value.to_string(),
+        };
         ContactInfo {
             id,
             person_id,
