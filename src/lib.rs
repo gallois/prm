@@ -242,6 +242,7 @@ impl crate::db::db_interface::DbOperations for Person {
         &self,
         conn: &Connection,
     ) -> Result<&Person, crate::db::db_interface::DbOperationsError> {
+        let mut error = false;
         let mut stmt = conn
             .prepare("SELECT id FROM people WHERE name = ?")
             .unwrap();
@@ -272,9 +273,7 @@ impl crate::db::db_interface::DbOperations for Person {
         }
         let id = conn.last_insert_rowid();
 
-        // if self.contact_info.len() > 0 {
         self.contact_info.iter().for_each(|contact_info| {
-            // let (ci_type, ci_value): (String, &str) = match &self.contact_info[0].contact_info_type
             let (ci_type, ci_value): (String, &str) = match &contact_info.contact_info_type {
                 ContactInfoType::Phone(value) => (
                     ContactInfoType::Phone(value.clone()).as_ref().to_owned(),
@@ -313,11 +312,14 @@ impl crate::db::db_interface::DbOperations for Person {
                 Ok(updated) => {
                     println!("[DEBUG] {} rows were updated", updated);
                 }
-                // Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
-                Err(_) => println!("Err"),
+                // FIXME extract this to a separate function to leverage FromIterator Results
+                Err(_) => error = true,
             }
         });
 
+        if error {
+            return Err(crate::db::db_interface::DbOperationsError::GenericError);
+        }
         Ok(self)
     }
 
