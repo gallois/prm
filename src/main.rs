@@ -1,6 +1,7 @@
 use chrono::prelude::*;
 use clap::builder::ArgAction;
 use clap::{Args, Parser, Subcommand};
+use edit;
 use prm::db::db_interface::DbOperations;
 use prm::{
     Activity, ActivityType, ContactInfo, ContactInfoType, Note, Person, RecurringType, Reminder,
@@ -61,7 +62,7 @@ struct RemoveArgs {
 #[derive(Subcommand)]
 enum AddEntity {
     Person {
-        name: String,
+        name: Option<String>,
         #[arg(short, long)]
         birthday: Option<String>,
         #[arg(short, long, action=ArgAction::Append)]
@@ -219,6 +220,21 @@ fn main() {
                     birthday,
                     contact_info,
                 } => {
+                    if name == None {
+                        let edited = edit::edit(prm::PERSON_TEMPLATE).unwrap();
+                        let (nname, bbirthday, ccontact_info) =
+                            match prm::Person::parse_from_editor(edited.as_str()) {
+                                Ok((person, birthday, contact_info)) => {
+                                    (person, birthday, contact_info)
+                                }
+                                Err(error) => panic!("Error parsing person"),
+                            };
+                        let person = Person::new(0, nname, bbirthday, vec![]);
+                        println!("{:#?} added successfully", person);
+                        return;
+                    }
+
+                    let name = name.unwrap();
                     let mut birthday_obj: Option<NaiveDate> = None;
                     // TODO if let would be better
                     match birthday {

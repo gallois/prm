@@ -7,6 +7,17 @@ use rusqlite::{params, params_from_iter, Connection};
 use std::{convert::AsRef, str::FromStr};
 use strum_macros::{AsRefStr, EnumString};
 
+pub enum ParseError {
+    FieldError,
+    FormatError,
+}
+
+pub static PERSON_TEMPLATE: &str = "Name: 
+Birthday:
+";
+// TODO implement contact info
+// Contact Info:
+
 pub mod helpers {
     // Helper function to return a comma-separated sequence of `?`.
     // - `repeat_vars(0) => panic!(...)`
@@ -234,6 +245,46 @@ impl Person {
         self.contact_info = contact_info;
 
         self
+    }
+
+    pub fn parse_from_editor(
+        content: &str,
+    ) -> Result<(String, Option<NaiveDate>, Vec<Vec<String>>), crate::ParseError> {
+        let mut error = false;
+        let mut name: &str = "";
+        let mut birthday: Option<NaiveDate> = None;
+        // TODO implement contact info
+        let contact_info: Vec<Vec<String>> = vec![];
+        let name_prefix = "Name: ";
+        let birthday_prefix = "Birthday: ";
+        // let contact_info_prefix = "Contact Info: ";
+        content.lines().for_each(|line| match line {
+            s if s.starts_with(name_prefix) => {
+                name = s.trim_start_matches(name_prefix);
+            }
+            s if s.starts_with(birthday_prefix) => {
+                let birthday_str = s.trim_start_matches(birthday_prefix);
+                match helpers::parse_from_str_ymd(&birthday_str) {
+                    Ok(date) => birthday = Some(date),
+                    Err(_) => match helpers::parse_from_str_md(&birthday_str) {
+                        Ok(date) => birthday = Some(date),
+                        Err(error) => panic!("Error parsing birthday: {}", error),
+                    },
+                }
+            }
+            // TODO implement contact info
+            // s if s.starts_with(contact_info_prefix) => {
+            //     let contact_info = s.trim_start_matches(contact_info_prefix);
+            // }
+            // FIXME
+            _ => error = true,
+        });
+
+        if error {
+            return Err(crate::ParseError::FormatError);
+        }
+
+        Ok((name.to_string(), birthday, contact_info))
     }
 }
 
