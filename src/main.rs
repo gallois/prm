@@ -222,14 +222,63 @@ fn main() {
                 } => {
                     if name == None {
                         let edited = edit::edit(prm::PERSON_TEMPLATE).unwrap();
-                        let (nname, bbirthday, ccontact_info) =
+                        let (nname, bbirthday, contact_info_vec) =
                             match prm::Person::parse_from_editor(edited.as_str()) {
                                 Ok((person, birthday, contact_info)) => {
                                     (person, birthday, contact_info)
                                 }
-                                Err(error) => panic!("Error parsing person"),
+                                Err(_) => panic!("Error parsing person"),
                             };
-                        let person = Person::new(0, nname, bbirthday, vec![]);
+
+                        println!(
+                            "{} {} {:#?}",
+                            nname,
+                            bbirthday.unwrap().to_string(),
+                            contact_info_vec
+                        );
+
+                        let mut contact_info_splits: Vec<Vec<String>> = vec![];
+                        let mut contact_info_types: Vec<ContactInfoType> = vec![];
+                        contact_info_vec.into_iter().for_each(|contact_info_str| {
+                            contact_info_splits
+                                .push(contact_info_str.split(":").map(|x| x.to_string()).collect());
+                        });
+                        if contact_info_splits.len() > 0 {
+                            contact_info_splits
+                                .into_iter()
+                                .for_each(|contact_info_split| {
+                                    match contact_info_split[0].as_str() {
+                                        "phone" => contact_info_types.push(ContactInfoType::Phone(
+                                            contact_info_split[1].clone(),
+                                        )),
+                                        "whatsapp" => {
+                                            contact_info_types.push(ContactInfoType::WhatsApp(
+                                                contact_info_split[1].clone(),
+                                            ))
+                                        }
+                                        "email" => contact_info_types.push(ContactInfoType::Email(
+                                            contact_info_split[1].clone(),
+                                        )),
+                                        // TODO proper error handling and messaging
+                                        _ => panic!("Unknown contact info type"),
+                                    }
+                                });
+                        }
+
+                        let mut contact_info: Vec<ContactInfo> = Vec::new();
+                        if contact_info_types.len() > 0 {
+                            contact_info_types
+                                .into_iter()
+                                .for_each(|contact_info_type| {
+                                    contact_info.push(prm::ContactInfo::new(
+                                        0,
+                                        0,
+                                        contact_info_type,
+                                    ));
+                                });
+                        }
+
+                        let person = Person::new(0, nname, bbirthday, contact_info);
                         println!("{:#?} added successfully", person);
                         return;
                     }

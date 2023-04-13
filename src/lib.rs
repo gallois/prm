@@ -14,9 +14,8 @@ pub enum ParseError {
 
 pub static PERSON_TEMPLATE: &str = "Name: 
 Birthday:
+Contact Info:
 ";
-// TODO implement contact info
-// Contact Info:
 
 pub mod helpers {
     // Helper function to return a comma-separated sequence of `?`.
@@ -249,15 +248,14 @@ impl Person {
 
     pub fn parse_from_editor(
         content: &str,
-    ) -> Result<(String, Option<NaiveDate>, Vec<Vec<String>>), crate::ParseError> {
+    ) -> Result<(String, Option<NaiveDate>, Vec<String>), crate::ParseError> {
         let mut error = false;
         let mut name: &str = "";
         let mut birthday: Option<NaiveDate> = None;
-        // TODO implement contact info
-        let contact_info: Vec<Vec<String>> = vec![];
+        let mut contact_info: Vec<String> = vec![];
         let name_prefix = "Name: ";
         let birthday_prefix = "Birthday: ";
-        // let contact_info_prefix = "Contact Info: ";
+        let contact_info_prefix = "Contact Info: ";
         content.lines().for_each(|line| match line {
             s if s.starts_with(name_prefix) => {
                 name = s.trim_start_matches(name_prefix);
@@ -272,10 +270,10 @@ impl Person {
                     },
                 }
             }
-            // TODO implement contact info
-            // s if s.starts_with(contact_info_prefix) => {
-            //     let contact_info = s.trim_start_matches(contact_info_prefix);
-            // }
+            s if s.starts_with(contact_info_prefix) => {
+                let contact_info_str = s.trim_start_matches(contact_info_prefix);
+                contact_info = contact_info_str.split(",").map(|x| x.to_string()).collect();
+            }
             // FIXME
             _ => error = true,
         });
