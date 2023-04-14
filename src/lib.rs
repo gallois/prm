@@ -41,6 +41,7 @@ pub mod helpers {
     }
 }
 
+#[derive(Debug)]
 pub enum Entities {
     Person(Person),
     Activity(Activity),
@@ -1381,5 +1382,84 @@ impl crate::db::db_interface::DbOperations for Note {
             },
             Err(_) => return None,
         }
+    }
+}
+
+pub struct Events {}
+
+impl Events {
+    // TODO implement only future properly to include past events
+    pub fn get(conn: &Connection, days: u64, only_future: bool) -> Vec<Entities> {
+        let mut events: Vec<Entities> = vec![];
+        let today = chrono::Local::now().naive_local();
+        let today_str = format!("{}", today.format("%Y-%m-%d"));
+        let date_limit = today.checked_add_days(chrono::Days::new(days)).unwrap();
+        let date_limit_str = format!("{}", date_limit.format("%Y-%m-%d"));
+
+        let mut stmt = conn
+            .prepare(
+                "SELECT
+                    *,
+                    strftime('%j', birthday) - strftime('%j', 'now') AS days_remaining
+                FROM
+                    people
+                WHERE ?1 >= CASE
+                    WHEN days_remaining >= 0 THEN days_remaining
+                    ELSE days_remaining + strftime('%j', strftime('%Y-12-31', 'now'))
+                    END
+                ",
+            )
+            // .prepare("SELECT * FROM people WHERE birthday >= ?1")
+            .expect("Invalid SQL statement");
+
+        let rows = stmt
+            .query_map(params![days], |row| {
+                let person_id = row.get(0).unwrap();
+                Ok(Entities::Person(Person {
+                    id: person_id,
+                    name: row.get(1).unwrap(),
+                    birthday: Some(
+                        crate::helpers::parse_from_str_ymd(
+                            String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
+                        )
+                        .unwrap_or_default(),
+                    ),
+                    contact_info: crate::db::db_helpers::get_contact_info_by_person(
+                        &conn, person_id,
+                    ),
+                    activities: crate::db::db_helpers::get_activities_by_person(&conn, person_id),
+                    reminders: crate::db::db_helpers::get_reminders_by_person(&conn, person_id),
+                    notes: crate::db::db_helpers::get_notes_by_person(&conn, person_id),
+                }))
+            })
+            .unwrap();
+        for person in rows.into_iter() {
+            events.push(person.unwrap());
+        }
+
+        // TODO handle periodic events
+        let mut stmt = conn
+            .prepare("SELECT * FROM reminders WHERE date BETWEEN ?1 AND ?2")
+            .expect("Invalid SQL statement");
+        let rows = stmt
+            .query_map(params![today_str, date_limit_str], |row| {
+                let reminder_id = row.get(0).unwrap();
+                Ok(Entities::Reminder(Reminder {
+                    id: reminder_id,
+                    name: row.get(1).unwrap(),
+                    date: crate::helpers::parse_from_str_ymd(
+                        String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
+                    )
+                    .unwrap_or_default(),
+                    description: row.get(3).unwrap(),
+                    recurring: crate::RecurringType::get_by_id(&conn, row.get(4).unwrap()),
+                    people: crate::db::db_helpers::get_people_by_reminder(&conn, reminder_id),
+                }))
+            })
+            .unwrap();
+        for reminder in rows.into_iter() {
+            events.push(reminder.unwrap());
+        }
+        return events;
     }
 }

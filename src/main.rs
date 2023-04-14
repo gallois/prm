@@ -4,7 +4,8 @@ use clap::{Args, Parser, Subcommand};
 use edit;
 use prm::db::db_interface::DbOperations;
 use prm::{
-    Activity, ActivityType, ContactInfo, ContactInfoType, Note, Person, RecurringType, Reminder,
+    Activity, ActivityType, ContactInfo, ContactInfoType, Entities, Events, Note, Person,
+    RecurringType, Reminder,
 };
 use rusqlite::Connection;
 
@@ -178,6 +179,7 @@ enum ListEntity {
         include_past: bool,
     },
     Notes,
+    Events,
 }
 
 // TODO add other means of removing
@@ -227,7 +229,7 @@ fn main() {
                     if name == None {
                         editor = true;
                         let edited = edit::edit(prm::PERSON_TEMPLATE).unwrap();
-                        let (n, b, c) = match prm::Person::parse_from_editor(edited.as_str()) {
+                        let (n, b, c) = match Person::parse_from_editor(edited.as_str()) {
                             Ok((person, birthday, contact_info)) => {
                                 (person, birthday, contact_info)
                             }
@@ -265,7 +267,7 @@ fn main() {
                     match contact_info {
                         Some(mut contact_info_vec) => {
                             if !editor {
-                                prm::ContactInfo::populate_splits(
+                                ContactInfo::populate_splits(
                                     &mut contact_info_splits,
                                     &mut contact_info_vec,
                                 );
@@ -273,7 +275,7 @@ fn main() {
                         }
                         None => {
                             if editor {
-                                prm::ContactInfo::populate_splits(
+                                ContactInfo::populate_splits(
                                     &mut contact_info_splits,
                                     &mut contact_info_vec,
                                 );
@@ -306,7 +308,7 @@ fn main() {
                         contact_info_types
                             .into_iter()
                             .for_each(|contact_info_type| {
-                                contact_info.push(prm::ContactInfo::new(0, 0, contact_info_type));
+                                contact_info.push(ContactInfo::new(0, 0, contact_info_type));
                             });
                     }
 
@@ -397,20 +399,20 @@ fn main() {
         }
         Commands::Show(show) => match show.entity {
             ShowEntity::Person { name } => {
-                let person = prm::Person::get_by_name(&conn, &name).unwrap();
+                let person = Person::get_by_name(&conn, &name).unwrap();
                 println!("got person: {:#?}", person);
             }
             ShowEntity::Activity { name } => {
                 // TODO likely useful to return a vector of activities
-                let reminder = prm::Activity::get_by_name(&conn, &name).unwrap();
+                let reminder = Activity::get_by_name(&conn, &name).unwrap();
                 println!("got reminder: {:#?}", reminder);
             }
             ShowEntity::Reminder { name } => {
-                let reminder = prm::Reminder::get_by_name(&conn, &name).unwrap();
+                let reminder = Reminder::get_by_name(&conn, &name).unwrap();
                 println!("got reminder: {:#?}", reminder);
             }
             ShowEntity::Notes { person } => {
-                let note = prm::Note::get_by_person(&conn, person);
+                let note = Note::get_by_person(&conn, person);
                 println!("got note: {:#?}", note);
             }
         },
@@ -422,7 +424,7 @@ fn main() {
                     birthday,
                     contact_info,
                 } => {
-                    let person = prm::Person::get_by_id(&conn, id);
+                    let person = Person::get_by_id(&conn, id);
 
                     match person {
                         Some(person) => {
@@ -433,7 +435,7 @@ fn main() {
                                 println!("You must set at least one of `name`, `birthday` or `contact_info`");
                                 return;
                             }
-                            if let prm::Entities::Person(mut person) = person {
+                            if let Entities::Person(mut person) = person {
                                 person.update(name, birthday, contact_info);
                                 person.save(&conn).expect(
                                     format!("Failed to update person: {:#?}", person).as_str(),
@@ -454,7 +456,7 @@ fn main() {
                     date,
                     content,
                 } => {
-                    let reminder = prm::Activity::get_by_id(&conn, id);
+                    let reminder = Activity::get_by_id(&conn, id);
 
                     match reminder {
                         Some(reminder) => {
@@ -470,7 +472,7 @@ fn main() {
                                 println!("You must set at least one of `name`, `activity_type`, `date' or `content`");
                                 return;
                             }
-                            if let prm::Entities::Activity(mut reminder) = reminder {
+                            if let Entities::Activity(mut reminder) = reminder {
                                 reminder.update(name, activity_type, date, content);
                                 reminder.save(&conn).expect(
                                     format!("Failed to update reminder: {:#?}", reminder).as_str(),
@@ -491,7 +493,7 @@ fn main() {
                     description,
                     recurring,
                 } => {
-                    let reminder = prm::Reminder::get_by_id(&conn, id);
+                    let reminder = Reminder::get_by_id(&conn, id);
 
                     match reminder {
                         Some(reminder) => {
@@ -507,7 +509,7 @@ fn main() {
                                 println!("You must set at least one of `name`, `date`, `description' or `recurring`");
                                 return;
                             }
-                            if let prm::Entities::Reminder(mut reminder) = reminder {
+                            if let Entities::Reminder(mut reminder) = reminder {
                                 reminder.update(name, date, description, recurring);
                                 reminder.save(&conn).expect(
                                     format!("Failed to update reminder: {:#?}", reminder).as_str(),
@@ -522,14 +524,14 @@ fn main() {
                     }
                 }
                 EditEntity::Note { id, date, content } => {
-                    let note = prm::Note::get_by_id(&conn, id);
+                    let note = Note::get_by_id(&conn, id);
 
                     match note {
                         Some(note) => {
                             if [date.clone(), content.clone()].iter().all(Option::is_none) {
                                 println!("You must set at least one of `date` or `content`");
                             }
-                            if let prm::Entities::Note(mut note) = note {
+                            if let Entities::Note(mut note) = note {
                                 note.update(date, content);
                                 note.save(&conn)
                                     .expect(format!("Failed to update note: {:#?}", note).as_str());
@@ -546,7 +548,7 @@ fn main() {
         }
         Commands::Remove(remove) => match remove.entity {
             RemoveEntity::Person { name } => {
-                let person = prm::Person::get_by_name(&conn, &name).unwrap();
+                let person = Person::get_by_name(&conn, &name).unwrap();
                 match person.remove(&conn) {
                     Ok(_) => println!("{:#?} removed successfully", person),
                     Err(_) => panic!("Error while removing {:#?}", person),
@@ -554,7 +556,7 @@ fn main() {
                 println!("removed: {:#?}", person);
             }
             RemoveEntity::Activity { name } => {
-                let reminder = prm::Activity::get_by_name(&conn, &name).unwrap();
+                let reminder = Activity::get_by_name(&conn, &name).unwrap();
                 match reminder.remove(&conn) {
                     Ok(_) => println!("{:#?} removed successfully", reminder),
                     Err(_) => panic!("Error while removing {:#?}", reminder),
@@ -562,7 +564,7 @@ fn main() {
                 println!("removed: {:#?}", reminder);
             }
             RemoveEntity::Reminder { name } => {
-                let reminder = prm::Reminder::get_by_name(&conn, &name).unwrap();
+                let reminder = Reminder::get_by_name(&conn, &name).unwrap();
                 match reminder.remove(&conn) {
                     Ok(_) => println!("{:#?} removed successfully", reminder),
                     Err(_) => panic!("Error while removing {:#?}", reminder),
@@ -570,10 +572,10 @@ fn main() {
                 println!("removed: {:#?}", reminder);
             }
             RemoveEntity::Note { id } => {
-                let note = prm::Note::get_by_id(&conn, id);
+                let note = Note::get_by_id(&conn, id);
                 match note {
                     Some(note) => {
-                        if let prm::Entities::Note(note) = note {
+                        if let Entities::Note(note) = note {
                             match note.remove(&conn) {
                                 Ok(_) => println!("{:#?} removed successfully", note),
                                 Err(_) => panic!("Error while removing {:#?}", note),
@@ -604,6 +606,10 @@ fn main() {
             ListEntity::Notes {} => {
                 let notes = Note::get_all(&conn);
                 println!("listing notes: {:#?}", notes);
+            }
+            ListEntity::Events {} => {
+                let events = Events::get(&conn, 90, true);
+                println!("listing events: {:#?}", events);
             }
         },
     }
