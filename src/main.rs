@@ -220,98 +220,65 @@ fn main() {
                     birthday,
                     contact_info,
                 } => {
+                    let mut name_str: String = String::from("");
+                    let mut birthday_str: Option<String> = None;
+                    let mut contact_info_vec: Vec<String> = vec![];
+                    let mut editor = false;
                     if name == None {
+                        editor = true;
                         let edited = edit::edit(prm::PERSON_TEMPLATE).unwrap();
-                        let (nname, bbirthday, contact_info_vec) =
-                            match prm::Person::parse_from_editor(edited.as_str()) {
-                                Ok((person, birthday, contact_info)) => {
-                                    (person, birthday, contact_info)
-                                }
-                                Err(_) => panic!("Error parsing person"),
-                            };
-
-                        println!(
-                            "{} {} {:#?}",
-                            nname,
-                            bbirthday.unwrap().to_string(),
-                            contact_info_vec
-                        );
-
-                        let mut contact_info_splits: Vec<Vec<String>> = vec![];
-                        let mut contact_info_types: Vec<ContactInfoType> = vec![];
-                        contact_info_vec.into_iter().for_each(|contact_info_str| {
-                            contact_info_splits
-                                .push(contact_info_str.split(":").map(|x| x.to_string()).collect());
-                        });
-                        if contact_info_splits.len() > 0 {
-                            contact_info_splits
-                                .into_iter()
-                                .for_each(|contact_info_split| {
-                                    match contact_info_split[0].as_str() {
-                                        "phone" => contact_info_types.push(ContactInfoType::Phone(
-                                            contact_info_split[1].clone(),
-                                        )),
-                                        "whatsapp" => {
-                                            contact_info_types.push(ContactInfoType::WhatsApp(
-                                                contact_info_split[1].clone(),
-                                            ))
-                                        }
-                                        "email" => contact_info_types.push(ContactInfoType::Email(
-                                            contact_info_split[1].clone(),
-                                        )),
-                                        // TODO proper error handling and messaging
-                                        _ => panic!("Unknown contact info type"),
-                                    }
-                                });
-                        }
-
-                        let mut contact_info: Vec<ContactInfo> = Vec::new();
-                        if contact_info_types.len() > 0 {
-                            contact_info_types
-                                .into_iter()
-                                .for_each(|contact_info_type| {
-                                    contact_info.push(prm::ContactInfo::new(
-                                        0,
-                                        0,
-                                        contact_info_type,
-                                    ));
-                                });
-                        }
-
-                        let person = Person::new(0, nname, bbirthday, contact_info);
-                        println!("{:#?} added successfully", person);
-                        return;
+                        let (n, b, c) = match prm::Person::parse_from_editor(edited.as_str()) {
+                            Ok((person, birthday, contact_info)) => {
+                                (person, birthday, contact_info)
+                            }
+                            Err(_) => panic!("Error parsing person"),
+                        };
+                        name_str = n;
+                        birthday_str = b;
+                        contact_info_vec = c;
                     }
 
-                    let name = name.unwrap();
+                    if !editor {
+                        name_str = name.unwrap();
+                    }
                     let mut birthday_obj: Option<NaiveDate> = None;
-                    // TODO if let would be better
-                    match birthday {
-                        Some(birthday_str) => {
-                            // TODO proper error handling and messaging
-                            match prm::helpers::parse_from_str_ymd(&birthday_str) {
-                                Ok(date) => birthday_obj = Some(date),
-                                Err(_) => match prm::helpers::parse_from_str_md(&birthday_str) {
-                                    Ok(date) => birthday_obj = Some(date),
-                                    Err(error) => panic!("Error parsing birthday: {}", error),
-                                },
-                            }
+                    if !editor {
+                        if let Some(bday) = birthday {
+                            birthday_str = Some(bday);
                         }
-                        None => (),
+                    }
+
+                    if let Some(birthday_str) = birthday_str {
+                        match prm::helpers::parse_from_str_ymd(&birthday_str) {
+                            // TODO proper error handling and messaging
+                            Ok(date) => birthday_obj = Some(date),
+                            Err(_) => match prm::helpers::parse_from_str_md(&birthday_str) {
+                                Ok(date) => birthday_obj = Some(date),
+                                Err(error) => panic!("Error parsing birthday: {}", error),
+                            },
+                        }
                     }
 
                     let mut contact_info_splits: Vec<Vec<String>> = vec![];
                     let mut contact_info_types: Vec<ContactInfoType> = vec![];
 
                     match contact_info {
-                        Some(contact_info_vec) => {
-                            contact_info_vec.into_iter().for_each(|contact_info_str| {
-                                contact_info_splits.push(
-                                    contact_info_str.split(":").map(|x| x.to_string()).collect(),
+                        Some(mut contact_info_vec) => {
+                            if !editor {
+                                prm::ContactInfo::populate_splits(
+                                    &mut contact_info_splits,
+                                    &mut contact_info_vec,
                                 );
-                            });
+                            }
                         }
-                        None => contact_info_splits = vec![],
+                        None => {
+                            if editor {
+                                prm::ContactInfo::populate_splits(
+                                    &mut contact_info_splits,
+                                    &mut contact_info_vec,
+                                );
+                            }
+                        }
                     }
 
                     if contact_info_splits.len() > 0 {
@@ -343,7 +310,8 @@ fn main() {
                             });
                     }
 
-                    let person = Person::new(0, name, birthday_obj, contact_info);
+                    assert_eq!(name_str.is_empty(), false, "Name cannot be empty");
+                    let person = Person::new(0, name_str, birthday_obj, contact_info);
                     match person.add(&conn) {
                         Ok(_) => println!("{:#?} added successfully", person),
                         Err(_) => panic!("Error while adding {:#?}", person),

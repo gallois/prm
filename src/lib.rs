@@ -248,27 +248,20 @@ impl Person {
 
     pub fn parse_from_editor(
         content: &str,
-    ) -> Result<(String, Option<NaiveDate>, Vec<String>), crate::ParseError> {
+    ) -> Result<(String, Option<String>, Vec<String>), crate::ParseError> {
         let mut error = false;
-        let mut name: &str = "";
-        let mut birthday: Option<NaiveDate> = None;
+        let mut name: String = String::from("");
+        let mut birthday: Option<String> = None;
         let mut contact_info: Vec<String> = vec![];
         let name_prefix = "Name: ";
         let birthday_prefix = "Birthday: ";
         let contact_info_prefix = "Contact Info: ";
         content.lines().for_each(|line| match line {
             s if s.starts_with(name_prefix) => {
-                name = s.trim_start_matches(name_prefix);
+                name = s.trim_start_matches(name_prefix).to_string();
             }
             s if s.starts_with(birthday_prefix) => {
-                let birthday_str = s.trim_start_matches(birthday_prefix);
-                match helpers::parse_from_str_ymd(&birthday_str) {
-                    Ok(date) => birthday = Some(date),
-                    Err(_) => match helpers::parse_from_str_md(&birthday_str) {
-                        Ok(date) => birthday = Some(date),
-                        Err(error) => panic!("Error parsing birthday: {}", error),
-                    },
-                }
+                birthday = Some(s.trim_start_matches(birthday_prefix).to_string());
             }
             s if s.starts_with(contact_info_prefix) => {
                 let contact_info_str = s.trim_start_matches(contact_info_prefix);
@@ -282,7 +275,7 @@ impl Person {
             return Err(crate::ParseError::FormatError);
         }
 
-        Ok((name.to_string(), birthday, contact_info))
+        Ok((name, birthday, contact_info))
     }
 }
 
@@ -1174,6 +1167,12 @@ impl ContactInfo {
             contact_info_type,
             details,
         }
+    }
+
+    pub fn populate_splits(splits: &mut Vec<Vec<String>>, list: &mut Vec<String>) {
+        list.into_iter().for_each(|contact_info_str| {
+            splits.push(contact_info_str.split(":").map(|x| x.to_string()).collect());
+        });
     }
 }
 
