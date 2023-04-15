@@ -4,7 +4,7 @@ pub use crate::db::{db_helpers, db_interface};
 
 use chrono::prelude::*;
 use rusqlite::{params, params_from_iter, Connection};
-use std::{convert::AsRef, str::FromStr};
+use std::{convert::AsRef, fmt, str::FromStr};
 use strum_macros::{AsRefStr, EnumString};
 
 pub enum ParseError {
@@ -251,7 +251,7 @@ impl Person {
         content: &str,
     ) -> Result<(String, Option<String>, Vec<String>), crate::ParseError> {
         let mut error = false;
-        let mut name: String = String::from("");
+        let mut name: String = String::new();
         let mut birthday: Option<String> = None;
         let mut contact_info: Vec<String> = vec![];
         let name_prefix = "Name: ";
@@ -503,6 +503,22 @@ impl crate::db::db_interface::DbOperations for Person {
             },
             Err(_) => return None,
         }
+    }
+}
+
+impl fmt::Display for Person {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let birthday: String;
+        match &self.birthday {
+            Some(bday) => birthday = bday.to_string(),
+            None => birthday = String::new(),
+        }
+        // TODO implement remaining fields
+        write!(
+            f,
+            "id: {}\nname: {}\nbirthday: {}\n",
+            &self.id, &self.name, birthday
+        )
     }
 }
 

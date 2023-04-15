@@ -222,7 +222,7 @@ fn main() {
                     birthday,
                     contact_info,
                 } => {
-                    let mut name_str: String = String::from("");
+                    let mut name_str: String = String::new();
                     let mut birthday_str: Option<String> = None;
                     let mut contact_info_vec: Vec<String> = vec![];
                     let mut editor = false;
@@ -593,7 +593,10 @@ fn main() {
         Commands::List(list) => match list.entity {
             ListEntity::People {} => {
                 let people = Person::get_all(&conn);
-                println!("listing people: {:#?}", people);
+                // println!("listing people: {:#?}", people);
+                for person in people {
+                    println!("{}", person);
+                }
             }
             ListEntity::Activities {} => {
                 let activities = Activity::get_all(&conn);
