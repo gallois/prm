@@ -513,11 +513,18 @@ impl fmt::Display for Person {
             Some(bday) => birthday = bday.to_string(),
             None => birthday = String::new(),
         }
+        let mut contact_info_str = String::new();
+        for ci in self.contact_info.iter() {
+            contact_info_str.push_str("\n\t");
+            contact_info_str.push_str(ci.contact_info_type.as_ref());
+            contact_info_str.push(':');
+            contact_info_str.push_str(ci.details.as_ref());
+        }
         // TODO implement remaining fields
         write!(
             f,
-            "id: {}\nname: {}\nbirthday: {}\n",
-            &self.id, &self.name, birthday
+            "id: {}\nname: {}\nbirthday: {}\ncontact_info:{}\n",
+            &self.id, &self.name, birthday, contact_info_str
         )
     }
 }
