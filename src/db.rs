@@ -208,8 +208,9 @@ pub mod db_helpers {
 
         let rows = stmt
             .query_map(crate::params_from_iter(activity_ids.iter()), |row| {
+                let activity_id = row.get(0).unwrap();
                 Ok(crate::Activity::new(
-                    row.get(0).unwrap(),
+                    activity_id,
                     row.get(1).unwrap(),
                     crate::ActivityType::get_by_id(&conn, row.get(2).unwrap()).unwrap(),
                     crate::helpers::parse_from_str_ymd(
@@ -217,7 +218,7 @@ pub mod db_helpers {
                     )
                     .unwrap_or_default(),
                     row.get(4).unwrap(),
-                    vec![],
+                    crate::db_helpers::get_people_by_activity(&conn, activity_id, false),
                 ))
             })
             .unwrap();
@@ -299,6 +300,7 @@ pub mod db_helpers {
     pub fn get_people_by_activity(
         conn: &crate::Connection,
         activity_id: u64,
+        recurse: bool,
     ) -> Vec<crate::Person> {
         let mut stmt = conn
             .prepare(
@@ -345,7 +347,11 @@ pub mod db_helpers {
                     contact_info: crate::db::db_helpers::get_contact_info_by_person(
                         &conn, person_id,
                     ),
-                    activities: crate::db::db_helpers::get_activities_by_person(&conn, person_id),
+                    activities: if recurse {
+                        crate::db::db_helpers::get_activities_by_person(&conn, person_id)
+                    } else {
+                        vec![]
+                    },
                     reminders: crate::db::db_helpers::get_reminders_by_person(&conn, person_id),
                     notes: crate::db::db_helpers::get_notes_by_person(&conn, person_id),
                 })

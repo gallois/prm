@@ -341,10 +341,10 @@ fn main() {
 
                     let people = Person::get_by_names(&conn, people);
 
-                    let reminder = Activity::new(0, name, activity_type, date_obj, content, people);
-                    match reminder.add(&conn) {
-                        Ok(_) => println!("{:#?} added successfully", reminder),
-                        Err(_) => panic!("Error while adding {:#?}", reminder),
+                    let activity = Activity::new(0, name, activity_type, date_obj, content, people);
+                    match activity.add(&conn) {
+                        Ok(_) => println!("{:#?} added successfully", activity),
+                        Err(_) => panic!("Error while adding {:#?}", activity),
                     };
                 }
                 AddEntity::Reminder {

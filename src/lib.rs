@@ -520,11 +520,28 @@ impl fmt::Display for Person {
             contact_info_str.push(':');
             contact_info_str.push_str(ci.details.as_ref());
         }
+        let mut activities_str = String::new();
+        for activity in self.activities.iter() {
+            activities_str.push_str("\n\t");
+            activities_str.push_str(format!("name: {}\n\t", activity.name).as_ref());
+            activities_str.push_str(format!("date: {}\n\t", activity.date).as_ref());
+            activities_str.push_str(
+                format!("activity type: {}\n\t", activity.activity_type.as_ref()).as_ref(),
+            );
+            activities_str.push_str(format!("content: {}\n\t", activity.content).as_ref());
+            let people = activity
+                .people
+                .iter()
+                .map(|p| p.name.as_str())
+                .collect::<Vec<&str>>()
+                .join(",");
+            activities_str.push_str(format!("people: {}\n\t", people).as_ref());
+        }
         // TODO implement remaining fields
         write!(
             f,
-            "id: {}\nname: {}\nbirthday: {}\ncontact_info:{}\n",
-            &self.id, &self.name, birthday, contact_info_str
+            "id: {}\nname: {}\nbirthday: {}\ncontact_info:{}\nactivities:{}\n",
+            &self.id, &self.name, birthday, contact_info_str, activities_str
         )
     }
 }
@@ -578,7 +595,11 @@ impl Activity {
                         )
                         .unwrap_or_default(),
                         content: row.get(4).unwrap(),
-                        people: crate::db::db_helpers::get_people_by_activity(&conn, activity_id),
+                        people: crate::db::db_helpers::get_people_by_activity(
+                            &conn,
+                            activity_id,
+                            true,
+                        ),
                     })
                 }
                 None => return None,
@@ -605,7 +626,7 @@ impl Activity {
                     )
                     .unwrap_or_default(),
                     content: row.get(4).unwrap(),
-                    people: crate::db::db_helpers::get_people_by_activity(&conn, activity_id),
+                    people: crate::db::db_helpers::get_people_by_activity(&conn, activity_id, true),
                 })
             })
             .unwrap();
@@ -798,7 +819,11 @@ impl crate::db::db_interface::DbOperations for Activity {
                         )
                         .unwrap_or_default(),
                         content: row.get(4).unwrap(),
-                        people: crate::db::db_helpers::get_people_by_activity(&conn, activity_id),
+                        people: crate::db::db_helpers::get_people_by_activity(
+                            &conn,
+                            activity_id,
+                            true,
+                        ),
                     }))
                 }
                 None => return None,
