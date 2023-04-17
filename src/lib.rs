@@ -517,7 +517,7 @@ impl fmt::Display for Person {
         for ci in self.contact_info.iter() {
             contact_info_str.push_str("\n\t");
             contact_info_str.push_str(ci.contact_info_type.as_ref());
-            contact_info_str.push(':');
+            contact_info_str.push_str(": ");
             contact_info_str.push_str(ci.details.as_ref());
         }
         let mut activities_str = String::new();
@@ -540,7 +540,7 @@ impl fmt::Display for Person {
         // TODO implement remaining fields
         write!(
             f,
-            "id: {}\nname: {}\nbirthday: {}\ncontact_info:{}\nactivities:{}\n",
+            "person id: {}\nname: {}\nbirthday: {}\ncontact_info: {}\nactivities: {}\n",
             &self.id, &self.name, birthday, contact_info_str, activities_str
         )
     }
@@ -1165,6 +1165,34 @@ impl crate::db::db_interface::DbOperations for Reminder {
     }
 }
 
+impl fmt::Display for Reminder {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let description_str = match &self.description {
+            Some(description) => description.as_ref(),
+            None => "",
+        };
+        let recurring_type_str = match &self.recurring {
+            Some(recurring_type) => recurring_type.as_ref(),
+            None => "",
+        };
+        let mut people_str = String::new();
+        for person in self.people.iter() {
+            people_str.push_str("\n\t");
+            people_str.push_str(format!("name: {}\n\t", person.name).as_ref());
+        }
+        write!(
+            f,
+            "reminder id: {}\nname: {}\ndate: {}\ndescription: {}\nrecurring type: {}\npeople:{}",
+            &self.id,
+            &self.name,
+            &self.date.to_string(),
+            description_str,
+            recurring_type_str,
+            people_str
+        )
+    }
+}
+
 #[derive(Debug, AsRefStr, EnumString)]
 pub enum RecurringType {
     Daily,
@@ -1437,8 +1465,8 @@ pub struct Events {}
 
 impl Events {
     // TODO implement only future properly to include past events
-    pub fn get(conn: &Connection, days: u64, only_future: bool) -> Vec<Entities> {
-        let mut events: Vec<Entities> = vec![];
+    pub fn get(conn: &Connection, days: u64, only_future: bool) -> Vec<Box<dyn Event>> {
+        let mut events: Vec<Box<dyn Event>> = vec![];
         let today = chrono::Local::now().naive_local();
         let today_str = format!("{}", today.format("%Y-%m-%d"));
         let date_limit = today.checked_add_days(chrono::Days::new(days)).unwrap();
@@ -1463,7 +1491,7 @@ impl Events {
         let rows = stmt
             .query_map(params![days], |row| {
                 let person_id = row.get(0).unwrap();
-                Ok(Entities::Person(Person {
+                Ok(Person {
                     id: person_id,
                     name: row.get(1).unwrap(),
                     birthday: Some(
@@ -1478,11 +1506,11 @@ impl Events {
                     activities: crate::db::db_helpers::get_activities_by_person(&conn, person_id),
                     reminders: crate::db::db_helpers::get_reminders_by_person(&conn, person_id),
                     notes: crate::db::db_helpers::get_notes_by_person(&conn, person_id),
-                }))
+                })
             })
             .unwrap();
         for person in rows.into_iter() {
-            events.push(person.unwrap());
+            events.push(Box::new(person.unwrap()));
         }
 
         // TODO handle periodic events
@@ -1492,7 +1520,7 @@ impl Events {
         let rows = stmt
             .query_map(params![today_str, date_limit_str], |row| {
                 let reminder_id = row.get(0).unwrap();
-                Ok(Entities::Reminder(Reminder {
+                Ok(Reminder {
                     id: reminder_id,
                     name: row.get(1).unwrap(),
                     date: crate::helpers::parse_from_str_ymd(
@@ -1502,12 +1530,16 @@ impl Events {
                     description: row.get(3).unwrap(),
                     recurring: crate::RecurringType::get_by_id(&conn, row.get(4).unwrap()),
                     people: crate::db::db_helpers::get_people_by_reminder(&conn, reminder_id),
-                }))
+                })
             })
             .unwrap();
         for reminder in rows.into_iter() {
-            events.push(reminder.unwrap());
+            events.push(Box::new(reminder.unwrap()));
         }
-        return events;
+        events
     }
 }
+
+pub trait Event: fmt::Display {}
+impl Event for Person {}
+impl Event for Reminder {}

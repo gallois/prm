@@ -593,7 +593,6 @@ fn main() {
         Commands::List(list) => match list.entity {
             ListEntity::People {} => {
                 let people = Person::get_all(&conn);
-                // println!("listing people: {:#?}", people);
                 for person in people {
                     println!("{}", person);
                 }
@@ -604,7 +603,9 @@ fn main() {
             }
             ListEntity::Reminders { include_past } => {
                 let reminders = Reminder::get_all(&conn, include_past);
-                println!("listing reminders: {:#?}", reminders);
+                for reminder in reminders {
+                    println!("{}", reminder);
+                }
             }
             ListEntity::Notes {} => {
                 let notes = Note::get_all(&conn);
@@ -612,7 +613,9 @@ fn main() {
             }
             ListEntity::Events {} => {
                 let events = Events::get(&conn, 90, true);
-                println!("listing events: {:#?}", events);
+                for event in events {
+                    println!("{}", event);
+                }
             }
         },
     }
