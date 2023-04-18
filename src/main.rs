@@ -4,7 +4,7 @@ use clap::{Args, Parser, Subcommand};
 use edit;
 use prm::db::db_interface::DbOperations;
 use prm::{
-    Activity, ActivityType, ContactInfo, ContactInfoType, Entities, Events, Note, Person,
+    Activity, ActivityType, ContactInfo, ContactInfoType, Entities, Event, Note, Person,
     RecurringType, Reminder,
 };
 use rusqlite::Connection;
@@ -612,9 +612,9 @@ fn main() {
                 println!("listing notes: {:#?}", notes);
             }
             ListEntity::Events {} => {
-                let events = Events::get(&conn, 90, true);
+                let events = Event::get_all(&conn, 90, true);
                 for event in events {
-                    println!("{}", event);
+                    println!("{}", event.details);
                 }
             }
         },

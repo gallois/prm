@@ -1461,12 +1461,21 @@ impl crate::db::db_interface::DbOperations for Note {
     }
 }
 
-pub struct Events {}
+pub enum EventType {
+    Person(Person),
+    Reminder(Reminder),
+}
 
-impl Events {
+pub struct Event {
+    date: NaiveDate,
+    kind: String,
+    pub details: EventType,
+}
+
+impl Event {
     // TODO implement only future properly to include past events
-    pub fn get(conn: &Connection, days: u64, only_future: bool) -> Vec<Box<dyn Event>> {
-        let mut events: Vec<Box<dyn Event>> = vec![];
+    pub fn get_all(conn: &Connection, days: u64, only_future: bool) -> Vec<Event> {
+        let mut events: Vec<Event> = vec![];
         let today = chrono::Local::now().naive_local();
         let today_str = format!("{}", today.format("%Y-%m-%d"));
         let date_limit = today.checked_add_days(chrono::Days::new(days)).unwrap();
@@ -1510,7 +1519,14 @@ impl Events {
             })
             .unwrap();
         for person in rows.into_iter() {
-            events.push(Box::new(person.unwrap()));
+            let person = person.unwrap();
+            if let Some(birthday) = person.birthday {
+                events.push(Event {
+                    date: birthday,
+                    kind: "Birthday".to_string(),
+                    details: EventType::Person(person),
+                });
+            }
         }
 
         // TODO handle periodic events
@@ -1534,12 +1550,46 @@ impl Events {
             })
             .unwrap();
         for reminder in rows.into_iter() {
-            events.push(Box::new(reminder.unwrap()));
+            let reminder = reminder.unwrap();
+            events.push(Event {
+                date: reminder.date,
+                kind: "Reminder".to_string(),
+                details: EventType::Reminder(reminder),
+            });
         }
         events
     }
 }
 
-pub trait Event: fmt::Display {}
-impl Event for Person {}
-impl Event for Reminder {}
+impl fmt::Display for Event {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let description_str = match &self.description {
+            Some(description) => description.as_ref(),
+            None => "",
+        };
+        let recurring_type_str = match &self.recurring {
+            Some(recurring_type) => recurring_type.as_ref(),
+            None => "",
+        };
+        let mut people_str = String::new();
+        for person in self.people.iter() {
+            people_str.push_str("\n\t");
+            people_str.push_str(format!("name: {}\n\t", person.name).as_ref());
+        }
+        write!(
+            f,
+            "reminder id: {}\nname: {}\ndate: {}\ndescription: {}\nrecurring type: {}\npeople:{}",
+            &self.id,
+            &self.name,
+            &self.date.to_string(),
+            description_str,
+            recurring_type_str,
+            people_str
+        )
+    }
+}
+
+pub trait EventTrait: fmt::Display {}
+impl EventTrait for Person {}
+impl EventTrait for Reminder {}
+impl EventTrait for Event {}
