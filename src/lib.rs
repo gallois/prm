@@ -1467,7 +1467,7 @@ pub enum EventType {
 }
 
 pub struct Event {
-    date: NaiveDate,
+    pub date: NaiveDate,
     kind: String,
     pub details: EventType,
 }
@@ -1576,10 +1576,14 @@ impl fmt::Display for Event {
             EventType::Reminder(reminder) => {
                 return write!(
                     f,
-                    "name: {}\ndate: {}\nkind: {}\npeople: {}\n",
+                    "name: {}\ndate: {}\nkind: {}\ndescription: {}\npeople: {}\n",
                     reminder.name,
                     &self.date.to_string(),
                     &self.kind,
+                    reminder
+                        .description
+                        .as_ref()
+                        .unwrap_or(&String::from("(Empty)")),
                     reminder
                         .people
                         .iter()

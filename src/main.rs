@@ -612,7 +612,14 @@ fn main() {
                 println!("listing notes: {:#?}", notes);
             }
             ListEntity::Events {} => {
-                let events = Event::get_all(&conn, 90, true);
+                let mut events = Event::get_all(&conn, 90, true);
+
+                // Sort events by date (month and day) using the `sort_by` function.
+                events.sort_by(|a, b| {
+                    let a_md = a.date.format("%m-%d").to_string();
+                    let b_md = b.date.format("%m-%d").to_string();
+                    a_md.cmp(&b_md)
+                });
                 for event in events {
                     println!("{}", event);
                 }
