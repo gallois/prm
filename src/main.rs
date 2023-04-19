@@ -614,7 +614,7 @@ fn main() {
             ListEntity::Events {} => {
                 let events = Event::get_all(&conn, 90, true);
                 for event in events {
-                    println!("{}", event.details);
+                    println!("{}", event);
                 }
             }
         },

@@ -1182,7 +1182,7 @@ impl fmt::Display for Reminder {
         }
         write!(
             f,
-            "reminder id: {}\nname: {}\ndate: {}\ndescription: {}\nrecurring type: {}\npeople:{}",
+            "reminder id: {}\nname: {}\ndate: {}\ndescription: {}\nrecurring type: {}\npeople:{}\n",
             &self.id,
             &self.name,
             &self.date.to_string(),
@@ -1563,29 +1563,32 @@ impl Event {
 
 impl fmt::Display for Event {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let description_str = match &self.description {
-            Some(description) => description.as_ref(),
-            None => "",
+        match &self.details {
+            EventType::Person(person) => {
+                return write!(
+                    f,
+                    "name: {}\ndate: {}\nkind: {}\n",
+                    person.name,
+                    &self.date.to_string(),
+                    &self.kind,
+                );
+            }
+            EventType::Reminder(reminder) => {
+                return write!(
+                    f,
+                    "name: {}\ndate: {}\nkind: {}\npeople: {}\n",
+                    reminder.name,
+                    &self.date.to_string(),
+                    &self.kind,
+                    reminder
+                        .people
+                        .iter()
+                        .map(|p| p.name.as_str())
+                        .collect::<Vec<&str>>()
+                        .join(", "),
+                );
+            }
         };
-        let recurring_type_str = match &self.recurring {
-            Some(recurring_type) => recurring_type.as_ref(),
-            None => "",
-        };
-        let mut people_str = String::new();
-        for person in self.people.iter() {
-            people_str.push_str("\n\t");
-            people_str.push_str(format!("name: {}\n\t", person.name).as_ref());
-        }
-        write!(
-            f,
-            "reminder id: {}\nname: {}\ndate: {}\ndescription: {}\nrecurring type: {}\npeople:{}",
-            &self.id,
-            &self.name,
-            &self.date.to_string(),
-            description_str,
-            recurring_type_str,
-            people_str
-        )
     }
 }
 
