@@ -318,8 +318,8 @@ fn main() {
                     assert_eq!(name_str.is_empty(), false, "Name cannot be empty");
                     let person = Person::new(0, name_str, birthday_obj, contact_info);
                     match person.add(&conn) {
-                        Ok(_) => println!("{:#?} added successfully", person),
-                        Err(_) => panic!("Error while adding {:#?}", person),
+                        Ok(_) => println!("{} added successfully", person),
+                        Err(_) => panic!("Error while adding {}", person),
                     };
                 }
                 AddEntity::Activity {
@@ -403,7 +403,7 @@ fn main() {
         Commands::Show(show) => match show.entity {
             ShowEntity::Person { name } => {
                 let person = Person::get_by_name(&conn, &name).unwrap();
-                println!("got person: {:#?}", person);
+                println!("got person: {}", person);
             }
             ShowEntity::Activity { name } => {
                 // TODO likely useful to return a vector of activities
@@ -441,9 +441,9 @@ fn main() {
                             if let Entities::Person(mut person) = person {
                                 person.update(name, birthday, contact_info);
                                 person.save(&conn).expect(
-                                    format!("Failed to update person: {:#?}", person).as_str(),
+                                    format!("Failed to update person: {}", person).as_str(),
                                 );
-                                println!("Updated person: {:#?}", person);
+                                println!("Updated person: {}", person);
                             }
                         }
                         None => {
@@ -553,10 +553,10 @@ fn main() {
             RemoveEntity::Person { name } => {
                 let person = Person::get_by_name(&conn, &name).unwrap();
                 match person.remove(&conn) {
-                    Ok(_) => println!("{:#?} removed successfully", person),
-                    Err(_) => panic!("Error while removing {:#?}", person),
+                    Ok(_) => println!("{} removed successfully", person),
+                    Err(_) => panic!("Error while removing {}", person),
                 };
-                println!("removed: {:#?}", person);
+                println!("removed: {}", person);
             }
             RemoveEntity::Activity { name } => {
                 let reminder = Activity::get_by_name(&conn, &name).unwrap();
@@ -617,7 +617,7 @@ fn main() {
             ListEntity::Events { days } => {
                 let mut events = Event::get_all(&conn, days);
 
-                // Sort events by date (month and day) using the `sort_by` function.
+                // Sort events by date (month and day)
                 events.sort_by(|a, b| {
                     let a_md = a.date.format("%m-%d").to_string();
                     let b_md = b.date.format("%m-%d").to_string();
