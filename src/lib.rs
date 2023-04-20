@@ -1473,8 +1473,7 @@ pub struct Event {
 }
 
 impl Event {
-    // TODO implement only future properly to include past events
-    pub fn get_all(conn: &Connection, days: u64, only_future: bool) -> Vec<Event> {
+    pub fn get_all(conn: &Connection, days: u64) -> Vec<Event> {
         let mut events: Vec<Event> = vec![];
         let today = chrono::Local::now().naive_local();
         let today_str = format!("{}", today.format("%Y-%m-%d"));
