@@ -1494,7 +1494,6 @@ impl Event {
                     END
                 ",
             )
-            // .prepare("SELECT * FROM people WHERE birthday >= ?1")
             .expect("Invalid SQL statement");
 
         let rows = stmt
@@ -1583,7 +1582,7 @@ impl fmt::Display for Event {
                     reminder
                         .description
                         .as_ref()
-                        .unwrap_or(&String::from("(Empty)")),
+                        .unwrap_or(&String::from("[Empty]")),
                     reminder
                         .people
                         .iter()

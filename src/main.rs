@@ -179,7 +179,10 @@ enum ListEntity {
         include_past: bool,
     },
     Notes,
-    Events,
+    Events {
+        #[arg(short, long, default_value = "90")]
+        days: u64,
+    },
 }
 
 // TODO add other means of removing
@@ -611,8 +614,8 @@ fn main() {
                 let notes = Note::get_all(&conn);
                 println!("listing notes: {:#?}", notes);
             }
-            ListEntity::Events {} => {
-                let mut events = Event::get_all(&conn, 90, true);
+            ListEntity::Events { days } => {
+                let mut events = Event::get_all(&conn, days, true);
 
                 // Sort events by date (month and day) using the `sort_by` function.
                 events.sort_by(|a, b| {
