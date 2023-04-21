@@ -41,6 +41,114 @@ pub mod helpers {
     }
 }
 
+pub mod cli {
+    pub mod add {
+        use crate::db::db_interface::DbOperations;
+        use chrono::NaiveDate;
+        use edit;
+
+        pub fn person(
+            conn: &crate::Connection,
+            name: Option<String>,
+            birthday: Option<String>,
+            contact_info: Option<Vec<String>>,
+        ) {
+            let mut name_str: String = String::new();
+            let mut birthday_str: Option<String> = None;
+            let mut contact_info_vec: Vec<String> = vec![];
+            let mut editor = false;
+            if name == None {
+                editor = true;
+                let edited = edit::edit(crate::PERSON_TEMPLATE).unwrap();
+                let (n, b, c) = match crate::Person::parse_from_editor(edited.as_str()) {
+                    Ok((person, birthday, contact_info)) => (person, birthday, contact_info),
+                    Err(_) => panic!("Error parsing person"),
+                };
+                name_str = n;
+                birthday_str = b;
+                contact_info_vec = c;
+            }
+
+            if !editor {
+                name_str = name.unwrap();
+            }
+            let mut birthday_obj: Option<NaiveDate> = None;
+            if !editor {
+                if let Some(bday) = birthday {
+                    birthday_str = Some(bday);
+                }
+            }
+
+            if let Some(birthday_str) = birthday_str {
+                match crate::helpers::parse_from_str_ymd(&birthday_str) {
+                    // TODO proper error handling and messaging
+                    Ok(date) => birthday_obj = Some(date),
+                    Err(_) => match crate::helpers::parse_from_str_md(&birthday_str) {
+                        Ok(date) => birthday_obj = Some(date),
+                        Err(error) => panic!("Error parsing birthday: {}", error),
+                    },
+                }
+            }
+
+            let mut contact_info_splits: Vec<Vec<String>> = vec![];
+            let mut contact_info_types: Vec<crate::ContactInfoType> = vec![];
+
+            match contact_info {
+                Some(mut contact_info_vec) => {
+                    if !editor {
+                        crate::ContactInfo::populate_splits(
+                            &mut contact_info_splits,
+                            &mut contact_info_vec,
+                        );
+                    }
+                }
+                None => {
+                    if editor {
+                        crate::ContactInfo::populate_splits(
+                            &mut contact_info_splits,
+                            &mut contact_info_vec,
+                        );
+                    }
+                }
+            }
+
+            if contact_info_splits.len() > 0 {
+                contact_info_splits
+                    .into_iter()
+                    .for_each(|contact_info_split| {
+                        match contact_info_split[0].as_str() {
+                            "phone" => contact_info_types
+                                .push(crate::ContactInfoType::Phone(contact_info_split[1].clone())),
+                            "whatsapp" => contact_info_types.push(
+                                crate::ContactInfoType::WhatsApp(contact_info_split[1].clone()),
+                            ),
+                            "email" => contact_info_types
+                                .push(crate::ContactInfoType::Email(contact_info_split[1].clone())),
+                            // TODO proper error handling and messaging
+                            _ => panic!("Unknown contact info type"),
+                        }
+                    });
+            }
+
+            let mut contact_info: Vec<crate::ContactInfo> = Vec::new();
+            if contact_info_types.len() > 0 {
+                contact_info_types
+                    .into_iter()
+                    .for_each(|contact_info_type| {
+                        contact_info.push(crate::ContactInfo::new(0, 0, contact_info_type));
+                    });
+            }
+
+            assert_eq!(name_str.is_empty(), false, "Name cannot be empty");
+            let person = crate::Person::new(0, name_str, birthday_obj, contact_info);
+            match person.add(&conn) {
+                Ok(_) => println!("{} added successfully", person),
+                Err(_) => panic!("Error while adding {}", person),
+            };
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum Entities {
     Person(Person),
