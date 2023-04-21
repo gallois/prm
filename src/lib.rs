@@ -1563,12 +1563,20 @@ impl fmt::Display for Event {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.details {
             EventType::Person(person) => {
+                let mut contact_info_str = String::new();
+                for ci in person.contact_info.iter() {
+                    contact_info_str.push_str("\n\t");
+                    contact_info_str.push_str(ci.contact_info_type.as_ref());
+                    contact_info_str.push_str(": ");
+                    contact_info_str.push_str(ci.details.as_ref());
+                }
                 return write!(
                     f,
-                    "name: {}\ndate: {}\nkind: {}\n",
+                    "name: {}\ndate: {}\nkind: {}\ncontact info: {}\n",
                     person.name,
                     &self.date.to_string(),
                     &self.kind,
+                    contact_info_str,
                 );
             }
             EventType::Reminder(reminder) => {
