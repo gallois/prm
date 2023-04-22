@@ -44,11 +44,15 @@ pub mod helpers {
 pub mod cli {
     pub mod add {
         use crate::db::db_interface::DbOperations;
+        use crate::{
+            helpers, Activity, ActivityType, Connection, ContactInfo, ContactInfoType, Person,
+            RecurringType, Reminder, PERSON_TEMPLATE,
+        };
         use chrono::NaiveDate;
         use edit;
 
         pub fn person(
-            conn: &crate::Connection,
+            conn: &Connection,
             name: Option<String>,
             birthday: Option<String>,
             contact_info: Option<Vec<String>>,
@@ -59,8 +63,8 @@ pub mod cli {
             let mut editor = false;
             if name == None {
                 editor = true;
-                let edited = edit::edit(crate::PERSON_TEMPLATE).unwrap();
-                let (n, b, c) = match crate::Person::parse_from_editor(edited.as_str()) {
+                let edited = edit::edit(PERSON_TEMPLATE).unwrap();
+                let (n, b, c) = match Person::parse_from_editor(edited.as_str()) {
                     Ok((person, birthday, contact_info)) => (person, birthday, contact_info),
                     Err(_) => panic!("Error parsing person"),
                 };
@@ -80,10 +84,10 @@ pub mod cli {
             }
 
             if let Some(birthday_str) = birthday_str {
-                match crate::helpers::parse_from_str_ymd(&birthday_str) {
+                match helpers::parse_from_str_ymd(&birthday_str) {
                     // TODO proper error handling and messaging
                     Ok(date) => birthday_obj = Some(date),
-                    Err(_) => match crate::helpers::parse_from_str_md(&birthday_str) {
+                    Err(_) => match helpers::parse_from_str_md(&birthday_str) {
                         Ok(date) => birthday_obj = Some(date),
                         Err(error) => panic!("Error parsing birthday: {}", error),
                     },
@@ -91,12 +95,12 @@ pub mod cli {
             }
 
             let mut contact_info_splits: Vec<Vec<String>> = vec![];
-            let mut contact_info_types: Vec<crate::ContactInfoType> = vec![];
+            let mut contact_info_types: Vec<ContactInfoType> = vec![];
 
             match contact_info {
                 Some(mut contact_info_vec) => {
                     if !editor {
-                        crate::ContactInfo::populate_splits(
+                        ContactInfo::populate_splits(
                             &mut contact_info_splits,
                             &mut contact_info_vec,
                         );
@@ -104,7 +108,7 @@ pub mod cli {
                 }
                 None => {
                     if editor {
-                        crate::ContactInfo::populate_splits(
+                        ContactInfo::populate_splits(
                             &mut contact_info_splits,
                             &mut contact_info_vec,
                         );
@@ -118,36 +122,35 @@ pub mod cli {
                     .for_each(|contact_info_split| {
                         match contact_info_split[0].as_str() {
                             "phone" => contact_info_types
-                                .push(crate::ContactInfoType::Phone(contact_info_split[1].clone())),
-                            "whatsapp" => contact_info_types.push(
-                                crate::ContactInfoType::WhatsApp(contact_info_split[1].clone()),
-                            ),
+                                .push(ContactInfoType::Phone(contact_info_split[1].clone())),
+                            "whatsapp" => contact_info_types
+                                .push(ContactInfoType::WhatsApp(contact_info_split[1].clone())),
                             "email" => contact_info_types
-                                .push(crate::ContactInfoType::Email(contact_info_split[1].clone())),
+                                .push(ContactInfoType::Email(contact_info_split[1].clone())),
                             // TODO proper error handling and messaging
                             _ => panic!("Unknown contact info type"),
                         }
                     });
             }
 
-            let mut contact_info: Vec<crate::ContactInfo> = Vec::new();
+            let mut contact_info: Vec<ContactInfo> = Vec::new();
             if contact_info_types.len() > 0 {
                 contact_info_types
                     .into_iter()
                     .for_each(|contact_info_type| {
-                        contact_info.push(crate::ContactInfo::new(0, 0, contact_info_type));
+                        contact_info.push(ContactInfo::new(0, 0, contact_info_type));
                     });
             }
 
             assert_eq!(name_str.is_empty(), false, "Name cannot be empty");
-            let person = crate::Person::new(0, name_str, birthday_obj, contact_info);
+            let person = Person::new(0, name_str, birthday_obj, contact_info);
             match person.add(&conn) {
                 Ok(_) => println!("{} added successfully", person),
                 Err(_) => panic!("Error while adding {}", person),
             };
         }
         pub fn activity(
-            conn: &crate::Connection,
+            conn: &Connection,
             name: String,
             activity_type: String,
             date: String,
@@ -155,28 +158,28 @@ pub mod cli {
             people: Vec<String>,
         ) {
             let activity_type = match activity_type.as_str() {
-                "phone" => crate::ActivityType::Phone,
-                "in_person" => crate::ActivityType::InPerson,
-                "online" => crate::ActivityType::Online,
+                "phone" => ActivityType::Phone,
+                "in_person" => ActivityType::InPerson,
+                "online" => ActivityType::Online,
                 // TODO proper error handling and messaging
                 _ => panic!("Unknown reminder type"),
             };
 
-            let date_obj = match crate::helpers::parse_from_str_ymd(date.as_str()) {
+            let date_obj = match helpers::parse_from_str_ymd(date.as_str()) {
                 Ok(date) => date,
                 Err(error) => panic!("Error parsing date: {}", error),
             };
 
-            let people = crate::Person::get_by_names(&conn, people);
+            let people = Person::get_by_names(&conn, people);
 
-            let activity = crate::Activity::new(0, name, activity_type, date_obj, content, people);
+            let activity = Activity::new(0, name, activity_type, date_obj, content, people);
             match activity.add(&conn) {
                 Ok(_) => println!("{:#?} added successfully", activity),
                 Err(_) => panic!("Error while adding {:#?}", activity),
             };
         }
         pub fn reminder(
-            conn: &crate::Connection,
+            conn: &Connection,
             name: String,
             date: String,
             recurring: Option<String>,
@@ -185,32 +188,75 @@ pub mod cli {
         ) {
             let recurring_type = match recurring {
                 Some(recurring_type_str) => match recurring_type_str.as_str() {
-                    "daily" => Some(crate::RecurringType::Daily),
-                    "weekly" => Some(crate::RecurringType::Weekly),
-                    "fortnightly" => Some(crate::RecurringType::Fortnightly),
-                    "monthly" => Some(crate::RecurringType::Monthly),
-                    "quarterly" => Some(crate::RecurringType::Quarterly),
-                    "biannual" => Some(crate::RecurringType::Biannual),
-                    "yearly" => Some(crate::RecurringType::Yearly),
+                    "daily" => Some(RecurringType::Daily),
+                    "weekly" => Some(RecurringType::Weekly),
+                    "fortnightly" => Some(RecurringType::Fortnightly),
+                    "monthly" => Some(RecurringType::Monthly),
+                    "quarterly" => Some(RecurringType::Quarterly),
+                    "biannual" => Some(RecurringType::Biannual),
+                    "yearly" => Some(RecurringType::Yearly),
                     _ => panic!("Unknown recurring pattern"),
                 },
                 None => None,
             };
 
-            let date_obj = match crate::helpers::parse_from_str_ymd(date.as_str()) {
+            let date_obj = match helpers::parse_from_str_ymd(date.as_str()) {
                 Ok(date) => date,
                 Err(error) => panic!("Error parsing date: {}", error),
             };
 
-            let people = crate::Person::get_by_names(&conn, people);
+            let people = Person::get_by_names(&conn, people);
 
-            let reminder =
-                crate::Reminder::new(0, name, date_obj, description, recurring_type, people);
+            let reminder = Reminder::new(0, name, date_obj, description, recurring_type, people);
             println!("Reminder: {:#?}", reminder);
             match reminder.add(&conn) {
                 Ok(_) => println!("{:#?} added successfully", reminder),
                 Err(_) => panic!("Error while adding {:#?}", reminder),
             };
+        }
+    }
+
+    pub mod edit {
+        use crate::db::db_interface::DbOperations;
+        use crate::{
+            helpers, Activity, ActivityType, Connection, ContactInfo, ContactInfoType, Entities,
+            Person, RecurringType, Reminder, PERSON_TEMPLATE,
+        };
+        use chrono::NaiveDate;
+        use edit;
+        pub fn person(
+            conn: &Connection,
+            id: u64,
+            name: Option<String>,
+            birthday: Option<String>,
+            contact_info: Option<String>,
+        ) {
+            let person = Person::get_by_id(&conn, id);
+
+            match person {
+                Some(person) => {
+                    if [name.clone(), birthday.clone(), contact_info.clone()]
+                        .iter()
+                        .all(Option::is_none)
+                    {
+                        println!(
+                            "You must set at least one of `name`, `birthday` or `contact_info`"
+                        );
+                        return;
+                    }
+                    if let Entities::Person(mut person) = person {
+                        person.update(name, birthday, contact_info);
+                        person
+                            .save(&conn)
+                            .expect(format!("Failed to update person: {}", person).as_str());
+                        println!("Updated person: {}", person);
+                    }
+                }
+                None => {
+                    println!("Could not find person id {}", id);
+                    return;
+                }
+            }
         }
     }
 }

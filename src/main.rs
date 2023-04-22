@@ -275,136 +275,111 @@ fn main() {
                 println!("got note: {:#?}", note);
             }
         },
-        Commands::Edit(edit) => {
-            match edit.entity {
-                EditEntity::Person {
-                    id,
-                    name,
-                    birthday,
-                    contact_info,
-                } => {
-                    let person = Person::get_by_id(&conn, id);
+        Commands::Edit(edit) => match edit.entity {
+            EditEntity::Person {
+                id,
+                name,
+                birthday,
+                contact_info,
+            } => {
+                prm::cli::edit::person(&conn, id, name, birthday, contact_info);
+            }
+            EditEntity::Activity {
+                id,
+                name,
+                activity_type,
+                date,
+                content,
+            } => {
+                let reminder = Activity::get_by_id(&conn, id);
 
-                    match person {
-                        Some(person) => {
-                            if [name.clone(), birthday.clone(), contact_info.clone()]
-                                .iter()
-                                .all(Option::is_none)
-                            {
-                                println!("You must set at least one of `name`, `birthday` or `contact_info`");
-                                return;
-                            }
-                            if let Entities::Person(mut person) = person {
-                                person.update(name, birthday, contact_info);
-                                person.save(&conn).expect(
-                                    format!("Failed to update person: {}", person).as_str(),
-                                );
-                                println!("Updated person: {}", person);
-                            }
-                        }
-                        None => {
-                            println!("Could not find person id {}", id);
+                match reminder {
+                    Some(reminder) => {
+                        if [
+                            name.clone(),
+                            activity_type.clone(),
+                            date.clone(),
+                            content.clone(),
+                        ]
+                        .iter()
+                        .all(Option::is_none)
+                        {
+                            println!("You must set at least one of `name`, `activity_type`, `date' or `content`");
                             return;
+                        }
+                        if let Entities::Activity(mut reminder) = reminder {
+                            reminder.update(name, activity_type, date, content);
+                            reminder.save(&conn).expect(
+                                format!("Failed to update reminder: {:#?}", reminder).as_str(),
+                            );
+                            println!("Updated reminder: {:#?}", reminder);
                         }
                     }
-                }
-                EditEntity::Activity {
-                    id,
-                    name,
-                    activity_type,
-                    date,
-                    content,
-                } => {
-                    let reminder = Activity::get_by_id(&conn, id);
-
-                    match reminder {
-                        Some(reminder) => {
-                            if [
-                                name.clone(),
-                                activity_type.clone(),
-                                date.clone(),
-                                content.clone(),
-                            ]
-                            .iter()
-                            .all(Option::is_none)
-                            {
-                                println!("You must set at least one of `name`, `activity_type`, `date' or `content`");
-                                return;
-                            }
-                            if let Entities::Activity(mut reminder) = reminder {
-                                reminder.update(name, activity_type, date, content);
-                                reminder.save(&conn).expect(
-                                    format!("Failed to update reminder: {:#?}", reminder).as_str(),
-                                );
-                                println!("Updated reminder: {:#?}", reminder);
-                            }
-                        }
-                        None => {
-                            println!("Could not find reminder id {}", id);
-                            return;
-                        }
-                    }
-                }
-                EditEntity::Reminder {
-                    id,
-                    name,
-                    date,
-                    description,
-                    recurring,
-                } => {
-                    let reminder = Reminder::get_by_id(&conn, id);
-
-                    match reminder {
-                        Some(reminder) => {
-                            if [
-                                name.clone(),
-                                date.clone(),
-                                description.clone(),
-                                recurring.clone(),
-                            ]
-                            .iter()
-                            .all(Option::is_none)
-                            {
-                                println!("You must set at least one of `name`, `date`, `description' or `recurring`");
-                                return;
-                            }
-                            if let Entities::Reminder(mut reminder) = reminder {
-                                reminder.update(name, date, description, recurring);
-                                reminder.save(&conn).expect(
-                                    format!("Failed to update reminder: {:#?}", reminder).as_str(),
-                                );
-                                println!("Updated reminder: {:#?}", reminder);
-                            }
-                        }
-                        None => {
-                            println!("Could not find reminder id {}", id);
-                            return;
-                        }
-                    }
-                }
-                EditEntity::Note { id, date, content } => {
-                    let note = Note::get_by_id(&conn, id);
-
-                    match note {
-                        Some(note) => {
-                            if [date.clone(), content.clone()].iter().all(Option::is_none) {
-                                println!("You must set at least one of `date` or `content`");
-                            }
-                            if let Entities::Note(mut note) = note {
-                                note.update(date, content);
-                                note.save(&conn)
-                                    .expect(format!("Failed to update note: {:#?}", note).as_str());
-                                println!("Updated note: {:#?}", note);
-                            }
-                        }
-                        None => {
-                            println!("Could not find note id {}", id);
-                            return;
-                        }
+                    None => {
+                        println!("Could not find reminder id {}", id);
+                        return;
                     }
                 }
             }
-        }
+            EditEntity::Reminder {
+                id,
+                name,
+                date,
+                description,
+                recurring,
+            } => {
+                let reminder = Reminder::get_by_id(&conn, id);
+
+                match reminder {
+                    Some(reminder) => {
+                        if [
+                            name.clone(),
+                            date.clone(),
+                            description.clone(),
+                            recurring.clone(),
+                        ]
+                        .iter()
+                        .all(Option::is_none)
+                        {
+                            println!("You must set at least one of `name`, `date`, `description` or `recurring`");
+                            return;
+                        }
+                        if let Entities::Reminder(mut reminder) = reminder {
+                            reminder.update(name, date, description, recurring);
+                            reminder.save(&conn).expect(
+                                format!("Failed to update reminder: {:#?}", reminder).as_str(),
+                            );
+                            println!("Updated reminder: {:#?}", reminder);
+                        }
+                    }
+                    None => {
+                        println!("Could not find reminder id {}", id);
+                        return;
+                    }
+                }
+            }
+            EditEntity::Note { id, date, content } => {
+                let note = Note::get_by_id(&conn, id);
+
+                match note {
+                    Some(note) => {
+                        if [date.clone(), content.clone()].iter().all(Option::is_none) {
+                            println!("You must set at least one of `date` or `content`");
+                        }
+                        if let Entities::Note(mut note) = note {
+                            note.update(date, content);
+                            note.save(&conn)
+                                .expect(format!("Failed to update note: {:#?}", note).as_str());
+                            println!("Updated note: {:#?}", note);
+                        }
+                    }
+                    None => {
+                        println!("Could not find note id {}", id);
+                        return;
+                    }
+                }
+            }
+        },
         Commands::Remove(remove) => match remove.entity {
             RemoveEntity::Person { name } => {
                 let person = Person::get_by_name(&conn, &name).unwrap();
