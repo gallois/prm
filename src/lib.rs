@@ -258,6 +258,44 @@ pub mod cli {
                 }
             }
         }
+        pub fn activity(
+            conn: &Connection,
+            id: u64,
+            name: Option<String>,
+            activity_type: Option<String>,
+            date: Option<String>,
+            content: Option<String>,
+        ) {
+            let reminder = Activity::get_by_id(&conn, id);
+
+            match reminder {
+                Some(reminder) => {
+                    if [
+                        name.clone(),
+                        activity_type.clone(),
+                        date.clone(),
+                        content.clone(),
+                    ]
+                    .iter()
+                    .all(Option::is_none)
+                    {
+                        println!("You must set at least one of `name`, `activity_type`, `date' or `content`");
+                        return;
+                    }
+                    if let Entities::Activity(mut reminder) = reminder {
+                        reminder.update(name, activity_type, date, content);
+                        reminder
+                            .save(&conn)
+                            .expect(format!("Failed to update reminder: {:#?}", reminder).as_str());
+                        println!("Updated reminder: {:#?}", reminder);
+                    }
+                }
+                None => {
+                    println!("Could not find reminder id {}", id);
+                    return;
+                }
+            }
+        }
     }
 }
 
