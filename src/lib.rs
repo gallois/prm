@@ -146,6 +146,35 @@ pub mod cli {
                 Err(_) => panic!("Error while adding {}", person),
             };
         }
+        pub fn activity(
+            conn: &crate::Connection,
+            name: String,
+            activity_type: String,
+            date: String,
+            content: String,
+            people: Vec<String>,
+        ) {
+            let activity_type = match activity_type.as_str() {
+                "phone" => crate::ActivityType::Phone,
+                "in_person" => crate::ActivityType::InPerson,
+                "online" => crate::ActivityType::Online,
+                // TODO proper error handling and messaging
+                _ => panic!("Unknown reminder type"),
+            };
+
+            let date_obj = match crate::helpers::parse_from_str_ymd(date.as_str()) {
+                Ok(date) => date,
+                Err(error) => panic!("Error parsing date: {}", error),
+            };
+
+            let people = crate::Person::get_by_names(&conn, people);
+
+            let activity = crate::Activity::new(0, name, activity_type, date_obj, content, people);
+            match activity.add(&conn) {
+                Ok(_) => println!("{:#?} added successfully", activity),
+                Err(_) => panic!("Error while adding {:#?}", activity),
+            };
+        }
     }
 }
 

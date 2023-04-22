@@ -217,93 +217,72 @@ fn main() {
                 Err(_) => panic!("Error initialising database"),
             };
         }
-        Commands::Add(add) => {
-            match add.entity {
-                AddEntity::Person {
-                    name,
-                    birthday,
-                    contact_info,
-                } => {
-                    prm::cli::add::person(&conn, name, birthday, contact_info);
-                }
-                AddEntity::Activity {
-                    name,
-                    activity_type,
-                    date,
-                    content,
-                    people,
-                } => {
-                    let activity_type = match activity_type.as_str() {
-                        "phone" => ActivityType::Phone,
-                        "in_person" => ActivityType::InPerson,
-                        "online" => ActivityType::Online,
-                        // TODO proper error handling and messaging
-                        _ => panic!("Unknown reminder type"),
-                    };
-
-                    let date_obj = match prm::helpers::parse_from_str_ymd(date.as_str()) {
-                        Ok(date) => date,
-                        Err(error) => panic!("Error parsing date: {}", error),
-                    };
-
-                    let people = Person::get_by_names(&conn, people);
-
-                    let activity = Activity::new(0, name, activity_type, date_obj, content, people);
-                    match activity.add(&conn) {
-                        Ok(_) => println!("{:#?} added successfully", activity),
-                        Err(_) => panic!("Error while adding {:#?}", activity),
-                    };
-                }
-                AddEntity::Reminder {
-                    name,
-                    date,
-                    recurring,
-                    description,
-                    people,
-                } => {
-                    let recurring_type = match recurring {
-                        Some(recurring_type_str) => match recurring_type_str.as_str() {
-                            "daily" => Some(RecurringType::Daily),
-                            "weekly" => Some(RecurringType::Weekly),
-                            "fortnightly" => Some(RecurringType::Fortnightly),
-                            "monthly" => Some(RecurringType::Monthly),
-                            "quarterly" => Some(RecurringType::Quarterly),
-                            "biannual" => Some(RecurringType::Biannual),
-                            "yearly" => Some(RecurringType::Yearly),
-                            _ => panic!("Unknown recurring pattern"),
-                        },
-                        None => None,
-                    };
-
-                    let date_obj = match prm::helpers::parse_from_str_ymd(date.as_str()) {
-                        Ok(date) => date,
-                        Err(error) => panic!("Error parsing date: {}", error),
-                    };
-
-                    let people = Person::get_by_names(&conn, people);
-
-                    let reminder =
-                        Reminder::new(0, name, date_obj, description, recurring_type, people);
-                    println!("Reminder: {:#?}", reminder);
-                    match reminder.add(&conn) {
-                        Ok(_) => println!("{:#?} added successfully", reminder),
-                        Err(_) => panic!("Error while adding {:#?}", reminder),
-                    };
-                }
-                AddEntity::Notes { content, people } => {
-                    let date = Utc::now().date_naive();
-
-                    let people = Person::get_by_names(&conn, people);
-
-                    let note = Note::new(0, date, content, people);
-                    println!("Note: {:#?}", note);
-                    match note.add(&conn) {
-                        Ok(_) => println!("{:#?} added successfully", note),
-                        Err(_) => panic!("Error while adding {:#?}", note),
-                    };
-                }
+        Commands::Add(add) => match add.entity {
+            AddEntity::Person {
+                name,
+                birthday,
+                contact_info,
+            } => {
+                prm::cli::add::person(&conn, name, birthday, contact_info);
             }
-        }
+            AddEntity::Activity {
+                name,
+                activity_type,
+                date,
+                content,
+                people,
+            } => {
+                prm::cli::add::activity(&conn, name, activity_type, date, content, people);
+            }
+            AddEntity::Reminder {
+                name,
+                date,
+                recurring,
+                description,
+                people,
+            } => {
+                let recurring_type = match recurring {
+                    Some(recurring_type_str) => match recurring_type_str.as_str() {
+                        "daily" => Some(RecurringType::Daily),
+                        "weekly" => Some(RecurringType::Weekly),
+                        "fortnightly" => Some(RecurringType::Fortnightly),
+                        "monthly" => Some(RecurringType::Monthly),
+                        "quarterly" => Some(RecurringType::Quarterly),
+                        "biannual" => Some(RecurringType::Biannual),
+                        "yearly" => Some(RecurringType::Yearly),
+                        _ => panic!("Unknown recurring pattern"),
+                    },
+                    None => None,
+                };
+
+                let date_obj = match prm::helpers::parse_from_str_ymd(date.as_str()) {
+                    Ok(date) => date,
+                    Err(error) => panic!("Error parsing date: {}", error),
+                };
+
+                let people = Person::get_by_names(&conn, people);
+
+                let reminder =
+                    Reminder::new(0, name, date_obj, description, recurring_type, people);
+                println!("Reminder: {:#?}", reminder);
+                match reminder.add(&conn) {
+                    Ok(_) => println!("{:#?} added successfully", reminder),
+                    Err(_) => panic!("Error while adding {:#?}", reminder),
+                };
+            }
+            AddEntity::Notes { content, people } => {
+                let date = Utc::now().date_naive();
+
+                let people = Person::get_by_names(&conn, people);
+
+                let note = Note::new(0, date, content, people);
+                println!("Note: {:#?}", note);
+                match note.add(&conn) {
+                    Ok(_) => println!("{:#?} added successfully", note),
+                    Err(_) => panic!("Error while adding {:#?}", note),
+                };
+            }
+        },
         Commands::Show(show) => match show.entity {
             ShowEntity::Person { name } => {
                 let person = Person::get_by_name(&conn, &name).unwrap();
