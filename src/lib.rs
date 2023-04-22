@@ -218,12 +218,7 @@ pub mod cli {
 
     pub mod edit {
         use crate::db::db_interface::DbOperations;
-        use crate::{
-            helpers, Activity, ActivityType, Connection, ContactInfo, ContactInfoType, Entities,
-            Person, RecurringType, Reminder, PERSON_TEMPLATE,
-        };
-        use chrono::NaiveDate;
-        use edit;
+        use crate::{Activity, Connection, Entities, Note, Person, Reminder};
         pub fn person(
             conn: &Connection,
             id: u64,
@@ -292,6 +287,65 @@ pub mod cli {
                 }
                 None => {
                     println!("Could not find reminder id {}", id);
+                    return;
+                }
+            }
+        }
+        pub fn reminder(
+            conn: &Connection,
+            id: u64,
+            name: Option<String>,
+            date: Option<String>,
+            description: Option<String>,
+            recurring: Option<String>,
+        ) {
+            let reminder = Reminder::get_by_id(&conn, id);
+
+            match reminder {
+                Some(reminder) => {
+                    if [
+                        name.clone(),
+                        date.clone(),
+                        description.clone(),
+                        recurring.clone(),
+                    ]
+                    .iter()
+                    .all(Option::is_none)
+                    {
+                        println!("You must set at least one of `name`, `date`, `description` or `recurring`");
+                        return;
+                    }
+                    if let Entities::Reminder(mut reminder) = reminder {
+                        reminder.update(name, date, description, recurring);
+                        reminder
+                            .save(&conn)
+                            .expect(format!("Failed to update reminder: {:#?}", reminder).as_str());
+                        println!("Updated reminder: {:#?}", reminder);
+                    }
+                }
+                None => {
+                    println!("Could not find reminder id {}", id);
+                    return;
+                }
+            }
+        }
+        pub fn note(conn: &Connection, id: u64, date: Option<String>, content: Option<String>) {
+            let note = Note::get_by_id(&conn, id);
+
+            match note {
+                Some(note) => {
+                    if [date.clone(), content.clone()].iter().all(Option::is_none) {
+                        println!("You must set at least one of `date` or `content`");
+                    }
+                    if let Entities::Note(mut note) = note {
+                        note.update(date, content);
+                        note.save(&conn)
+                            .expect(format!("Failed to update note: {:#?}", note).as_str());
+                        println!("Updated note: {:#?}", note);
+                    }
+                }
+                None => {
+                    println!("Could not find note id {}", id);
                     return;
                 }
             }

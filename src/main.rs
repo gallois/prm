@@ -300,56 +300,10 @@ fn main() {
                 description,
                 recurring,
             } => {
-                let reminder = Reminder::get_by_id(&conn, id);
-
-                match reminder {
-                    Some(reminder) => {
-                        if [
-                            name.clone(),
-                            date.clone(),
-                            description.clone(),
-                            recurring.clone(),
-                        ]
-                        .iter()
-                        .all(Option::is_none)
-                        {
-                            println!("You must set at least one of `name`, `date`, `description` or `recurring`");
-                            return;
-                        }
-                        if let Entities::Reminder(mut reminder) = reminder {
-                            reminder.update(name, date, description, recurring);
-                            reminder.save(&conn).expect(
-                                format!("Failed to update reminder: {:#?}", reminder).as_str(),
-                            );
-                            println!("Updated reminder: {:#?}", reminder);
-                        }
-                    }
-                    None => {
-                        println!("Could not find reminder id {}", id);
-                        return;
-                    }
-                }
+                prm::cli::edit::reminder(&conn, id, name, date, description, recurring);
             }
             EditEntity::Note { id, date, content } => {
-                let note = Note::get_by_id(&conn, id);
-
-                match note {
-                    Some(note) => {
-                        if [date.clone(), content.clone()].iter().all(Option::is_none) {
-                            println!("You must set at least one of `date` or `content`");
-                        }
-                        if let Entities::Note(mut note) = note {
-                            note.update(date, content);
-                            note.save(&conn)
-                                .expect(format!("Failed to update note: {:#?}", note).as_str());
-                            println!("Updated note: {:#?}", note);
-                        }
-                    }
-                    None => {
-                        println!("Could not find note id {}", id);
-                        return;
-                    }
-                }
+                prm::cli::edit::note(&conn, id, date, content);
             }
         },
         Commands::Remove(remove) => match remove.entity {
