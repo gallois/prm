@@ -524,6 +524,7 @@ pub mod db_helpers {
         ",
             "INSERT INTO recurring_types (type, deleted)
          VALUES
+            ('OneTime', FALSE),
             ('Daily', FALSE),
             ('Weekly', FALSE),
             ('Fortnightly', FALSE),

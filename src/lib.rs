@@ -175,6 +175,43 @@ pub mod cli {
                 Err(_) => panic!("Error while adding {:#?}", activity),
             };
         }
+        pub fn reminder(
+            conn: &crate::Connection,
+            name: String,
+            date: String,
+            recurring: Option<String>,
+            description: Option<String>,
+            people: Vec<String>,
+        ) {
+            let recurring_type = match recurring {
+                Some(recurring_type_str) => match recurring_type_str.as_str() {
+                    "daily" => Some(crate::RecurringType::Daily),
+                    "weekly" => Some(crate::RecurringType::Weekly),
+                    "fortnightly" => Some(crate::RecurringType::Fortnightly),
+                    "monthly" => Some(crate::RecurringType::Monthly),
+                    "quarterly" => Some(crate::RecurringType::Quarterly),
+                    "biannual" => Some(crate::RecurringType::Biannual),
+                    "yearly" => Some(crate::RecurringType::Yearly),
+                    _ => panic!("Unknown recurring pattern"),
+                },
+                None => None,
+            };
+
+            let date_obj = match crate::helpers::parse_from_str_ymd(date.as_str()) {
+                Ok(date) => date,
+                Err(error) => panic!("Error parsing date: {}", error),
+            };
+
+            let people = crate::Person::get_by_names(&conn, people);
+
+            let reminder =
+                crate::Reminder::new(0, name, date_obj, description, recurring_type, people);
+            println!("Reminder: {:#?}", reminder);
+            match reminder.add(&conn) {
+                Ok(_) => println!("{:#?} added successfully", reminder),
+                Err(_) => panic!("Error while adding {:#?}", reminder),
+            };
+        }
     }
 }
 
@@ -1130,7 +1167,7 @@ impl Reminder {
                 "yearly" => Some(RecurringType::Yearly),
                 _ => panic!("Unknown recurring pattern"),
             },
-            None => None,
+            None => Some(RecurringType::OneTime),
         };
 
         if let Some(recurring_type) = recurring_type {
@@ -1161,7 +1198,7 @@ impl crate::db::db_interface::DbOperations for Reminder {
 
         let recurring_str = match &self.recurring {
             Some(recurring_type) => recurring_type.as_ref(),
-            None => "",
+            None => "OneTime",
         };
 
         let date_str = self.date.to_string();
@@ -1332,6 +1369,7 @@ impl fmt::Display for Reminder {
 
 #[derive(Debug, AsRefStr, EnumString)]
 pub enum RecurringType {
+    OneTime,
     Daily,
     Weekly,
     Fortnightly,

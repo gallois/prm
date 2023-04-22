@@ -241,34 +241,7 @@ fn main() {
                 description,
                 people,
             } => {
-                let recurring_type = match recurring {
-                    Some(recurring_type_str) => match recurring_type_str.as_str() {
-                        "daily" => Some(RecurringType::Daily),
-                        "weekly" => Some(RecurringType::Weekly),
-                        "fortnightly" => Some(RecurringType::Fortnightly),
-                        "monthly" => Some(RecurringType::Monthly),
-                        "quarterly" => Some(RecurringType::Quarterly),
-                        "biannual" => Some(RecurringType::Biannual),
-                        "yearly" => Some(RecurringType::Yearly),
-                        _ => panic!("Unknown recurring pattern"),
-                    },
-                    None => None,
-                };
-
-                let date_obj = match prm::helpers::parse_from_str_ymd(date.as_str()) {
-                    Ok(date) => date,
-                    Err(error) => panic!("Error parsing date: {}", error),
-                };
-
-                let people = Person::get_by_names(&conn, people);
-
-                let reminder =
-                    Reminder::new(0, name, date_obj, description, recurring_type, people);
-                println!("Reminder: {:#?}", reminder);
-                match reminder.add(&conn) {
-                    Ok(_) => println!("{:#?} added successfully", reminder),
-                    Err(_) => panic!("Error while adding {:#?}", reminder),
-                };
+                prm::cli::add::reminder(&conn, name, date, recurring, description, people);
             }
             AddEntity::Notes { content, people } => {
                 let date = Utc::now().date_naive();
