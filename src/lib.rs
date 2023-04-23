@@ -12,9 +12,9 @@ pub enum ParseError {
     FormatError,
 }
 
-pub static PERSON_TEMPLATE: &str = "Name: 
-Birthday:
-Contact Info:
+pub static PERSON_TEMPLATE: &str = "Name: {name}
+Birthday: {birthday}
+Contact Info: {contact_info}
 ";
 
 pub mod helpers {
@@ -51,6 +51,10 @@ pub mod cli {
         use chrono::NaiveDate;
         use edit;
 
+        extern crate strfmt;
+        use std::collections::HashMap;
+        use strfmt::strfmt;
+
         pub fn person(
             conn: &Connection,
             name: Option<String>,
@@ -63,7 +67,14 @@ pub mod cli {
             let mut editor = false;
             if name == None {
                 editor = true;
-                let edited = edit::edit(PERSON_TEMPLATE).unwrap();
+
+                let mut vars = HashMap::new();
+                vars.insert("name".to_string(), "");
+                vars.insert("birthday".to_string(), "");
+                vars.insert("contact_info".to_string(), "");
+
+                // let edited = edit::edit(PERSON_TEMPLATE).unwrap();
+                let edited = edit::edit(strfmt(PERSON_TEMPLATE, &vars).unwrap()).unwrap();
                 let (n, b, c) = match Person::parse_from_editor(edited.as_str()) {
                     Ok((person, birthday, contact_info)) => (person, birthday, contact_info),
                     Err(_) => panic!("Error parsing person"),
