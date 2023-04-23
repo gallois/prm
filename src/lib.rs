@@ -73,7 +73,6 @@ pub mod cli {
                 vars.insert("birthday".to_string(), "");
                 vars.insert("contact_info".to_string(), "");
 
-                // let edited = edit::edit(PERSON_TEMPLATE).unwrap();
                 let edited = edit::edit(strfmt(PERSON_TEMPLATE, &vars).unwrap()).unwrap();
                 let (n, b, c) = match Person::parse_from_editor(edited.as_str()) {
                     Ok((person, birthday, contact_info)) => (person, birthday, contact_info),
@@ -229,7 +228,10 @@ pub mod cli {
 
     pub mod edit {
         use crate::db::db_interface::DbOperations;
-        use crate::{Activity, Connection, Entities, Note, Person, Reminder};
+        use crate::{Activity, Connection, Entities, Note, Person, Reminder, PERSON_TEMPLATE};
+        extern crate strfmt;
+        use std::collections::HashMap;
+        use strfmt::strfmt;
         pub fn person(
             conn: &Connection,
             id: u64,
@@ -237,6 +239,28 @@ pub mod cli {
             birthday: Option<String>,
             contact_info: Option<String>,
         ) {
+            let mut editor = false;
+            if [name.clone(), birthday.clone(), contact_info.clone()]
+                .iter()
+                .all(Option::is_none)
+            {
+                editor = true;
+
+                let mut vars = HashMap::new();
+                vars.insert("name".to_string(), "");
+                vars.insert("birthday".to_string(), "");
+                vars.insert("contact_info".to_string(), "");
+
+                let edited = edit::edit(strfmt(PERSON_TEMPLATE, &vars).unwrap()).unwrap();
+                let (n, b, c) = match Person::parse_from_editor(edited.as_str()) {
+                    Ok((person, birthday, contact_info)) => (person, birthday, contact_info),
+                    Err(_) => panic!("Error parsing person"),
+                };
+                name_str = n;
+                birthday_str = b;
+                contact_info_vec = c;
+            }
+
             let person = Person::get_by_id(&conn, id);
 
             match person {
