@@ -2,10 +2,7 @@ use chrono::prelude::*;
 use clap::builder::ArgAction;
 use clap::{Args, Parser, Subcommand};
 use prm::db::db_interface::DbOperations;
-use prm::{
-    Activity, ActivityType, ContactInfo, ContactInfoType, Entities, Event, Note, Person,
-    RecurringType, Reminder,
-};
+use prm::{Activity, Entities, Event, Note, Person, Reminder};
 use rusqlite::Connection;
 
 #[derive(Parser)]
