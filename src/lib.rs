@@ -241,8 +241,7 @@ pub mod cli {
         ) {
             let mut name_str: Option<String> = None;
             let mut birthday_str: Option<String> = None;
-            // let mut contact_info_vec: Vec<String> = vec![];
-            // FIXME contact info is broken on editor
+            // FIXME support multiple contact info in editor
             let mut contact_info_str: Option<String> = None;
             let mut editor = false;
 
@@ -259,11 +258,23 @@ pub mod cli {
                             Entities::Person(person) => person,
                             _ => panic!("not a person"),
                         };
+                        let contact_info_field = person
+                            .contact_info
+                            .iter()
+                            .map(|contact_info| {
+                                format!(
+                                    "{}:{}",
+                                    contact_info.contact_info_type.as_ref().to_lowercase(),
+                                    contact_info.details
+                                )
+                            })
+                            .collect::<Vec<String>>()
+                            .join(",");
 
                         let mut vars = HashMap::new();
                         vars.insert("name".to_string(), person.name.clone());
                         vars.insert("birthday".to_string(), person.birthday.unwrap().to_string());
-                        vars.insert("contact_info".to_string(), "".to_string());
+                        vars.insert("contact_info".to_string(), contact_info_field);
 
                         let edited = edit::edit(strfmt(PERSON_TEMPLATE, &vars).unwrap()).unwrap();
                         let (n, b, c) = match Person::parse_from_editor(edited.as_str()) {
