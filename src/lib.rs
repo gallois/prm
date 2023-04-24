@@ -239,37 +239,13 @@ pub mod cli {
             birthday: Option<String>,
             contact_info: Option<String>,
         ) {
+            let mut name_str: Option<String> = None;
+            let mut birthday_str: Option<String> = None;
+            // let mut contact_info_vec: Vec<String> = vec![];
+            let mut contact_info_str: Option<String> = None;
             let mut editor = false;
 
             let person = Person::get_by_id(&conn, id);
-
-            if [name.clone(), birthday.clone(), contact_info.clone()]
-                .iter()
-                .all(Option::is_none)
-            {
-                editor = true;
-                let person = match person {
-                    Some(person) => match person {
-                        Entities::Person(person) => person,
-                        _ => panic!("not a person"),
-                    },
-                    None => panic!("Could not find person"),
-                };
-
-                let mut vars = HashMap::new();
-                vars.insert("name".to_string(), person.name);
-                vars.insert("birthday".to_string(), person.birthday.unwrap().to_string());
-                vars.insert("contact_info".to_string(), "".to_string());
-
-                let edited = edit::edit(strfmt(PERSON_TEMPLATE, &vars).unwrap()).unwrap();
-                let (n, b, c) = match Person::parse_from_editor(edited.as_str()) {
-                    Ok((person, birthday, contact_info)) => (person, birthday, contact_info),
-                    Err(_) => panic!("Error parsing person"),
-                };
-                // name_str = n;
-                // birthday_str = b;
-                // contact_info_vec = c;
-            }
 
             match person {
                 Some(person) => {
@@ -277,34 +253,38 @@ pub mod cli {
                         .iter()
                         .all(Option::is_none)
                     {
-                        //     println!(
-                        //         "You must set at least one of `name`, `birthday` or `contact_info`"
-                        //     );
-                        //     editor = true;
+                        editor = true;
+                        let mut person = match person {
+                            Entities::Person(person) => person,
+                            _ => panic!("not a person"),
+                        };
 
-                        //     let mut vars = HashMap::new();
-                        //     vars.insert("name".to_string(), person.name);
-                        //     vars.insert("birthday".to_string(), person.birthday.to_string());
-                        //     vars.insert("contact_info".to_string(), "");
+                        let mut vars = HashMap::new();
+                        vars.insert("name".to_string(), person.name.clone());
+                        vars.insert("birthday".to_string(), person.birthday.unwrap().to_string());
+                        vars.insert("contact_info".to_string(), "".to_string());
 
-                        //     let edited = edit::edit(strfmt(PERSON_TEMPLATE, &vars).unwrap()).unwrap();
-                        //     let (n, b, c) = match Person::parse_from_editor(edited.as_str()) {
-                        //         Ok((person, birthday, contact_info)) => {
-                        //             (person, birthday, contact_info)
-                        //         }
-                        //         Err(_) => panic!("Error parsing person"),
-                        //     };
-                        //     name_str = n;
-                        //     birthday_str = b;
-                        //     contact_info_vec = c;
-                    } else {
-                        if let Entities::Person(mut person) = person {
+                        let edited = edit::edit(strfmt(PERSON_TEMPLATE, &vars).unwrap()).unwrap();
+                        let (n, b, c) = match Person::parse_from_editor(edited.as_str()) {
+                            Ok((person, birthday, contact_info)) => {
+                                (person, birthday, contact_info)
+                            }
+                            Err(_) => panic!("Error parsing person"),
+                        };
+                        name_str = Some(n);
+                        birthday_str = b;
+                        // contact_info_vec = c;
+                        contact_info_str = Some(c[0].to_string());
+
+                        if editor {
+                            person.update(name_str, birthday_str, contact_info_str);
+                        } else {
                             person.update(name, birthday, contact_info);
-                            person
-                                .save(&conn)
-                                .expect(format!("Failed to update person: {}", person).as_str());
-                            println!("Updated person: {}", person);
                         }
+                        person
+                            .save(&conn)
+                            .expect(format!("Failed to update person: {}", person).as_str());
+                        println!("Updated person: {}", person);
                     }
                 }
                 None => {
