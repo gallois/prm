@@ -285,8 +285,7 @@ pub mod cli {
                         };
                         name_str = Some(n);
                         birthday_str = b;
-                        // contact_info_vec = c;
-                        contact_info_str = Some(c[0].to_string());
+                        contact_info_str = Some(c.join(","));
 
                         if editor {
                             person.update(name_str, birthday_str, contact_info_str);
@@ -574,39 +573,43 @@ impl Person {
             self.birthday = birthday_obj;
         }
 
-        let contact_info_split: Vec<String>;
+        let mut contact_info_splits: Vec<Vec<String>> = vec![];
         let mut contact_info_type: Option<ContactInfoType> = None;
-        // TODO allow for multiple contact info on creation
+        let mut contact_info_vec: Vec<ContactInfo> = Vec::new();
         match contact_info {
-            Some(contact_info_str) => {
-                contact_info_split = contact_info_str.split(":").map(|x| x.to_string()).collect()
+            Some(contact_info_vec) => {
+                for contact_info_str in contact_info_vec.split(",") {
+                    contact_info_splits
+                        .push(contact_info_str.split(":").map(|x| x.to_string()).collect());
+                }
             }
-            None => contact_info_split = vec![],
+            None => contact_info_splits = vec![],
         }
 
-        if contact_info_split.len() > 0 {
-            match contact_info_split[0].as_str() {
-                "phone" => {
-                    contact_info_type = Some(ContactInfoType::Phone(contact_info_split[1].clone()))
+        if contact_info_splits.len() > 0 {
+            for contact_info_split in contact_info_splits.iter() {
+                match contact_info_split[0].as_str() {
+                    "phone" => {
+                        contact_info_type =
+                            Some(ContactInfoType::Phone(contact_info_split[1].clone()))
+                    }
+                    "whatsapp" => {
+                        contact_info_type =
+                            Some(ContactInfoType::WhatsApp(contact_info_split[1].clone()))
+                    }
+                    "email" => {
+                        contact_info_type =
+                            Some(ContactInfoType::Email(contact_info_split[1].clone()))
+                    }
+                    // TODO proper error handling and messaging
+                    _ => panic!("Unknown contact info type"),
                 }
-                "whatsapp" => {
-                    contact_info_type =
-                        Some(ContactInfoType::WhatsApp(contact_info_split[1].clone()))
+                if let Some(contact_info_type) = contact_info_type {
+                    contact_info_vec.push(ContactInfo::new(0, self.id, contact_info_type));
                 }
-                "email" => {
-                    contact_info_type = Some(ContactInfoType::Email(contact_info_split[1].clone()))
-                }
-                // TODO proper error handling and messaging
-                _ => panic!("Unknown contact info type"),
             }
         }
-
-        let mut contact_info: Vec<ContactInfo> = Vec::new();
-        if let Some(contact_info_type) = contact_info_type {
-            contact_info.push(ContactInfo::new(0, self.id, contact_info_type));
-        }
-
-        self.contact_info = contact_info;
+        self.contact_info = contact_info_vec;
 
         self
     }
@@ -777,6 +780,7 @@ impl crate::db::db_interface::DbOperations for Person {
             Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
         }
 
+        // FIXME support multiple contact info
         if self.contact_info.len() > 0 {
             let (ci_type, ci_value): (String, &str) = match &self.contact_info[0].contact_info_type
             {
