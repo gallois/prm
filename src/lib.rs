@@ -242,6 +242,7 @@ pub mod cli {
             let mut name_str: Option<String> = None;
             let mut birthday_str: Option<String> = None;
             // let mut contact_info_vec: Vec<String> = vec![];
+            // FIXME contact info is broken on editor
             let mut contact_info_str: Option<String> = None;
             let mut editor = false;
 
