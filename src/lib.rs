@@ -780,45 +780,43 @@ impl crate::db::db_interface::DbOperations for Person {
             Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
         }
 
-        // FIXME support multiple contact info
         if self.contact_info.len() > 0 {
-            let (ci_type, ci_value): (String, &str) = match &self.contact_info[0].contact_info_type
-            {
-                ContactInfoType::Phone(value) => (
-                    ContactInfoType::Phone(value.clone()).as_ref().to_owned(),
-                    value.as_ref(),
-                ),
-                ContactInfoType::WhatsApp(value) => (
-                    ContactInfoType::WhatsApp(value.clone()).as_ref().to_owned(),
-                    value.as_ref(),
-                ),
-                ContactInfoType::Email(value) => (
-                    ContactInfoType::Email(value.clone()).as_ref().to_owned(),
-                    value.as_ref(),
-                ),
-            };
+            for ci in self.contact_info.iter() {
+                let (ci_type, ci_value): (String, &str) = match &ci.contact_info_type {
+                    ContactInfoType::Phone(value) => (
+                        ContactInfoType::Phone(value.clone()).as_ref().to_owned(),
+                        value.as_ref(),
+                    ),
+                    ContactInfoType::WhatsApp(value) => (
+                        ContactInfoType::WhatsApp(value.clone()).as_ref().to_owned(),
+                        value.as_ref(),
+                    ),
+                    ContactInfoType::Email(value) => (
+                        ContactInfoType::Email(value.clone()).as_ref().to_owned(),
+                        value.as_ref(),
+                    ),
+                };
+                // TODO error handling
+                let mut stmt = conn
+                    .prepare("SELECT id FROM contact_info_types WHERE type = ?")
+                    .unwrap();
+                let mut rows = stmt.query(params![ci_type]).unwrap();
+                let mut types: Vec<u32> = Vec::new();
+                while let Some(row) = rows.next().unwrap() {
+                    types.push(row.get(0).unwrap());
+                }
 
-            // TODO error handling
-            let mut stmt = conn
-                .prepare("SELECT id FROM contact_info_types WHERE type = ?")
-                .unwrap();
-            let mut rows = stmt.query(params![ci_type]).unwrap();
-            let mut types: Vec<u32> = Vec::new();
-            while let Some(row) = rows.next().unwrap() {
-                types.push(row.get(0).unwrap());
-            }
+                let mut stmt = conn
+                    .prepare("SELECT id FROM contact_info WHERE person_id = ?1 AND contact_info_type_id = ?2")
+                    .unwrap();
+                let mut rows = stmt.query(params![self.id, types[0]]).unwrap();
+                let mut ci_ids: Vec<u32> = Vec::new();
+                while let Some(row) = rows.next().unwrap() {
+                    ci_ids.push(row.get(0).unwrap());
+                }
 
-            let mut stmt = conn
-                .prepare("SELECT id FROM contact_info WHERE person_id = ?")
-                .unwrap();
-            let mut rows = stmt.query(params![self.id]).unwrap();
-            let mut ci_ids: Vec<u32> = Vec::new();
-            while let Some(row) = rows.next().unwrap() {
-                ci_ids.push(row.get(0).unwrap());
-            }
-
-            match conn.execute(
-                "UPDATE
+                match conn.execute(
+                    "UPDATE
                     contact_info 
                 SET
                     person_id = ?1,
@@ -826,12 +824,13 @@ impl crate::db::db_interface::DbOperations for Person {
                     contact_info_details = ?3
                 WHERE
                     id = ?4",
-                params![self.id, types[0], ci_value, ci_ids[0]],
-            ) {
-                Ok(updated) => {
-                    println!("[DEBUG] {} rows were updated", updated);
+                    params![self.id, types[0], ci_value, ci_ids[0]],
+                ) {
+                    Ok(updated) => {
+                        println!("[DEBUG] {} rows were updated", updated);
+                    }
+                    Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
                 }
-                Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
             }
         }
 
