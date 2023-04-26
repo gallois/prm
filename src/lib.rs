@@ -17,6 +17,12 @@ Birthday: {birthday}
 Contact Info: {contact_info}
 ";
 
+pub static ACTIVITY_TEMPLATE: &str = "Name: {name}
+Date: {date}
+Activity Type: {activity_type}
+Content: {content}
+";
+
 pub mod helpers {
     // Helper function to return a comma-separated sequence of `?`.
     // - `repeat_vars(0) => panic!(...)`
@@ -46,7 +52,7 @@ pub mod cli {
         use crate::db::db_interface::DbOperations;
         use crate::{
             helpers, Activity, ActivityType, Connection, ContactInfo, ContactInfoType, Person,
-            RecurringType, Reminder, PERSON_TEMPLATE,
+            RecurringType, Reminder, ACTIVITY_TEMPLATE, PERSON_TEMPLATE,
         };
         use chrono::NaiveDate;
         use edit;
@@ -161,12 +167,40 @@ pub mod cli {
         }
         pub fn activity(
             conn: &Connection,
-            name: String,
+            name: Option<String>,
             activity_type: String,
             date: String,
             content: String,
             people: Vec<String>,
         ) {
+            let mut name_str: String = String::new();
+            let mut date_str: Option<String> = None;
+            let mut activity_type_str: Option<String> = None;
+            let mut content_str: Option<String> = None;
+
+            let mut editor = false;
+            if name == None {
+                editor = true;
+
+                let mut vars = HashMap::new();
+                vars.insert("name".to_string(), "");
+                vars.insert("date".to_string(), "");
+                vars.insert("activity_type".to_string(), "");
+                vars.insert("content".to_string(), "");
+
+                let edited = edit::edit(strfmt(ACTIVITY_TEMPLATE, &vars).unwrap()).unwrap();
+                let (n, d, t, c) = match Activity::parse_from_editor(edited.as_str()) {
+                    Ok((name, date, activity_type, content)) => {
+                        (name, date, activity_type, content)
+                    }
+                    Err(_) => panic!("Error parsing person"),
+                };
+                name_str = n;
+                date_str = d;
+                activity_type_str = t;
+                content_str = c;
+            }
+
             let activity_type = match activity_type.as_str() {
                 "phone" => ActivityType::Phone,
                 "in_person" => ActivityType::InPerson,
@@ -182,12 +216,15 @@ pub mod cli {
 
             let people = Person::get_by_names(&conn, people);
 
-            let activity = Activity::new(0, name, activity_type, date_obj, content, people);
+            // let activity = Activity::new(0, name, activity_type, date_obj, content, people);
+            let activity =
+                Activity::new(0, name.unwrap(), activity_type, date_obj, content, people);
             match activity.add(&conn) {
                 Ok(_) => println!("{:#?} added successfully", activity),
                 Err(_) => panic!("Error while adding {:#?}", activity),
             };
         }
+
         pub fn reminder(
             conn: &Connection,
             name: String,
@@ -1050,6 +1087,43 @@ impl Activity {
         }
 
         self
+    }
+    pub fn parse_from_editor(
+        content: &str,
+    ) -> Result<(String, Option<String>, Option<String>, Option<String>), crate::ParseError> {
+        let mut error = false;
+        let mut name: String = String::new();
+        let mut date: Option<String> = None;
+        let mut activity_type: Option<String> = None;
+        let mut activity_content: Option<String> = None;
+
+        let name_prefix = "Name: ";
+        let date_prefix = "Date: ";
+        let activity_type_prefix = "Activity Type: ";
+        let activity_content_prefix = "Content: ";
+
+        content.lines().for_each(|line| match line {
+            s if s.starts_with(name_prefix) => {
+                name = s.trim_start_matches(name_prefix).to_string();
+            }
+            s if s.starts_with(date_prefix) => {
+                date = Some(s.trim_start_matches(date_prefix).to_string());
+            }
+            s if s.starts_with(activity_type_prefix) => {
+                activity_type = Some(s.trim_start_matches(activity_type_prefix).to_string());
+            }
+            s if s.starts_with(activity_content_prefix) => {
+                activity_content = Some(s.trim_start_matches(activity_content_prefix).to_string());
+            }
+            // FIXME
+            _ => error = true,
+        });
+
+        if error {
+            return Err(crate::ParseError::FormatError);
+        }
+
+        Ok((name, date, activity_type, activity_content))
     }
 }
 

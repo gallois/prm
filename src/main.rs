@@ -66,7 +66,7 @@ enum AddEntity {
         contact_info: Option<Vec<String>>,
     },
     Activity {
-        name: String,
+        name: Option<String>,
         #[arg(short, long)]
         activity_type: String,
         #[arg(short, long)]
