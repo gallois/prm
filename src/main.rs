@@ -68,11 +68,11 @@ enum AddEntity {
     Activity {
         name: Option<String>,
         #[arg(short, long)]
-        activity_type: String,
+        activity_type: Option<String>,
         #[arg(short, long)]
-        date: String,
+        date: Option<String>,
         #[arg(short, long)]
-        content: String,
+        content: Option<String>,
         #[arg(short, long)]
         people: Vec<String>,
     },

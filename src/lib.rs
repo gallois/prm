@@ -168,15 +168,16 @@ pub mod cli {
         pub fn activity(
             conn: &Connection,
             name: Option<String>,
-            activity_type: String,
-            date: String,
-            content: String,
+            activity_type: Option<String>,
+            date: Option<String>,
+            content: Option<String>,
             people: Vec<String>,
         ) {
+            // FIXME rename those to _string
             let mut name_str: String = String::new();
-            let mut date_str: Option<String> = None;
-            let mut activity_type_str: Option<String> = None;
-            let mut content_str: Option<String> = None;
+            let mut date_str: String = String::new();
+            let mut activity_type_str: String = String::new();
+            let mut content_str: String = String::new();
 
             let mut editor = false;
             if name == None {
@@ -196,12 +197,25 @@ pub mod cli {
                     Err(_) => panic!("Error parsing person"),
                 };
                 name_str = n;
-                date_str = d;
-                activity_type_str = t;
-                content_str = c;
+                date_str = d.unwrap();
+                activity_type_str = t.unwrap();
+                content_str = c.unwrap();
+            } else {
+                if [activity_type.clone(), date.clone(), content.clone()]
+                    .iter()
+                    .any(Option::is_none)
+                {
+                    // FIXME opening the editor here is a better behaviour
+                    println!("if `name` isn't set, all of `activity_type`, `date`, and `content` must be set");
+                    return;
+                }
+                name_str = name.unwrap();
+                activity_type_str = activity_type.unwrap();
+                date_str = date.unwrap();
+                content_str = content.unwrap();
             }
 
-            let activity_type = match activity_type.as_str() {
+            let activity_type = match activity_type_str.as_str() {
                 "phone" => ActivityType::Phone,
                 "in_person" => ActivityType::InPerson,
                 "online" => ActivityType::Online,
@@ -209,16 +223,14 @@ pub mod cli {
                 _ => panic!("Unknown reminder type"),
             };
 
-            let date_obj = match helpers::parse_from_str_ymd(date.as_str()) {
+            let date_obj = match helpers::parse_from_str_ymd(date_str.as_str()) {
                 Ok(date) => date,
                 Err(error) => panic!("Error parsing date: {}", error),
             };
 
             let people = Person::get_by_names(&conn, people);
 
-            // let activity = Activity::new(0, name, activity_type, date_obj, content, people);
-            let activity =
-                Activity::new(0, name.unwrap(), activity_type, date_obj, content, people);
+            let activity = Activity::new(0, name_str, activity_type, date_obj, content_str, people);
             match activity.add(&conn) {
                 Ok(_) => println!("{:#?} added successfully", activity),
                 Err(_) => panic!("Error while adding {:#?}", activity),
