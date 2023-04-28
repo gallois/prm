@@ -29,6 +29,10 @@ Recurring: {recurring_type}
 Description: {description}
 ";
 
+pub static NOTE_TEMPLATE: &str = "Content: {content}
+People: {people}
+";
+
 pub mod helpers {
     // Helper function to return a comma-separated sequence of `?`.
     // - `repeat_vars(0) => panic!(...)`
@@ -57,9 +61,11 @@ pub mod cli {
     pub mod add {
         use crate::db::db_interface::DbOperations;
         use crate::{
-            helpers, Activity, ActivityType, Connection, ContactInfo, ContactInfoType, Person,
-            RecurringType, Reminder, ACTIVITY_TEMPLATE, PERSON_TEMPLATE, REMINDER_TEMPLATE,
+            helpers, Activity, ActivityType, Connection, ContactInfo, ContactInfoType, Note,
+            Person, RecurringType, Reminder, ACTIVITY_TEMPLATE, NOTE_TEMPLATE, PERSON_TEMPLATE,
+            REMINDER_TEMPLATE,
         };
+        use chrono::prelude::*;
         use chrono::NaiveDate;
         use edit;
 
@@ -319,6 +325,41 @@ pub mod cli {
             match reminder.add(&conn) {
                 Ok(_) => println!("{:#?} added successfully", reminder),
                 Err(_) => panic!("Error while adding {:#?}", reminder),
+            };
+        }
+
+        pub fn note(conn: &Connection, content: Option<String>, people: Vec<String>) {
+            let mut content_string: String = String::new();
+            let mut people_vec: Vec<Person> = Vec::new();
+
+            let mut editor = false;
+            if content == None {
+                editor = true;
+
+                let mut vars = HashMap::new();
+                vars.insert("content".to_string(), "");
+                vars.insert("people".to_string(), "");
+
+                let edited = edit::edit(strfmt(NOTE_TEMPLATE, &vars).unwrap()).unwrap();
+                let (c, p) = match Note::parse_from_editor(edited.as_str()) {
+                    Ok((c, p)) => (c, p),
+                    Err(_) => panic!("Error parsing note"),
+                };
+                content_string = c;
+                people_vec = Person::get_by_names(&conn, p);
+            }
+
+            if !editor {
+                content_string = content.unwrap();
+                people_vec = Person::get_by_names(&conn, people);
+            }
+            let date = Utc::now().date_naive();
+
+            let note = Note::new(0, date, content_string, people_vec);
+            println!("Note: {:#?}", note);
+            match note.add(&conn) {
+                Ok(_) => println!("{:#?} added successfully", note),
+                Err(_) => panic!("Error while adding {:#?}", note),
             };
         }
     }
@@ -1893,6 +1934,33 @@ impl Note {
         }
 
         self
+    }
+
+    pub fn parse_from_editor(content: &str) -> Result<(String, Vec<String>), crate::ParseError> {
+        let mut error = false;
+        let mut note_contents: String = String::new();
+        let mut people: Vec<String> = Vec::new();
+
+        let content_prefix = "Content: ";
+        let people_prefix = "People: ";
+
+        content.lines().for_each(|line| match line {
+            s if s.starts_with(content_prefix) => {
+                note_contents = s.trim_start_matches(content_prefix).to_string();
+            }
+            s if s.starts_with(people_prefix) => {
+                let people_str = s.trim_start_matches(people_prefix);
+                people = people_str.split(",").map(|x| x.to_string()).collect();
+            }
+            // FIXME
+            _ => error = true,
+        });
+
+        if error {
+            return Err(crate::ParseError::FormatError);
+        }
+
+        Ok((note_contents, people))
     }
 }
 

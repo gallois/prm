@@ -88,7 +88,7 @@ enum AddEntity {
         people: Vec<String>,
     },
     Notes {
-        content: String,
+        content: Option<String>,
         #[arg(short, long)]
         people: Vec<String>,
     },
@@ -241,16 +241,7 @@ fn main() {
                 prm::cli::add::reminder(&conn, name, date, recurring, description, people);
             }
             AddEntity::Notes { content, people } => {
-                let date = Utc::now().date_naive();
-
-                let people = Person::get_by_names(&conn, people);
-
-                let note = Note::new(0, date, content, people);
-                println!("Note: {:#?}", note);
-                match note.add(&conn) {
-                    Ok(_) => println!("{:#?} added successfully", note),
-                    Err(_) => panic!("Error while adding {:#?}", note),
-                };
+                prm::cli::add::note(&conn, content, people);
             }
         },
         Commands::Show(show) => match show.entity {
