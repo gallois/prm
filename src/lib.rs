@@ -55,6 +55,10 @@ pub mod helpers {
     pub fn parse_from_str_md(date: &str) -> Result<chrono::NaiveDate, chrono::ParseError> {
         parse_from_str_ymd(format!("1-{}", date).as_ref())
     }
+
+    pub fn unwrap_arg_or_empty_string(arg: Option<String>) -> String {
+        arg.unwrap_or("".to_string())
+    }
 }
 
 pub mod cli {
@@ -87,9 +91,18 @@ pub mod cli {
                 editor = true;
 
                 let mut vars = HashMap::new();
-                vars.insert("name".to_string(), "");
-                vars.insert("birthday".to_string(), "");
-                vars.insert("contact_info".to_string(), "");
+                vars.insert(
+                    "name".to_string(),
+                    helpers::unwrap_arg_or_empty_string(name.clone()),
+                );
+                vars.insert(
+                    "birthday".to_string(),
+                    helpers::unwrap_arg_or_empty_string(birthday.clone()),
+                );
+                vars.insert(
+                    "contact_info".to_string(),
+                    contact_info.clone().unwrap_or_default().join(","),
+                );
 
                 let edited = edit::edit(strfmt(PERSON_TEMPLATE, &vars).unwrap()).unwrap();
                 let (n, b, c) = match Person::parse_from_editor(edited.as_str()) {
@@ -196,10 +209,22 @@ pub mod cli {
                 editor = true;
 
                 let mut vars = HashMap::new();
-                vars.insert("name".to_string(), "");
-                vars.insert("date".to_string(), "");
-                vars.insert("activity_type".to_string(), "");
-                vars.insert("content".to_string(), "");
+                vars.insert(
+                    "name".to_string(),
+                    helpers::unwrap_arg_or_empty_string(name.clone()),
+                );
+                vars.insert(
+                    "date".to_string(),
+                    helpers::unwrap_arg_or_empty_string(date.clone()),
+                );
+                vars.insert(
+                    "activity_type".to_string(),
+                    helpers::unwrap_arg_or_empty_string(activity_type.clone()),
+                );
+                vars.insert(
+                    "content".to_string(),
+                    helpers::unwrap_arg_or_empty_string(content.clone()),
+                );
 
                 let edited = edit::edit(strfmt(ACTIVITY_TEMPLATE, &vars).unwrap()).unwrap();
                 let (n, d, t, c) = match Activity::parse_from_editor(edited.as_str()) {
@@ -267,10 +292,22 @@ pub mod cli {
                 editor = true;
 
                 let mut vars = HashMap::new();
-                vars.insert("name".to_string(), "");
-                vars.insert("date".to_string(), "");
-                vars.insert("recurring_type".to_string(), "");
-                vars.insert("description".to_string(), "");
+                vars.insert(
+                    "name".to_string(),
+                    helpers::unwrap_arg_or_empty_string(name.clone()),
+                );
+                vars.insert(
+                    "date".to_string(),
+                    helpers::unwrap_arg_or_empty_string(date.clone()),
+                );
+                vars.insert(
+                    "recurring_type".to_string(),
+                    helpers::unwrap_arg_or_empty_string(recurring.clone()),
+                );
+                vars.insert(
+                    "description".to_string(),
+                    helpers::unwrap_arg_or_empty_string(description.clone()),
+                );
 
                 let edited = edit::edit(strfmt(REMINDER_TEMPLATE, &vars).unwrap()).unwrap();
                 let (n, da, r, de) = match Reminder::parse_from_editor(edited.as_str()) {
@@ -337,8 +374,11 @@ pub mod cli {
                 editor = true;
 
                 let mut vars = HashMap::new();
-                vars.insert("content".to_string(), "");
-                vars.insert("people".to_string(), "");
+                vars.insert(
+                    "content".to_string(),
+                    helpers::unwrap_arg_or_empty_string(content.clone()),
+                );
+                vars.insert("people".to_string(), people.clone().join(","));
 
                 let edited = edit::edit(strfmt(NOTE_TEMPLATE, &vars).unwrap()).unwrap();
                 let (c, p) = match Note::parse_from_editor(edited.as_str()) {
