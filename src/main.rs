@@ -77,9 +77,9 @@ enum AddEntity {
         people: Vec<String>,
     },
     Reminder {
-        name: String,
+        name: Option<String>,
         #[arg(short, long)]
-        date: String,
+        date: Option<String>,
         #[arg(short, long)]
         recurring: Option<String>,
         #[arg(long)]

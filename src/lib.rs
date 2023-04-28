@@ -23,6 +23,12 @@ Activity Type: {activity_type}
 Content: {content}
 ";
 
+pub static REMINDER_TEMPLATE: &str = "Name: {name}
+Date: {date}
+Recurring: {recurring_type}
+Description: {description}
+";
+
 pub mod helpers {
     // Helper function to return a comma-separated sequence of `?`.
     // - `repeat_vars(0) => panic!(...)`
@@ -52,7 +58,7 @@ pub mod cli {
         use crate::db::db_interface::DbOperations;
         use crate::{
             helpers, Activity, ActivityType, Connection, ContactInfo, ContactInfoType, Person,
-            RecurringType, Reminder, ACTIVITY_TEMPLATE, PERSON_TEMPLATE,
+            RecurringType, Reminder, ACTIVITY_TEMPLATE, PERSON_TEMPLATE, REMINDER_TEMPLATE,
         };
         use chrono::NaiveDate;
         use edit;
@@ -194,7 +200,7 @@ pub mod cli {
                     Ok((name, date, activity_type, content)) => {
                         (name, date, activity_type, content)
                     }
-                    Err(_) => panic!("Error parsing person"),
+                    Err(_) => panic!("Error parsing activity"),
                 };
                 name_str = n;
                 date_str = d.unwrap();
@@ -239,14 +245,49 @@ pub mod cli {
 
         pub fn reminder(
             conn: &Connection,
-            name: String,
-            date: String,
+            name: Option<String>,
+            date: Option<String>,
             recurring: Option<String>,
             description: Option<String>,
             people: Vec<String>,
         ) {
-            let recurring_type = match recurring {
-                Some(recurring_type_str) => match recurring_type_str.as_str() {
+            let mut name_string: String = String::new();
+            let mut date_string: String = String::new();
+            let mut recurring_type_string: String = String::new();
+            let mut description_string: String = String::new();
+
+            let mut editor = false;
+            if name == None {
+                editor = true;
+
+                let mut vars = HashMap::new();
+                vars.insert("name".to_string(), "");
+                vars.insert("date".to_string(), "");
+                vars.insert("recurring_type".to_string(), "");
+                vars.insert("description".to_string(), "");
+
+                let edited = edit::edit(strfmt(REMINDER_TEMPLATE, &vars).unwrap()).unwrap();
+                let (n, da, r, de) = match Reminder::parse_from_editor(edited.as_str()) {
+                    Ok((name, date, recurring_type, description)) => {
+                        (name, date, recurring_type, description)
+                    }
+                    Err(_) => panic!("Error parsing reminder"),
+                };
+                name_string = n;
+                date_string = da.unwrap();
+                recurring_type_string = r.unwrap();
+                description_string = de.unwrap();
+            }
+
+            if !editor {
+                name_string = name.unwrap();
+                date_string = date.unwrap();
+                recurring_type_string = recurring.unwrap();
+                description_string = description.unwrap_or("".to_string());
+            }
+
+            let recurring_type = match recurring_type_string {
+                recurring_type_str => match recurring_type_str.as_str() {
                     "daily" => Some(RecurringType::Daily),
                     "weekly" => Some(RecurringType::Weekly),
                     "fortnightly" => Some(RecurringType::Fortnightly),
@@ -254,19 +295,26 @@ pub mod cli {
                     "quarterly" => Some(RecurringType::Quarterly),
                     "biannual" => Some(RecurringType::Biannual),
                     "yearly" => Some(RecurringType::Yearly),
+                    "onetime" => Some(RecurringType::OneTime),
                     _ => panic!("Unknown recurring pattern"),
                 },
-                None => None,
             };
 
-            let date_obj = match helpers::parse_from_str_ymd(date.as_str()) {
+            let date_obj = match helpers::parse_from_str_ymd(date_string.as_str()) {
                 Ok(date) => date,
                 Err(error) => panic!("Error parsing date: {}", error),
             };
 
             let people = Person::get_by_names(&conn, people);
 
-            let reminder = Reminder::new(0, name, date_obj, description, recurring_type, people);
+            let reminder = Reminder::new(
+                0,
+                name_string,
+                date_obj,
+                Some(description_string),
+                recurring_type,
+                people,
+            );
             println!("Reminder: {:#?}", reminder);
             match reminder.add(&conn) {
                 Ok(_) => println!("{:#?} added successfully", reminder),
@@ -290,7 +338,6 @@ pub mod cli {
         ) {
             let mut name_str: Option<String> = None;
             let mut birthday_str: Option<String> = None;
-            // FIXME support multiple contact info in editor
             let mut contact_info_str: Option<String> = None;
             let mut editor = false;
 
@@ -1454,6 +1501,44 @@ impl Reminder {
         }
 
         self
+    }
+
+    pub fn parse_from_editor(
+        content: &str,
+    ) -> Result<(String, Option<String>, Option<String>, Option<String>), crate::ParseError> {
+        let mut error = false;
+        let mut name: String = String::new();
+        let mut date: Option<String> = None;
+        let mut recurring_type: Option<String> = None;
+        let mut description: Option<String> = None;
+
+        let name_prefix = "Name: ";
+        let date_prefix = "Date: ";
+        let recurring_type_prefix = "Recurring: ";
+        let description_prefix = "Description: ";
+
+        content.lines().for_each(|line| match line {
+            s if s.starts_with(name_prefix) => {
+                name = s.trim_start_matches(name_prefix).to_string();
+            }
+            s if s.starts_with(date_prefix) => {
+                date = Some(s.trim_start_matches(date_prefix).to_string());
+            }
+            s if s.starts_with(recurring_type_prefix) => {
+                recurring_type = Some(s.trim_start_matches(recurring_type_prefix).to_string());
+            }
+            s if s.starts_with(description_prefix) => {
+                description = Some(s.trim_start_matches(description_prefix).to_string());
+            }
+            // FIXME
+            _ => error = true,
+        });
+
+        if error {
+            return Err(crate::ParseError::FormatError);
+        }
+
+        Ok((name, date, recurring_type, description))
     }
 }
 
