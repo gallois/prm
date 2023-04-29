@@ -198,11 +198,10 @@ pub mod cli {
             content: Option<String>,
             people: Vec<String>,
         ) {
-            // FIXME rename those to _string
-            let mut name_str: String = String::new();
-            let mut date_str: String = String::new();
-            let mut activity_type_str: String = String::new();
-            let mut content_str: String = String::new();
+            let mut name_string: String = String::new();
+            let mut date_string: String = String::new();
+            let mut activity_type_string: String = String::new();
+            let mut content_string: String = String::new();
 
             let mut editor = false;
             if name == None {
@@ -233,10 +232,10 @@ pub mod cli {
                     }
                     Err(_) => panic!("Error parsing activity"),
                 };
-                name_str = n;
-                date_str = d.unwrap();
-                activity_type_str = t.unwrap();
-                content_str = c.unwrap();
+                name_string = n;
+                date_string = d.unwrap();
+                activity_type_string = t.unwrap();
+                content_string = c.unwrap();
             } else {
                 if [activity_type.clone(), date.clone(), content.clone()]
                     .iter()
@@ -246,13 +245,13 @@ pub mod cli {
                     println!("if `name` isn't set, all of `activity_type`, `date`, and `content` must be set");
                     return;
                 }
-                name_str = name.unwrap();
-                activity_type_str = activity_type.unwrap();
-                date_str = date.unwrap();
-                content_str = content.unwrap();
+                name_string = name.unwrap();
+                activity_type_string = activity_type.unwrap();
+                date_string = date.unwrap();
+                content_string = content.unwrap();
             }
 
-            let activity_type = match activity_type_str.as_str() {
+            let activity_type = match activity_type_string.as_str() {
                 "phone" => ActivityType::Phone,
                 "in_person" => ActivityType::InPerson,
                 "online" => ActivityType::Online,
@@ -260,14 +259,21 @@ pub mod cli {
                 _ => panic!("Unknown reminder type"),
             };
 
-            let date_obj = match helpers::parse_from_str_ymd(date_str.as_str()) {
+            let date_obj = match helpers::parse_from_str_ymd(date_string.as_str()) {
                 Ok(date) => date,
                 Err(error) => panic!("Error parsing date: {}", error),
             };
 
             let people = Person::get_by_names(&conn, people);
 
-            let activity = Activity::new(0, name_str, activity_type, date_obj, content_str, people);
+            let activity = Activity::new(
+                0,
+                name_string,
+                activity_type,
+                date_obj,
+                content_string,
+                people,
+            );
             match activity.add(&conn) {
                 Ok(_) => println!("{:#?} added successfully", activity),
                 Err(_) => panic!("Error while adding {:#?}", activity),
@@ -406,7 +412,10 @@ pub mod cli {
 
     pub mod edit {
         use crate::db::db_interface::DbOperations;
-        use crate::{Activity, Connection, Entities, Note, Person, Reminder, PERSON_TEMPLATE};
+        use crate::{
+            helpers, Activity, Connection, Entities, Note, Person, Reminder, ACTIVITY_TEMPLATE,
+            PERSON_TEMPLATE,
+        };
         extern crate strfmt;
         use std::collections::HashMap;
         use strfmt::strfmt;
@@ -420,60 +429,64 @@ pub mod cli {
             let mut name_str: Option<String> = None;
             let mut birthday_str: Option<String> = None;
             let mut contact_info_str: Option<String> = None;
-            let mut editor = false;
 
             let person = Person::get_by_id(&conn, id);
 
             match person {
                 Some(person) => {
-                    if [name.clone(), birthday.clone(), contact_info.clone()]
+                    let mut person = match person {
+                        Entities::Person(person) => person,
+                        _ => panic!("not a person"),
+                    };
+                    // TODO allow this to be consumed from args like the args below
+                    let contact_info_field = person
+                        .contact_info
                         .iter()
-                        .all(Option::is_none)
-                    {
-                        editor = true;
-                        let mut person = match person {
-                            Entities::Person(person) => person,
-                            _ => panic!("not a person"),
-                        };
-                        let contact_info_field = person
-                            .contact_info
-                            .iter()
-                            .map(|contact_info| {
-                                format!(
-                                    "{}:{}",
-                                    contact_info.contact_info_type.as_ref().to_lowercase(),
-                                    contact_info.details
-                                )
-                            })
-                            .collect::<Vec<String>>()
-                            .join(",");
+                        .map(|contact_info| {
+                            format!(
+                                "{}:{}",
+                                contact_info.contact_info_type.as_ref().to_lowercase(),
+                                contact_info.details
+                            )
+                        })
+                        .collect::<Vec<String>>()
+                        .join(",");
 
-                        let mut vars = HashMap::new();
-                        vars.insert("name".to_string(), person.name.clone());
-                        vars.insert("birthday".to_string(), person.birthday.unwrap().to_string());
-                        vars.insert("contact_info".to_string(), contact_info_field);
-
-                        let edited = edit::edit(strfmt(PERSON_TEMPLATE, &vars).unwrap()).unwrap();
-                        let (n, b, c) = match Person::parse_from_editor(edited.as_str()) {
-                            Ok((person, birthday, contact_info)) => {
-                                (person, birthday, contact_info)
-                            }
-                            Err(_) => panic!("Error parsing person"),
-                        };
-                        name_str = Some(n);
-                        birthday_str = b;
-                        contact_info_str = Some(c.join(","));
-
-                        if editor {
-                            person.update(name_str, birthday_str, contact_info_str);
-                        } else {
-                            person.update(name, birthday, contact_info);
-                        }
-                        person
-                            .save(&conn)
-                            .expect(format!("Failed to update person: {}", person).as_str());
-                        println!("Updated person: {}", person);
+                    let mut vars = HashMap::new();
+                    let name_placeholder: String;
+                    if name.is_some() {
+                        name_placeholder = name.unwrap();
+                    } else if !person.name.is_empty() {
+                        name_placeholder = person.name.clone();
+                    } else {
+                        name_placeholder = "".to_string();
                     }
+                    let birthday_placeholder: String;
+                    if birthday.is_some() {
+                        birthday_placeholder = birthday.unwrap();
+                    } else if !person.birthday.is_none() {
+                        birthday_placeholder = person.birthday.unwrap().to_string();
+                    } else {
+                        birthday_placeholder = "".to_string();
+                    }
+                    vars.insert("name".to_string(), name_placeholder);
+                    vars.insert("birthday".to_string(), birthday_placeholder);
+                    vars.insert("contact_info".to_string(), contact_info_field);
+
+                    let edited = edit::edit(strfmt(PERSON_TEMPLATE, &vars).unwrap()).unwrap();
+                    let (n, b, c) = match Person::parse_from_editor(edited.as_str()) {
+                        Ok((person, birthday, contact_info)) => (person, birthday, contact_info),
+                        Err(_) => panic!("Error parsing person"),
+                    };
+                    name_str = Some(n);
+                    birthday_str = b;
+                    contact_info_str = Some(c.join(","));
+
+                    person.update(name_str, birthday_str, contact_info_str);
+                    person
+                        .save(&conn)
+                        .expect(format!("Failed to update person: {}", person).as_str());
+                    println!("Updated person: {}", person);
                 }
                 None => {
                     println!("Could not find person id {}", id);
@@ -489,36 +502,89 @@ pub mod cli {
             date: Option<String>,
             content: Option<String>,
         ) {
-            let reminder = Activity::get_by_id(&conn, id);
+            let activity = Activity::get_by_id(&conn, id);
 
-            match reminder {
-                Some(reminder) => {
-                    if [
-                        name.clone(),
-                        activity_type.clone(),
-                        date.clone(),
-                        content.clone(),
-                    ]
-                    .iter()
-                    .all(Option::is_none)
-                    {
-                        println!("You must set at least one of `name`, `activity_type`, `date' or `content`");
-                        return;
+            let mut name_string: String = String::new();
+            let mut date_string: String = String::new();
+            let mut activity_type_string: String = String::new();
+            let mut content_string: String = String::new();
+
+            match activity {
+                Some(activity) => {
+                    let mut activity = match activity {
+                        Entities::Activity(activity) => activity,
+                        _ => panic!("not an activity"),
+                    };
+
+                    let mut vars = HashMap::new();
+                    let name_placeholder: String;
+                    if name.clone().is_some() {
+                        name_placeholder = name.clone().unwrap();
+                    } else if !activity.name.is_empty() {
+                        name_placeholder = activity.name.clone();
+                    } else {
+                        name_placeholder = "".to_string();
                     }
-                    if let Entities::Activity(mut reminder) = reminder {
-                        reminder.update(name, activity_type, date, content);
-                        reminder
-                            .save(&conn)
-                            .expect(format!("Failed to update reminder: {:#?}", reminder).as_str());
-                        println!("Updated reminder: {:#?}", reminder);
+                    let date_placeholder: String;
+                    if date.clone().is_some() {
+                        date_placeholder = date.clone().unwrap();
+                    } else if !activity.date.to_string().is_empty() {
+                        date_placeholder = activity.date.clone().to_string();
+                    } else {
+                        date_placeholder = "".to_string();
                     }
+                    let activity_type_placeholder: String;
+                    if activity_type.clone().is_some() {
+                        activity_type_placeholder = activity_type.clone().unwrap();
+                    } else if !activity.activity_type.as_ref().is_empty() {
+                        activity_type_placeholder =
+                            activity.activity_type.as_ref().to_string().to_lowercase();
+                    } else {
+                        activity_type_placeholder = "".to_string();
+                    }
+                    let content_placeholder: String;
+                    if content.clone().is_some() {
+                        content_placeholder = content.clone().unwrap();
+                    } else if !activity.content.is_empty() {
+                        content_placeholder = activity.content.clone();
+                    } else {
+                        content_placeholder = "".to_string();
+                    }
+                    vars.insert("name".to_string(), name_placeholder);
+                    vars.insert("date".to_string(), date_placeholder);
+                    vars.insert("activity_type".to_string(), activity_type_placeholder);
+                    vars.insert("content".to_string(), content_placeholder);
+
+                    let edited = edit::edit(strfmt(ACTIVITY_TEMPLATE, &vars).unwrap()).unwrap();
+                    let (n, d, t, c) = match Activity::parse_from_editor(edited.as_str()) {
+                        Ok((name, date, activity_type, content)) => {
+                            (name, date, activity_type, content)
+                        }
+                        Err(_) => panic!("Error parsing activity"),
+                    };
+                    name_string = n;
+                    date_string = d.unwrap();
+                    activity_type_string = t.unwrap();
+                    content_string = c.unwrap();
+
+                    activity.update(
+                        Some(name_string),
+                        Some(activity_type_string),
+                        Some(date_string),
+                        Some(content_string),
+                    );
+                    activity
+                        .save(&conn)
+                        .expect(format!("Failed to update activity: {:#?}", activity).as_str());
+                    println!("Updated activity: {:#?}", activity);
                 }
                 None => {
-                    println!("Could not find reminder id {}", id);
+                    println!("Could not find activity id {}", id);
                     return;
                 }
             }
         }
+
         pub fn reminder(
             conn: &Connection,
             id: u64,
