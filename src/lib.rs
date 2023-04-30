@@ -337,14 +337,14 @@ pub mod cli {
 
             let recurring_type = match recurring_type_string {
                 recurring_type_str => match recurring_type_str.as_str() {
-                    "daily" => Some(RecurringType::Daily),
-                    "weekly" => Some(RecurringType::Weekly),
-                    "fortnightly" => Some(RecurringType::Fortnightly),
-                    "monthly" => Some(RecurringType::Monthly),
-                    "quarterly" => Some(RecurringType::Quarterly),
-                    "biannual" => Some(RecurringType::Biannual),
-                    "yearly" => Some(RecurringType::Yearly),
-                    "onetime" => Some(RecurringType::OneTime),
+                    "daily" => RecurringType::Daily,
+                    "weekly" => RecurringType::Weekly,
+                    "fortnightly" => RecurringType::Fortnightly,
+                    "monthly" => RecurringType::Monthly,
+                    "quarterly" => RecurringType::Quarterly,
+                    "biannual" => RecurringType::Biannual,
+                    "yearly" => RecurringType::Yearly,
+                    "onetime" => RecurringType::OneTime,
                     _ => panic!("Unknown recurring pattern"),
                 },
             };
@@ -413,8 +413,8 @@ pub mod cli {
     pub mod edit {
         use crate::db::db_interface::DbOperations;
         use crate::{
-            helpers, Activity, Connection, Entities, Note, Person, Reminder, ACTIVITY_TEMPLATE,
-            PERSON_TEMPLATE,
+            helpers, Activity, Connection, Entities, Note, Person, RecurringType, Reminder,
+            ACTIVITY_TEMPLATE, PERSON_TEMPLATE, REMINDER_TEMPLATE,
         };
         extern crate strfmt;
         use std::collections::HashMap;
@@ -595,27 +595,109 @@ pub mod cli {
         ) {
             let reminder = Reminder::get_by_id(&conn, id);
 
+            let mut name_string: String = String::new();
+            let mut date_string: String = String::new();
+            let mut recurring_type_string: String = String::new();
+            let mut description_string: String = String::new();
+
+            // TODO include people when editing
             match reminder {
                 Some(reminder) => {
-                    if [
-                        name.clone(),
-                        date.clone(),
-                        description.clone(),
-                        recurring.clone(),
-                    ]
-                    .iter()
-                    .all(Option::is_none)
-                    {
-                        println!("You must set at least one of `name`, `date`, `description` or `recurring`");
-                        return;
+                    let mut reminder = match reminder {
+                        Entities::Reminder(reminder) => reminder,
+                        _ => panic!("not a reminder"),
+                    };
+
+                    let mut vars = HashMap::new();
+                    let name_placeholder: String;
+                    if name.clone().is_some() {
+                        name_placeholder = name.clone().unwrap();
+                    } else if !reminder.name.is_empty() {
+                        name_placeholder = reminder.name.clone();
+                    } else {
+                        name_placeholder = "".to_string();
                     }
-                    if let Entities::Reminder(mut reminder) = reminder {
-                        reminder.update(name, date, description, recurring);
-                        reminder
-                            .save(&conn)
-                            .expect(format!("Failed to update reminder: {:#?}", reminder).as_str());
-                        println!("Updated reminder: {:#?}", reminder);
+                    let date_placeholder: String;
+                    if date.clone().is_some() {
+                        date_placeholder = date.clone().unwrap();
+                    } else if !reminder.date.to_string().is_empty() {
+                        date_placeholder = reminder.date.clone().to_string();
+                    } else {
+                        date_placeholder = "".to_string();
                     }
+                    let description_placeholder: String;
+                    if description.is_some() {
+                        description_placeholder = description.clone().unwrap();
+                    } else if !reminder.description.as_ref().unwrap().is_empty() {
+                        description_placeholder = reminder.description.clone().unwrap();
+                    } else {
+                        description_placeholder = "".to_string();
+                    }
+                    let recurring_placeholder: String;
+                    if recurring.clone().is_some() {
+                        recurring_placeholder = recurring.clone().unwrap();
+                    } else if !reminder.recurring.as_ref().is_empty() {
+                        recurring_placeholder =
+                            reminder.recurring.as_ref().to_string().to_lowercase();
+                    } else {
+                        recurring_placeholder = "".to_string();
+                    }
+                    vars.insert("date".to_string(), date_placeholder);
+                    vars.insert("name".to_string(), name_placeholder);
+                    vars.insert("description".to_string(), description_placeholder);
+                    vars.insert("recurring_type".to_string(), recurring_placeholder);
+
+                    let edited = edit::edit(strfmt(REMINDER_TEMPLATE, &vars).unwrap()).unwrap();
+                    let (n, da, r, de) = match Reminder::parse_from_editor(edited.as_str()) {
+                        Ok((name, date, recurring_type, description)) => {
+                            (name, date, recurring_type, description)
+                        }
+                        Err(_) => panic!("Error parsing reminder"),
+                    };
+                    name_string = n;
+                    date_string = da.unwrap();
+                    recurring_type_string = r.unwrap();
+                    description_string = de.unwrap();
+
+                    let recurring_type = match recurring_type_string {
+                        recurring_type_str => match recurring_type_str.as_str() {
+                            "daily" => RecurringType::Daily,
+                            "weekly" => RecurringType::Weekly,
+                            "fortnightly" => RecurringType::Fortnightly,
+                            "monthly" => RecurringType::Monthly,
+                            "quarterly" => RecurringType::Quarterly,
+                            "biannual" => RecurringType::Biannual,
+                            "yearly" => RecurringType::Yearly,
+                            "onetime" => RecurringType::OneTime,
+                            _ => panic!("Unknown recurring pattern"),
+                        },
+                    };
+
+                    reminder.update(name, date, description, recurring);
+                    reminder
+                        .save(&conn)
+                        .expect(format!("Failed to update reminder: {:#?}", reminder).as_str());
+                    println!("Updated reminder: {:#?}", reminder);
+
+                    // if [
+                    //     name.clone(),
+                    //     date.clone(),
+                    //     description.clone(),
+                    //     recurring.clone(),
+                    // ]
+                    // .iter()
+                    // .all(Option::is_none)
+                    // {
+                    //     println!("You must set at least one of `name`, `date`, `description` or `recurring`");
+                    //     return;
+                    // }
+                    // if let Entities::Reminder(mut reminder) = reminder {
+                    //     reminder.update(name, date, description, recurring);
+                    //     reminder
+                    //         .save(&conn)
+                    //         .expect(format!("Failed to update reminder: {:#?}", reminder).as_str());
+                    //     println!("Updated reminder: {:#?}", reminder);
+                    // }
                 }
                 None => {
                     println!("Could not find reminder id {}", id);
@@ -1512,7 +1594,7 @@ pub struct Reminder {
     name: String,
     date: NaiveDate,
     description: Option<String>,
-    recurring: Option<RecurringType>,
+    recurring: RecurringType,
     people: Vec<Person>,
 }
 
@@ -1522,7 +1604,7 @@ impl Reminder {
         name: String,
         date: NaiveDate,
         description: Option<String>,
-        recurring: Option<RecurringType>,
+        recurring: RecurringType,
         people: Vec<Person>,
     ) -> Reminder {
         Reminder {
@@ -1553,7 +1635,8 @@ impl Reminder {
                         )
                         .unwrap_or_default(),
                         description: row.get(3).unwrap(),
-                        recurring: crate::RecurringType::get_by_id(&conn, row.get(4).unwrap()),
+                        recurring: crate::RecurringType::get_by_id(&conn, row.get(4).unwrap())
+                            .unwrap(),
                         people: crate::db::db_helpers::get_people_by_reminder(&conn, reminder_id),
                     })
                 }
@@ -1584,7 +1667,7 @@ impl Reminder {
                     )
                     .unwrap_or_default(),
                     description: row.get(3).unwrap(),
-                    recurring: crate::RecurringType::get_by_id(&conn, row.get(4).unwrap()),
+                    recurring: crate::RecurringType::get_by_id(&conn, row.get(4).unwrap()).unwrap(),
                     people: crate::db::db_helpers::get_people_by_reminder(&conn, reminder_id),
                 })
             })
@@ -1644,7 +1727,7 @@ impl Reminder {
         };
 
         if let Some(recurring_type) = recurring_type {
-            self.recurring = Some(recurring_type);
+            self.recurring = recurring_type;
         }
 
         self
@@ -1707,10 +1790,7 @@ impl crate::db::db_interface::DbOperations for Reminder {
             return Err(crate::db::db_interface::DbOperationsError::DuplicateEntry);
         }
 
-        let recurring_str = match &self.recurring {
-            Some(recurring_type) => recurring_type.as_ref(),
-            None => "OneTime",
-        };
+        let recurring_str = &self.recurring.as_ref();
 
         let date_str = self.date.to_string();
 
@@ -1783,10 +1863,7 @@ impl crate::db::db_interface::DbOperations for Reminder {
         conn: &Connection,
     ) -> Result<&Reminder, crate::db::db_interface::DbOperationsError> {
         // TODO allow for changing people
-        let recurring_str = match &self.recurring {
-            Some(recurring_type) => recurring_type.as_ref(),
-            None => "",
-        };
+        let recurring_str = &self.recurring.as_ref();
 
         let date_str = self.date.to_string();
 
@@ -1839,7 +1916,8 @@ impl crate::db::db_interface::DbOperations for Reminder {
                         )
                         .unwrap_or_default(),
                         description: row.get(3).unwrap(),
-                        recurring: crate::RecurringType::get_by_id(&conn, row.get(4).unwrap()),
+                        recurring: crate::RecurringType::get_by_id(&conn, row.get(4).unwrap())
+                            .unwrap(),
                         people: crate::db::db_helpers::get_people_by_reminder(&conn, reminder_id),
                     }))
                 }
@@ -1856,10 +1934,7 @@ impl fmt::Display for Reminder {
             Some(description) => description.as_ref(),
             None => "",
         };
-        let recurring_type_str = match &self.recurring {
-            Some(recurring_type) => recurring_type.as_ref(),
-            None => "",
-        };
+        let recurring_type_str = &self.recurring.as_ref();
         let mut people_str = String::new();
         for person in self.people.iter() {
             people_str.push_str("\n\t");
@@ -2255,7 +2330,7 @@ impl Event {
                     )
                     .unwrap_or_default(),
                     description: row.get(3).unwrap(),
-                    recurring: crate::RecurringType::get_by_id(&conn, row.get(4).unwrap()),
+                    recurring: crate::RecurringType::get_by_id(&conn, row.get(4).unwrap()).unwrap(),
                     people: crate::db::db_helpers::get_people_by_reminder(&conn, reminder_id),
                 })
             })

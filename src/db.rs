@@ -114,7 +114,7 @@ pub mod db_helpers {
                     )
                     .unwrap_or_default(),
                     row.get(3).unwrap(),
-                    crate::RecurringType::get_by_id(&conn, row.get(4).unwrap()),
+                    crate::RecurringType::get_by_id(&conn, row.get(4).unwrap()).unwrap(),
                     vec![],
                 ))
             })
