@@ -678,26 +678,6 @@ pub mod cli {
                         .save(&conn)
                         .expect(format!("Failed to update reminder: {:#?}", reminder).as_str());
                     println!("Updated reminder: {:#?}", reminder);
-
-                    // if [
-                    //     name.clone(),
-                    //     date.clone(),
-                    //     description.clone(),
-                    //     recurring.clone(),
-                    // ]
-                    // .iter()
-                    // .all(Option::is_none)
-                    // {
-                    //     println!("You must set at least one of `name`, `date`, `description` or `recurring`");
-                    //     return;
-                    // }
-                    // if let Entities::Reminder(mut reminder) = reminder {
-                    //     reminder.update(name, date, description, recurring);
-                    //     reminder
-                    //         .save(&conn)
-                    //         .expect(format!("Failed to update reminder: {:#?}", reminder).as_str());
-                    //     println!("Updated reminder: {:#?}", reminder);
-                    // }
                 }
                 None => {
                     println!("Could not find reminder id {}", id);
