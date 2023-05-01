@@ -21,12 +21,14 @@ pub static ACTIVITY_TEMPLATE: &str = "Name: {name}
 Date: {date}
 Activity Type: {activity_type}
 Content: {content}
+People: {people}
 ";
 
 pub static REMINDER_TEMPLATE: &str = "Name: {name}
 Date: {date}
 Recurring: {recurring_type}
 Description: {description}
+People: {people}
 ";
 
 pub static NOTE_TEMPLATE: &str = "Content: {content}
@@ -196,12 +198,13 @@ pub mod cli {
             activity_type: Option<String>,
             date: Option<String>,
             content: Option<String>,
-            people: Vec<String>,
+            mut people: Vec<String>,
         ) {
             let mut name_string: String = String::new();
             let mut date_string: String = String::new();
             let mut activity_type_string: String = String::new();
             let mut content_string: String = String::new();
+            let mut people_string: String = String::new();
 
             let mut editor = false;
             if name == None {
@@ -224,11 +227,19 @@ pub mod cli {
                     "content".to_string(),
                     helpers::unwrap_arg_or_empty_string(content.clone()),
                 );
+                vars.insert(
+                    "people".to_string(),
+                    if people.is_empty() {
+                        "".to_string()
+                    } else {
+                        people.clone().join(",")
+                    },
+                );
 
                 let edited = edit::edit(strfmt(ACTIVITY_TEMPLATE, &vars).unwrap()).unwrap();
-                let (n, d, t, c) = match Activity::parse_from_editor(edited.as_str()) {
-                    Ok((name, date, activity_type, content)) => {
-                        (name, date, activity_type, content)
+                let (n, d, t, c, p) = match Activity::parse_from_editor(edited.as_str()) {
+                    Ok((name, date, activity_type, content, people)) => {
+                        (name, date, activity_type, content, people)
                     }
                     Err(_) => panic!("Error parsing activity"),
                 };
@@ -236,6 +247,7 @@ pub mod cli {
                 date_string = d.unwrap();
                 activity_type_string = t.unwrap();
                 content_string = c.unwrap();
+                people = p;
             } else {
                 if [activity_type.clone(), date.clone(), content.clone()]
                     .iter()
@@ -508,6 +520,7 @@ pub mod cli {
             let mut date_string: String = String::new();
             let mut activity_type_string: String = String::new();
             let mut content_string: String = String::new();
+            let mut people: Vec<String> = Vec::new();
 
             match activity {
                 Some(activity) => {
@@ -550,15 +563,30 @@ pub mod cli {
                     } else {
                         content_placeholder = "".to_string();
                     }
+                    let people_placeholder: String;
+                    if !activity.people.is_empty() {
+                        people_placeholder = activity
+                            .people
+                            .clone()
+                            .iter()
+                            .map(|p| p.clone().name)
+                            .collect::<Vec<String>>()
+                            .join(",")
+                            .to_string();
+                    } else {
+                        people_placeholder = "".to_string();
+                    }
+
                     vars.insert("name".to_string(), name_placeholder);
                     vars.insert("date".to_string(), date_placeholder);
                     vars.insert("activity_type".to_string(), activity_type_placeholder);
                     vars.insert("content".to_string(), content_placeholder);
+                    vars.insert("people".to_string(), people_placeholder);
 
                     let edited = edit::edit(strfmt(ACTIVITY_TEMPLATE, &vars).unwrap()).unwrap();
-                    let (n, d, t, c) = match Activity::parse_from_editor(edited.as_str()) {
-                        Ok((name, date, activity_type, content)) => {
-                            (name, date, activity_type, content)
+                    let (n, d, t, c, p) = match Activity::parse_from_editor(edited.as_str()) {
+                        Ok((name, date, activity_type, content, people)) => {
+                            (name, date, activity_type, content, people)
                         }
                         Err(_) => panic!("Error parsing activity"),
                     };
@@ -566,12 +594,15 @@ pub mod cli {
                     date_string = d.unwrap();
                     activity_type_string = t.unwrap();
                     content_string = c.unwrap();
+                    people = p;
 
                     activity.update(
+                        &conn,
                         Some(name_string),
                         Some(activity_type_string),
                         Some(date_string),
                         Some(content_string),
+                        people,
                     );
                     activity
                         .save(&conn)
@@ -599,6 +630,7 @@ pub mod cli {
             let mut date_string: String = String::new();
             let mut recurring_type_string: String = String::new();
             let mut description_string: String = String::new();
+            let mut people_string: String = String::new();
 
             // TODO include people when editing
             match reminder {
@@ -717,7 +749,7 @@ pub enum Entities {
     Note(Note),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Person {
     id: u64,
     name: String,
@@ -1218,7 +1250,7 @@ impl fmt::Display for Person {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Activity {
     id: u64,
     name: String,
@@ -1315,10 +1347,12 @@ impl Activity {
     // TODO might be a good idea to edit people
     pub fn update(
         &mut self,
+        conn: &Connection,
         name: Option<String>,
         activity_type: Option<String>,
         date: Option<String>,
         content: Option<String>,
+        people: Vec<String>,
     ) -> &Self {
         // TODO clean up duplication between this and main.rs
         if let Some(name) = name {
@@ -1354,21 +1388,35 @@ impl Activity {
             self.content = content;
         }
 
+        let people = crate::Person::get_by_names(&conn, people);
+        self.people = people;
+
         self
     }
     pub fn parse_from_editor(
         content: &str,
-    ) -> Result<(String, Option<String>, Option<String>, Option<String>), crate::ParseError> {
+    ) -> Result<
+        (
+            String,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+            Vec<String>,
+        ),
+        crate::ParseError,
+    > {
         let mut error = false;
         let mut name: String = String::new();
         let mut date: Option<String> = None;
         let mut activity_type: Option<String> = None;
         let mut activity_content: Option<String> = None;
+        let mut people: Vec<String> = Vec::new();
 
         let name_prefix = "Name: ";
         let date_prefix = "Date: ";
         let activity_type_prefix = "Activity Type: ";
         let activity_content_prefix = "Content: ";
+        let people_prefix = "People: ";
 
         content.lines().for_each(|line| match line {
             s if s.starts_with(name_prefix) => {
@@ -1383,6 +1431,10 @@ impl Activity {
             s if s.starts_with(activity_content_prefix) => {
                 activity_content = Some(s.trim_start_matches(activity_content_prefix).to_string());
             }
+            s if s.starts_with(people_prefix) => {
+                let people_str = s.trim_start_matches(people_prefix);
+                people = people_str.split(",").map(|x| x.to_string()).collect();
+            }
             // FIXME
             _ => error = true,
         });
@@ -1391,7 +1443,7 @@ impl Activity {
             return Err(crate::ParseError::FormatError);
         }
 
-        Ok((name, date, activity_type, activity_content))
+        Ok((name, date, activity_type, activity_content, people))
     }
 }
 
@@ -1507,6 +1559,8 @@ impl crate::db::db_interface::DbOperations for Activity {
             Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
         }
 
+        // TODO implement updating people_activities;
+
         Ok(self)
     }
     fn get_by_id(conn: &crate::Connection, id: u64) -> Option<Entities> {
@@ -1542,7 +1596,7 @@ impl crate::db::db_interface::DbOperations for Activity {
     }
 }
 
-#[derive(Debug, AsRefStr, EnumString)]
+#[derive(Debug, AsRefStr, EnumString, Clone)]
 pub enum ActivityType {
     Phone,
     InPerson,
@@ -1568,7 +1622,7 @@ impl ActivityType {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Reminder {
     id: u64,
     name: String,
@@ -1933,7 +1987,7 @@ impl fmt::Display for Reminder {
     }
 }
 
-#[derive(Debug, AsRefStr, EnumString)]
+#[derive(Debug, AsRefStr, EnumString, Clone)]
 pub enum RecurringType {
     OneTime,
     Daily,
@@ -1964,7 +2018,7 @@ impl RecurringType {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ContactInfo {
     id: u64,
     person_id: u64,
@@ -1994,7 +2048,7 @@ impl ContactInfo {
     }
 }
 
-#[derive(Debug, AsRefStr, EnumString)]
+#[derive(Debug, AsRefStr, EnumString, Clone)]
 pub enum ContactInfoType {
     Phone(String),
     WhatsApp(String),
@@ -2021,7 +2075,7 @@ impl ContactInfoType {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Note {
     id: u64,
     date: NaiveDate,
