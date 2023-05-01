@@ -1559,10 +1559,58 @@ impl crate::db::db_interface::DbOperations for Activity {
             Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
         }
 
-        // TODO implement updating people_activities;
+        for person in self.people.iter() {
+            let mut stmt = conn
+                .prepare(
+                    "SELECT 
+                        id
+                    FROM
+                        people_activities
+                    WHERE
+                        activity_id = ?1 
+                        AND person_id = ?2",
+                )
+                .unwrap();
+            let mut rows = stmt.query(params![self.id, person.id]).unwrap();
+            let mut results: Vec<u32> = Vec::new();
+            while let Some(row) = rows.next().unwrap() {
+                results.push(row.get(0).unwrap());
+            }
+
+            if results.len() > 0 {
+                for id in results {
+                    match conn.execute(
+                        "UPDATE people_activities SET deleted = TRUE WHERE id = ?1",
+                        params![id],
+                    ) {
+                        Ok(updated) => {
+                            println!("[DEBUG] {} rows were updated", updated);
+                        }
+                        Err(_) => {
+                            return Err(crate::db::db_interface::DbOperationsError::GenericError)
+                        }
+                    }
+                }
+            }
+
+            match conn.execute(
+                "INSERT INTO people_activities (
+                        person_id,
+                        activity_id,
+                        deleted
+                    ) VALUES (?1, ?2, FALSE)",
+                params![person.id, self.id],
+            ) {
+                Ok(updated) => {
+                    println!("[DEBUG] {} rows were updated", updated);
+                }
+                Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
+            }
+        }
 
         Ok(self)
     }
+
     fn get_by_id(conn: &crate::Connection, id: u64) -> Option<Entities> {
         let mut stmt = conn
             .prepare("SELECT * FROM activities WHERE id = ?1")
@@ -1896,7 +1944,6 @@ impl crate::db::db_interface::DbOperations for Reminder {
         &self,
         conn: &Connection,
     ) -> Result<&Reminder, crate::db::db_interface::DbOperationsError> {
-        // TODO allow for changing people
         let recurring_str = &self.recurring.as_ref();
 
         let date_str = self.date.to_string();
@@ -1930,6 +1977,7 @@ impl crate::db::db_interface::DbOperations for Reminder {
             Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
         }
 
+        // TODO allow for changing people
         Ok(self)
     }
 
