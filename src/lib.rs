@@ -200,16 +200,12 @@ pub mod cli {
             content: Option<String>,
             mut people: Vec<String>,
         ) {
-            let mut name_string: String = String::new();
-            let mut date_string: String = String::new();
-            let mut activity_type_string: String = String::new();
-            let mut content_string: String = String::new();
-            let mut people_string: String = String::new();
+            let name_string: String;
+            let date_string: String;
+            let activity_type_string: String;
+            let content_string: String;
 
-            let mut editor = false;
             if name == None {
-                editor = true;
-
                 let mut vars = HashMap::new();
                 vars.insert(
                     "name".to_string(),
@@ -425,7 +421,7 @@ pub mod cli {
     pub mod edit {
         use crate::db::db_interface::DbOperations;
         use crate::{
-            helpers, Activity, Connection, Entities, Note, Person, RecurringType, Reminder,
+            Activity, Connection, Entities, Note, Person, RecurringType, Reminder,
             ACTIVITY_TEMPLATE, PERSON_TEMPLATE, REMINDER_TEMPLATE,
         };
         extern crate strfmt;
@@ -438,9 +434,9 @@ pub mod cli {
             birthday: Option<String>,
             contact_info: Option<String>,
         ) {
-            let mut name_str: Option<String> = None;
-            let mut birthday_str: Option<String> = None;
-            let mut contact_info_str: Option<String> = None;
+            let name_str: Option<String>;
+            let birthday_str: Option<String>;
+            let contact_info_str: Option<String>;
 
             let person = Person::get_by_id(&conn, id);
 
@@ -516,11 +512,11 @@ pub mod cli {
         ) {
             let activity = Activity::get_by_id(&conn, id);
 
-            let mut name_string: String = String::new();
-            let mut date_string: String = String::new();
-            let mut activity_type_string: String = String::new();
-            let mut content_string: String = String::new();
-            let mut people: Vec<String> = Vec::new();
+            let name_string: String;
+            let date_string: String;
+            let activity_type_string: String;
+            let content_string: String;
+            let people: Vec<String>;
 
             match activity {
                 Some(activity) => {
@@ -911,7 +907,7 @@ impl Person {
         }
 
         let mut contact_info_splits: Vec<Vec<String>> = vec![];
-        let mut contact_info_type: Option<ContactInfoType> = None;
+        let mut contact_info_type: Option<ContactInfoType>;
         let mut contact_info_vec: Vec<ContactInfo> = Vec::new();
         match contact_info {
             Some(contact_info_vec) => {
