@@ -31,7 +31,8 @@ Description: {description}
 People: {people}
 ";
 
-pub static NOTE_TEMPLATE: &str = "Content: {content}
+pub static NOTE_TEMPLATE: &str = "Date: {date}
+Content: {content}
 People: {people}
 ";
 
@@ -389,13 +390,11 @@ pub mod cli {
         }
 
         pub fn note(conn: &Connection, content: Option<String>, people: Vec<String>) {
+            let mut date_string: String = String::new();
             let mut content_string: String = String::new();
             let mut people_vec: Vec<Person> = Vec::new();
 
-            let mut editor = false;
             if content == None {
-                editor = true;
-
                 let mut vars = HashMap::new();
                 vars.insert(
                     "content".to_string(),
@@ -404,19 +403,19 @@ pub mod cli {
                 vars.insert("people".to_string(), people.clone().join(","));
 
                 let edited = edit::edit(strfmt(NOTE_TEMPLATE, &vars).unwrap()).unwrap();
-                let (c, p) = match Note::parse_from_editor(edited.as_str()) {
-                    Ok((c, p)) => (c, p),
+                let (d, c, p) = match Note::parse_from_editor(edited.as_str()) {
+                    Ok((date, content, people)) => (date, content, people),
                     Err(_) => panic!("Error parsing note"),
                 };
+                date_string = d;
                 content_string = c;
                 people_vec = Person::get_by_names(&conn, p);
             }
 
-            if !editor {
-                content_string = content.unwrap();
-                people_vec = Person::get_by_names(&conn, people);
-            }
-            let date = Utc::now().date_naive();
+            let date = match helpers::parse_from_str_ymd(date_string.as_str()) {
+                Ok(date) => date,
+                Err(error) => panic!("Error parsing date: {}", error),
+            };
 
             let note = Note::new(0, date, content_string, people_vec);
             println!("Note: {:#?}", note);
@@ -430,8 +429,8 @@ pub mod cli {
     pub mod edit {
         use crate::db::db_interface::DbOperations;
         use crate::{
-            Activity, Connection, Entities, Note, Person, RecurringType, Reminder,
-            ACTIVITY_TEMPLATE, PERSON_TEMPLATE, REMINDER_TEMPLATE,
+            Activity, Connection, Entities, Note, Person, Reminder, ACTIVITY_TEMPLATE,
+            NOTE_TEMPLATE, PERSON_TEMPLATE, REMINDER_TEMPLATE,
         };
         extern crate strfmt;
         use std::collections::HashMap;
@@ -733,17 +732,69 @@ pub mod cli {
         pub fn note(conn: &Connection, id: u64, date: Option<String>, content: Option<String>) {
             let note = Note::get_by_id(&conn, id);
 
+            let date_string: String;
+            let content_string: String;
+            let people: Vec<String>;
+
             match note {
                 Some(note) => {
-                    if [date.clone(), content.clone()].iter().all(Option::is_none) {
-                        println!("You must set at least one of `date` or `content`");
+                    let mut note = match note {
+                        Entities::Note(note) => note,
+                        _ => panic!("not a note"),
+                    };
+                    // if [date.clone(), content.clone()].iter().all(Option::is_none) {
+                    //     println!("You must set at least one of `date` or `content`");
+                    // }
+                    let mut vars = HashMap::new();
+                    let date_placeholder: String;
+                    let content_placeholder: String;
+                    let people_placeholder: String;
+
+                    if date.clone().is_some() {
+                        date_placeholder = date.clone().unwrap();
+                    } else if !note.date.to_string().is_empty() {
+                        date_placeholder = note.date.clone().to_string();
+                    } else {
+                        date_placeholder = "".to_string();
                     }
-                    if let Entities::Note(mut note) = note {
-                        note.update(date, content);
-                        note.save(&conn)
-                            .expect(format!("Failed to update note: {:#?}", note).as_str());
-                        println!("Updated note: {:#?}", note);
+                    if content.clone().is_some() {
+                        content_placeholder = content.clone().unwrap();
+                    } else if !note.content.is_empty() {
+                        content_placeholder = note.content.clone();
+                    } else {
+                        content_placeholder = "".to_string();
                     }
+                    if !note.people.is_empty() {
+                        people_placeholder = note
+                            .people
+                            .clone()
+                            .iter()
+                            .map(|p| p.clone().name)
+                            .collect::<Vec<String>>()
+                            .join(",")
+                            .to_string();
+                    } else {
+                        people_placeholder = "".to_string();
+                    }
+
+                    vars.insert("date".to_string(), date_placeholder);
+                    vars.insert("content".to_string(), content_placeholder);
+                    vars.insert("people".to_string(), people_placeholder);
+
+                    let edited = edit::edit(strfmt(NOTE_TEMPLATE, &vars).unwrap()).unwrap();
+                    let (d, c, p) = match Note::parse_from_editor(edited.as_str()) {
+                        Ok((date, content, people)) => (date, content, people),
+                        Err(_) => panic!("Error parsing note"),
+                    };
+
+                    date_string = d;
+                    content_string = c;
+                    people = p;
+
+                    note.update(conn, Some(date_string), Some(content_string), people);
+                    note.save(&conn)
+                        .expect(format!("Failed to update note: {:#?}", note).as_str());
+                    println!("Updated note: {:#?}", note);
                 }
                 None => {
                     println!("Could not find note id {}", id);
@@ -2212,7 +2263,13 @@ impl Note {
         notes
     }
 
-    pub fn update(&mut self, date: Option<String>, content: Option<String>) -> &Self {
+    pub fn update(
+        &mut self,
+        conn: &Connection,
+        date: Option<String>,
+        content: Option<String>,
+        people: Vec<String>,
+    ) -> &Self {
         if let Some(date) = date {
             let date_obj: Option<NaiveDate>;
             // TODO proper error handling and messaging
@@ -2230,18 +2287,27 @@ impl Note {
             self.content = content;
         }
 
+        self.people = crate::Person::get_by_names(&conn, people);
+
         self
     }
 
-    pub fn parse_from_editor(content: &str) -> Result<(String, Vec<String>), crate::ParseError> {
+    pub fn parse_from_editor(
+        content: &str,
+    ) -> Result<(String, String, Vec<String>), crate::ParseError> {
         let mut error = false;
+        let mut date: String = String::new();
         let mut note_contents: String = String::new();
         let mut people: Vec<String> = Vec::new();
 
+        let date_prefix = "Date: ";
         let content_prefix = "Content: ";
         let people_prefix = "People: ";
 
         content.lines().for_each(|line| match line {
+            s if s.starts_with(date_prefix) => {
+                date = s.trim_start_matches(date_prefix).to_string();
+            }
             s if s.starts_with(content_prefix) => {
                 note_contents = s.trim_start_matches(content_prefix).to_string();
             }
@@ -2257,7 +2323,7 @@ impl Note {
             return Err(crate::ParseError::FormatError);
         }
 
-        Ok((note_contents, people))
+        Ok((date, note_contents, people))
     }
 }
 
@@ -2334,6 +2400,55 @@ impl crate::db::db_interface::DbOperations for Note {
                 println!("[DEBUG] {} rows were updated", updated);
             }
             Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
+        }
+
+        for person in self.people.iter() {
+            let mut stmt = conn
+                .prepare(
+                    "SELECT 
+                        id
+                    FROM
+                        people_notes
+                    WHERE
+                        note_id = ?1 
+                        AND person_id = ?2",
+                )
+                .unwrap();
+            let mut rows = stmt.query(params![self.id, person.id]).unwrap();
+            let mut results: Vec<u32> = Vec::new();
+            while let Some(row) = rows.next().unwrap() {
+                results.push(row.get(0).unwrap());
+            }
+
+            if results.len() > 0 {
+                for id in results {
+                    match conn.execute(
+                        "UPDATE people_notes SET deleted = 1 WHERE id = ?1",
+                        params![id],
+                    ) {
+                        Ok(updated) => {
+                            println!("[DEBUG] {} rows were updated", updated);
+                        }
+                        Err(_) => {
+                            return Err(crate::db::db_interface::DbOperationsError::GenericError)
+                        }
+                    }
+                }
+            }
+
+            match conn.execute(
+                "INSERT INTO people_notes (
+                        person_id,
+                        note_id,
+                        deleted
+                    ) VALUES (?1, ?2, FALSE)",
+                params![person.id, self.id],
+            ) {
+                Ok(updated) => {
+                    println!("[DEBUG] {} rows were updated", updated);
+                }
+                Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
+            }
         }
 
         Ok(self)
