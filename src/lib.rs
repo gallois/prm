@@ -631,11 +631,10 @@ pub mod cli {
         ) {
             let reminder = Reminder::get_by_id(&conn, id);
 
-            let mut name_string: String = String::new();
-            let mut date_string: String = String::new();
-            let mut recurring_type_string: String = String::new();
-            let mut description_string: String = String::new();
-            let mut people_string: String = String::new();
+            let name_string: String;
+            let date_string: String;
+            let recurring_type_string: String;
+            let description_string: String;
             let people: Vec<String>;
 
             // TODO include people when editing
