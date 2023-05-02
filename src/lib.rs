@@ -294,7 +294,7 @@ pub mod cli {
             date: Option<String>,
             recurring: Option<String>,
             description: Option<String>,
-            people: Vec<String>,
+            mut people: Vec<String>,
         ) {
             let mut name_string: String = String::new();
             let mut date_string: String = String::new();
@@ -322,11 +322,19 @@ pub mod cli {
                     "description".to_string(),
                     helpers::unwrap_arg_or_empty_string(description.clone()),
                 );
+                vars.insert(
+                    "people".to_string(),
+                    if people.is_empty() {
+                        "".to_string()
+                    } else {
+                        people.clone().join(",")
+                    },
+                );
 
                 let edited = edit::edit(strfmt(REMINDER_TEMPLATE, &vars).unwrap()).unwrap();
-                let (n, da, r, de) = match Reminder::parse_from_editor(edited.as_str()) {
-                    Ok((name, date, recurring_type, description)) => {
-                        (name, date, recurring_type, description)
+                let (n, da, r, de, p) = match Reminder::parse_from_editor(edited.as_str()) {
+                    Ok((name, date, recurring_type, description, people)) => {
+                        (name, date, recurring_type, description, people)
                     }
                     Err(_) => panic!("Error parsing reminder"),
                 };
@@ -334,6 +342,7 @@ pub mod cli {
                 date_string = da.unwrap();
                 recurring_type_string = r.unwrap();
                 description_string = de.unwrap();
+                people = p;
             }
 
             if !editor {
@@ -627,6 +636,7 @@ pub mod cli {
             let mut recurring_type_string: String = String::new();
             let mut description_string: String = String::new();
             let mut people_string: String = String::new();
+            let people: Vec<String>;
 
             // TODO include people when editing
             match reminder {
@@ -670,15 +680,29 @@ pub mod cli {
                     } else {
                         recurring_placeholder = "".to_string();
                     }
+                    let people_placeholder: String;
+                    if !reminder.people.is_empty() {
+                        people_placeholder = reminder
+                            .people
+                            .clone()
+                            .iter()
+                            .map(|p| p.clone().name)
+                            .collect::<Vec<String>>()
+                            .join(",")
+                            .to_string();
+                    } else {
+                        people_placeholder = "".to_string();
+                    }
                     vars.insert("date".to_string(), date_placeholder);
                     vars.insert("name".to_string(), name_placeholder);
                     vars.insert("description".to_string(), description_placeholder);
                     vars.insert("recurring_type".to_string(), recurring_placeholder);
+                    vars.insert("people".to_string(), people_placeholder);
 
                     let edited = edit::edit(strfmt(REMINDER_TEMPLATE, &vars).unwrap()).unwrap();
-                    let (n, da, r, de) = match Reminder::parse_from_editor(edited.as_str()) {
-                        Ok((name, date, recurring_type, description)) => {
-                            (name, date, recurring_type, description)
+                    let (n, da, r, de, p) = match Reminder::parse_from_editor(edited.as_str()) {
+                        Ok((name, date, recurring_type, description, people)) => {
+                            (name, date, recurring_type, description, people)
                         }
                         Err(_) => panic!("Error parsing reminder"),
                     };
@@ -686,22 +710,16 @@ pub mod cli {
                     date_string = da.unwrap();
                     recurring_type_string = r.unwrap();
                     description_string = de.unwrap();
+                    people = p;
 
-                    let recurring_type = match recurring_type_string {
-                        recurring_type_str => match recurring_type_str.as_str() {
-                            "daily" => RecurringType::Daily,
-                            "weekly" => RecurringType::Weekly,
-                            "fortnightly" => RecurringType::Fortnightly,
-                            "monthly" => RecurringType::Monthly,
-                            "quarterly" => RecurringType::Quarterly,
-                            "biannual" => RecurringType::Biannual,
-                            "yearly" => RecurringType::Yearly,
-                            "onetime" => RecurringType::OneTime,
-                            _ => panic!("Unknown recurring pattern"),
-                        },
-                    };
-
-                    reminder.update(name, date, description, recurring);
+                    reminder.update(
+                        conn,
+                        Some(name_string),
+                        Some(date_string),
+                        Some(description_string),
+                        Some(recurring_type_string),
+                        people,
+                    );
                     reminder
                         .save(&conn)
                         .expect(format!("Failed to update reminder: {:#?}", reminder).as_str());
@@ -1762,10 +1780,12 @@ impl Reminder {
 
     pub fn update(
         &mut self,
+        conn: &Connection,
         name: Option<String>,
         date: Option<String>,
         description: Option<String>,
         recurring: Option<String>,
+        people: Vec<String>,
     ) -> &Self {
         if let Some(name) = name {
             self.name = name;
@@ -1799,6 +1819,7 @@ impl Reminder {
                 "quarterly" => Some(RecurringType::Quarterly),
                 "biannual" => Some(RecurringType::Biannual),
                 "yearly" => Some(RecurringType::Yearly),
+                "onetime" => Some(RecurringType::OneTime),
                 _ => panic!("Unknown recurring pattern"),
             },
             None => Some(RecurringType::OneTime),
@@ -1808,22 +1829,36 @@ impl Reminder {
             self.recurring = recurring_type;
         }
 
+        let people = crate::Person::get_by_names(&conn, people);
+        self.people = people;
+
         self
     }
 
     pub fn parse_from_editor(
         content: &str,
-    ) -> Result<(String, Option<String>, Option<String>, Option<String>), crate::ParseError> {
+    ) -> Result<
+        (
+            String,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+            Vec<String>,
+        ),
+        crate::ParseError,
+    > {
         let mut error = false;
         let mut name: String = String::new();
         let mut date: Option<String> = None;
         let mut recurring_type: Option<String> = None;
         let mut description: Option<String> = None;
+        let mut people = Vec::new();
 
         let name_prefix = "Name: ";
         let date_prefix = "Date: ";
         let recurring_type_prefix = "Recurring: ";
         let description_prefix = "Description: ";
+        let people_prefix = "People: ";
 
         content.lines().for_each(|line| match line {
             s if s.starts_with(name_prefix) => {
@@ -1838,6 +1873,10 @@ impl Reminder {
             s if s.starts_with(description_prefix) => {
                 description = Some(s.trim_start_matches(description_prefix).to_string());
             }
+            s if s.starts_with(people_prefix) => {
+                let people_str = s.trim_start_matches(people_prefix);
+                people = people_str.split(",").map(|x| x.to_string()).collect();
+            }
             // FIXME
             _ => error = true,
         });
@@ -1846,7 +1885,7 @@ impl Reminder {
             return Err(crate::ParseError::FormatError);
         }
 
-        Ok((name, date, recurring_type, description))
+        Ok((name, date, recurring_type, description, people))
     }
 }
 
