@@ -62,6 +62,37 @@ pub mod helpers {
     pub fn unwrap_arg_or_empty_string(arg: Option<String>) -> String {
         arg.unwrap_or("".to_string())
     }
+
+    pub mod editor {
+        use crate::{helpers, Activity, ACTIVITY_TEMPLATE};
+        use std::collections::HashMap;
+        use strfmt::strfmt;
+
+        pub fn populate_activity_vars(vars: HashMap<String, String>) -> helpers::ActivityVars {
+            let edited = edit::edit(strfmt(ACTIVITY_TEMPLATE, &vars).unwrap()).unwrap();
+            let (n, d, t, c, p) = match Activity::parse_from_editor(edited.as_str()) {
+                Ok((name, date, activity_type, content, people)) => {
+                    (name, date, activity_type, content, people)
+                }
+                Err(_) => panic!("Error parsing activity"),
+            };
+
+            return helpers::ActivityVars {
+                name: n,
+                date: d.unwrap(),
+                activity_type: t.unwrap(),
+                content: c.unwrap(),
+                people: p,
+            };
+        }
+    }
+    pub struct ActivityVars {
+        pub name: String,
+        pub date: String,
+        pub activity_type: String,
+        pub content: String,
+        pub people: Vec<String>,
+    }
 }
 
 pub mod cli {
@@ -69,10 +100,8 @@ pub mod cli {
         use crate::db::db_interface::DbOperations;
         use crate::{
             helpers, Activity, ActivityType, Connection, ContactInfo, ContactInfoType, Note,
-            Person, RecurringType, Reminder, ACTIVITY_TEMPLATE, NOTE_TEMPLATE, PERSON_TEMPLATE,
-            REMINDER_TEMPLATE,
+            Person, RecurringType, Reminder, NOTE_TEMPLATE, PERSON_TEMPLATE, REMINDER_TEMPLATE,
         };
-        use chrono::prelude::*;
         use chrono::NaiveDate;
         use edit;
 
@@ -193,74 +222,61 @@ pub mod cli {
                 Err(_) => panic!("Error while adding {}", person),
             };
         }
+
         pub fn activity(
             conn: &Connection,
             name: Option<String>,
             activity_type: Option<String>,
             date: Option<String>,
             content: Option<String>,
-            mut people: Vec<String>,
+            people: Vec<String>,
         ) {
-            let name_string: String;
-            let date_string: String;
-            let activity_type_string: String;
-            let content_string: String;
-
+            let activity_vars: helpers::ActivityVars;
+            let mut vars = HashMap::new();
+            vars.insert(
+                "name".to_string(),
+                helpers::unwrap_arg_or_empty_string(name.clone()),
+            );
+            vars.insert(
+                "date".to_string(),
+                helpers::unwrap_arg_or_empty_string(date.clone()),
+            );
+            vars.insert(
+                "activity_type".to_string(),
+                helpers::unwrap_arg_or_empty_string(activity_type.clone()),
+            );
+            vars.insert(
+                "content".to_string(),
+                helpers::unwrap_arg_or_empty_string(content.clone()),
+            );
+            vars.insert(
+                "people".to_string(),
+                if people.is_empty() {
+                    "".to_string()
+                } else {
+                    people.clone().join(",")
+                },
+            );
             if name == None {
-                let mut vars = HashMap::new();
-                vars.insert(
-                    "name".to_string(),
-                    helpers::unwrap_arg_or_empty_string(name.clone()),
-                );
-                vars.insert(
-                    "date".to_string(),
-                    helpers::unwrap_arg_or_empty_string(date.clone()),
-                );
-                vars.insert(
-                    "activity_type".to_string(),
-                    helpers::unwrap_arg_or_empty_string(activity_type.clone()),
-                );
-                vars.insert(
-                    "content".to_string(),
-                    helpers::unwrap_arg_or_empty_string(content.clone()),
-                );
-                vars.insert(
-                    "people".to_string(),
-                    if people.is_empty() {
-                        "".to_string()
-                    } else {
-                        people.clone().join(",")
-                    },
-                );
-
-                let edited = edit::edit(strfmt(ACTIVITY_TEMPLATE, &vars).unwrap()).unwrap();
-                let (n, d, t, c, p) = match Activity::parse_from_editor(edited.as_str()) {
-                    Ok((name, date, activity_type, content, people)) => {
-                        (name, date, activity_type, content, people)
-                    }
-                    Err(_) => panic!("Error parsing activity"),
-                };
-                name_string = n;
-                date_string = d.unwrap();
-                activity_type_string = t.unwrap();
-                content_string = c.unwrap();
-                people = p;
+                activity_vars = helpers::editor::populate_activity_vars(vars);
             } else {
                 if [activity_type.clone(), date.clone(), content.clone()]
                     .iter()
                     .any(Option::is_none)
                 {
-                    // FIXME opening the editor here is a better behaviour
-                    println!("if `name` isn't set, all of `activity_type`, `date`, and `content` must be set");
-                    return;
+                    activity_vars = helpers::editor::populate_activity_vars(vars);
+                } else {
+                    activity_vars = helpers::ActivityVars {
+                        name: name.unwrap(),
+                        date: date.unwrap(),
+                        activity_type: activity_type.unwrap(),
+                        content: content.unwrap(),
+                        people: people,
+                    };
                 }
-                name_string = name.unwrap();
-                activity_type_string = activity_type.unwrap();
-                date_string = date.unwrap();
-                content_string = content.unwrap();
             }
 
-            let activity_type = match activity_type_string.as_str() {
+            let activity_type = match activity_vars.activity_type.as_str() {
                 "phone" => ActivityType::Phone,
                 "in_person" => ActivityType::InPerson,
                 "online" => ActivityType::Online,
@@ -268,19 +284,19 @@ pub mod cli {
                 _ => panic!("Unknown reminder type"),
             };
 
-            let date_obj = match helpers::parse_from_str_ymd(date_string.as_str()) {
+            let date_obj = match helpers::parse_from_str_ymd(activity_vars.date.as_str()) {
                 Ok(date) => date,
                 Err(error) => panic!("Error parsing date: {}", error),
             };
 
-            let people = Person::get_by_names(&conn, people);
+            let people = Person::get_by_names(&conn, activity_vars.people);
 
             let activity = Activity::new(
                 0,
-                name_string,
+                activity_vars.name,
                 activity_type,
                 date_obj,
-                content_string,
+                activity_vars.content,
                 people,
             );
             match activity.add(&conn) {
