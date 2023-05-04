@@ -1,3 +1,5 @@
+mod cli;
+
 use clap::builder::ArgAction;
 use clap::{Args, Parser, Subcommand};
 use prm::db::db_interface::DbOperations;
@@ -219,7 +221,7 @@ fn main() {
                 birthday,
                 contact_info,
             } => {
-                prm::cli::add::person(&conn, name, birthday, contact_info);
+                cli::add::person(&conn, name, birthday, contact_info);
             }
             AddEntity::Activity {
                 name,
@@ -228,7 +230,7 @@ fn main() {
                 content,
                 people,
             } => {
-                prm::cli::add::activity(&conn, name, activity_type, date, content, people);
+                cli::add::activity(&conn, name, activity_type, date, content, people);
             }
             AddEntity::Reminder {
                 name,
@@ -237,10 +239,10 @@ fn main() {
                 description,
                 people,
             } => {
-                prm::cli::add::reminder(&conn, name, date, recurring, description, people);
+                cli::add::reminder(&conn, name, date, recurring, description, people);
             }
             AddEntity::Notes { content, people } => {
-                prm::cli::add::note(&conn, content, people);
+                cli::add::note(&conn, content, people);
             }
         },
         Commands::Show(show) => match show.entity {
@@ -269,7 +271,7 @@ fn main() {
                 birthday,
                 contact_info,
             } => {
-                prm::cli::edit::person(&conn, id, name, birthday, contact_info);
+                cli::edit::person(&conn, id, name, birthday, contact_info);
             }
             EditEntity::Activity {
                 id,
@@ -278,7 +280,7 @@ fn main() {
                 date,
                 content,
             } => {
-                prm::cli::edit::activity(&conn, id, name, activity_type, date, content);
+                cli::edit::activity(&conn, id, name, activity_type, date, content);
             }
             EditEntity::Reminder {
                 id,
@@ -287,10 +289,10 @@ fn main() {
                 description,
                 recurring,
             } => {
-                prm::cli::edit::reminder(&conn, id, name, date, description, recurring);
+                cli::edit::reminder(&conn, id, name, date, description, recurring);
             }
             EditEntity::Note { id, date, content } => {
-                prm::cli::edit::note(&conn, id, date, content);
+                cli::edit::note(&conn, id, date, content);
             }
         },
         Commands::Remove(remove) => match remove.entity {
