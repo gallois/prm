@@ -501,9 +501,17 @@ pub mod cli {
                     } else {
                         birthday_placeholder = "".to_string();
                     }
+                    let contact_info_placeholder: String;
+                    if contact_info.is_some() {
+                        contact_info_placeholder = contact_info.unwrap();
+                    } else if !contact_info_field.is_empty() {
+                        contact_info_placeholder = contact_info_field;
+                    } else {
+                        contact_info_placeholder = "".to_string();
+                    }
                     vars.insert("name".to_string(), name_placeholder);
                     vars.insert("birthday".to_string(), birthday_placeholder);
-                    vars.insert("contact_info".to_string(), contact_info_field);
+                    vars.insert("contact_info".to_string(), contact_info_placeholder);
 
                     let edited = edit::edit(strfmt(PERSON_TEMPLATE, &vars).unwrap()).unwrap();
                     let (n, b, c) = match Person::parse_from_editor(edited.as_str()) {
