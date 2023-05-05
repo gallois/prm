@@ -1,4 +1,6 @@
+use rusqlite::{params, params_from_iter, Connection};
 pub mod db_interface {
+    use crate::db::Connection;
     #[derive(Debug)]
     pub enum DbOperationsError {
         DuplicateEntry,
@@ -6,18 +8,19 @@ pub mod db_interface {
     }
 
     pub trait DbOperations {
-        fn add(&self, conn: &crate::Connection) -> Result<&Self, DbOperationsError>;
-        fn remove(&self, conn: &crate::Connection) -> Result<&Self, DbOperationsError>;
-        fn save(&self, conn: &crate::Connection) -> Result<&Self, DbOperationsError>;
-        fn get_by_id(conn: &crate::Connection, id: u64) -> Option<crate::Entities>;
+        fn add(&self, conn: &Connection) -> Result<&Self, DbOperationsError>;
+        fn remove(&self, conn: &Connection) -> Result<&Self, DbOperationsError>;
+        fn save(&self, conn: &Connection) -> Result<&Self, DbOperationsError>;
+        fn get_by_id(conn: &Connection, id: u64) -> Option<crate::entities::Entities>;
         // TODO get_all
     }
 }
 
 pub mod db_helpers {
-    use crate::ContactInfoType;
+    use crate::db::{params, params_from_iter, Connection};
+    use crate::entities::ContactInfoType;
 
-    pub fn get_notes_by_person(conn: &crate::Connection, person_id: u64) -> Vec<crate::Note> {
+    pub fn get_notes_by_person(conn: &Connection, person_id: u64) -> Vec<crate::entities::Note> {
         let mut stmt = conn
             .prepare(
                 "SELECT
@@ -31,7 +34,7 @@ pub mod db_helpers {
             )
             .unwrap();
 
-        let mut rows = stmt.query(crate::params![person_id]).unwrap();
+        let mut rows = stmt.query(params![person_id]).unwrap();
         let mut note_ids: Vec<u64> = vec![];
         while let Some(row) = rows.next().unwrap() {
             note_ids.push(row.get(0).unwrap());
@@ -49,8 +52,8 @@ pub mod db_helpers {
         let mut stmt = conn.prepare(&sql).expect("Invalid SQL statement");
 
         let rows = stmt
-            .query_map(crate::params_from_iter(note_ids.iter()), |row| {
-                Ok(crate::Note::new(
+            .query_map(params_from_iter(note_ids.iter()), |row| {
+                Ok(crate::entities::Note::new(
                     row.get(0).unwrap(),
                     crate::helpers::parse_from_str_ymd(
                         String::from(row.get::<usize, String>(1).unwrap_or_default()).as_str(),
@@ -71,9 +74,9 @@ pub mod db_helpers {
     }
 
     pub fn get_reminders_by_person(
-        conn: &crate::Connection,
+        conn: &Connection,
         person_id: u64,
-    ) -> Vec<crate::Reminder> {
+    ) -> Vec<crate::entities::Reminder> {
         let mut stmt = conn
             .prepare(
                 "SELECT
@@ -87,7 +90,7 @@ pub mod db_helpers {
             )
             .unwrap();
 
-        let mut rows = stmt.query(crate::params![person_id]).unwrap();
+        let mut rows = stmt.query(params![person_id]).unwrap();
         let mut reminder_ids: Vec<u64> = vec![];
         while let Some(row) = rows.next().unwrap() {
             reminder_ids.push(row.get(0).unwrap());
@@ -105,8 +108,8 @@ pub mod db_helpers {
         let mut stmt = conn.prepare(&sql).expect("Invalid SQL statement");
 
         let rows = stmt
-            .query_map(crate::params_from_iter(reminder_ids.iter()), |row| {
-                Ok(crate::Reminder::new(
+            .query_map(params_from_iter(reminder_ids.iter()), |row| {
+                Ok(crate::entities::Reminder::new(
                     row.get(0).unwrap(),
                     row.get(1).unwrap(),
                     crate::helpers::parse_from_str_ymd(
@@ -114,7 +117,7 @@ pub mod db_helpers {
                     )
                     .unwrap_or_default(),
                     row.get(3).unwrap(),
-                    crate::RecurringType::get_by_id(&conn, row.get(4).unwrap()).unwrap(),
+                    crate::entities::RecurringType::get_by_id(&conn, row.get(4).unwrap()).unwrap(),
                     vec![],
                 ))
             })
@@ -129,9 +132,9 @@ pub mod db_helpers {
     }
 
     pub fn get_contact_info_by_person(
-        conn: &crate::Connection,
+        conn: &Connection,
         person_id: u64,
-    ) -> Vec<crate::ContactInfo> {
+    ) -> Vec<crate::entities::ContactInfo> {
         let mut stmt = conn
             .prepare(
                 "SELECT 
@@ -145,11 +148,12 @@ pub mod db_helpers {
             )
             .unwrap();
 
-        let mut contact_info_vec: Vec<crate::ContactInfo> = vec![];
+        let mut contact_info_vec: Vec<crate::entities::ContactInfo> = vec![];
         let rows = stmt
-            .query_map(crate::params![person_id], |row| {
+            .query_map(params![person_id], |row| {
                 let contact_info_type =
-                    crate::ContactInfoType::get_by_id(&conn, row.get(2).unwrap()).unwrap();
+                    crate::entities::ContactInfoType::get_by_id(&conn, row.get(2).unwrap())
+                        .unwrap();
                 let contact_info_details: String = row.get(3).unwrap();
                 let contact_info = match contact_info_type {
                     ContactInfoType::Phone(_) => ContactInfoType::Phone(contact_info_details),
@@ -157,7 +161,7 @@ pub mod db_helpers {
                     ContactInfoType::Email(_) => ContactInfoType::Email(contact_info_details),
                 };
 
-                Ok(crate::ContactInfo::new(
+                Ok(crate::entities::ContactInfo::new(
                     row.get(0).unwrap(),
                     row.get(1).unwrap(),
                     contact_info,
@@ -173,9 +177,9 @@ pub mod db_helpers {
     }
 
     pub fn get_activities_by_person(
-        conn: &crate::Connection,
+        conn: &Connection,
         person_id: u64,
-    ) -> Vec<crate::Activity> {
+    ) -> Vec<crate::entities::Activity> {
         let mut stmt = conn
             .prepare(
                 "SELECT 
@@ -189,7 +193,7 @@ pub mod db_helpers {
             )
             .unwrap();
 
-        let mut rows = stmt.query(crate::params![person_id]).unwrap();
+        let mut rows = stmt.query(params![person_id]).unwrap();
         let mut activity_ids: Vec<u64> = vec![];
         while let Some(row) = rows.next().unwrap() {
             activity_ids.push(row.get(0).unwrap());
@@ -207,12 +211,12 @@ pub mod db_helpers {
         let mut stmt = conn.prepare(&sql).expect("Invalid SQL statement");
 
         let rows = stmt
-            .query_map(crate::params_from_iter(activity_ids.iter()), |row| {
+            .query_map(params_from_iter(activity_ids.iter()), |row| {
                 let activity_id = row.get(0).unwrap();
-                Ok(crate::Activity::new(
+                Ok(crate::entities::Activity::new(
                     activity_id,
                     row.get(1).unwrap(),
-                    crate::ActivityType::get_by_id(&conn, row.get(2).unwrap()).unwrap(),
+                    crate::entities::ActivityType::get_by_id(&conn, row.get(2).unwrap()).unwrap(),
                     crate::helpers::parse_from_str_ymd(
                         String::from(row.get::<usize, String>(3).unwrap_or_default()).as_str(),
                     )
@@ -233,9 +237,9 @@ pub mod db_helpers {
 
     // TODO remove duplication with similar functions
     pub fn get_people_by_reminder(
-        conn: &crate::Connection,
+        conn: &Connection,
         reminder_id: u64,
-    ) -> Vec<crate::Person> {
+    ) -> Vec<crate::entities::Person> {
         let mut stmt = conn
             .prepare(
                 "SELECT
@@ -249,7 +253,7 @@ pub mod db_helpers {
             )
             .expect("Invalid SQL statement");
 
-        let mut rows = stmt.query(crate::params![reminder_id]).unwrap();
+        let mut rows = stmt.query(params![reminder_id]).unwrap();
         let mut people_ids: Vec<u64> = vec![];
         while let Some(row) = rows.next().unwrap() {
             people_ids.push(row.get(0).unwrap());
@@ -267,9 +271,9 @@ pub mod db_helpers {
         let mut stmt = conn.prepare(&sql).expect("Invalid SQL statement");
 
         let rows = stmt
-            .query_map(crate::params_from_iter(people_ids.iter()), |row| {
+            .query_map(params_from_iter(people_ids.iter()), |row| {
                 let person_id = row.get(0).unwrap();
-                Ok(crate::Person {
+                Ok(crate::entities::Person {
                     id: person_id,
                     name: row.get(1).unwrap(),
                     birthday: Some(
@@ -298,10 +302,10 @@ pub mod db_helpers {
 
     // TODO remove duplication with similar functions
     pub fn get_people_by_activity(
-        conn: &crate::Connection,
+        conn: &Connection,
         activity_id: u64,
         recurse: bool,
-    ) -> Vec<crate::Person> {
+    ) -> Vec<crate::entities::Person> {
         let mut stmt = conn
             .prepare(
                 "SELECT
@@ -315,7 +319,7 @@ pub mod db_helpers {
             )
             .expect("Invalid SQL statement");
 
-        let mut rows = stmt.query(crate::params![activity_id]).unwrap();
+        let mut rows = stmt.query(params![activity_id]).unwrap();
         let mut people_ids: Vec<u64> = vec![];
         while let Some(row) = rows.next().unwrap() {
             people_ids.push(row.get(0).unwrap());
@@ -333,9 +337,9 @@ pub mod db_helpers {
         let mut stmt = conn.prepare(&sql).expect("Invalid SQL statement");
 
         let rows = stmt
-            .query_map(crate::params_from_iter(people_ids.iter()), |row| {
+            .query_map(params_from_iter(people_ids.iter()), |row| {
                 let person_id = row.get(0).unwrap();
-                Ok(crate::Person {
+                Ok(crate::entities::Person {
                     id: person_id,
                     name: row.get(1).unwrap(),
                     birthday: Some(
@@ -366,7 +370,7 @@ pub mod db_helpers {
         people
     }
 
-    pub fn get_people_by_note(conn: &crate::Connection, note_id: u64) -> Vec<crate::Person> {
+    pub fn get_people_by_note(conn: &Connection, note_id: u64) -> Vec<crate::entities::Person> {
         let mut stmt = conn
             .prepare(
                 "SELECT
@@ -380,7 +384,7 @@ pub mod db_helpers {
             )
             .expect("Invalid SQL statement");
 
-        let mut rows = stmt.query(crate::params![note_id]).unwrap();
+        let mut rows = stmt.query(params![note_id]).unwrap();
         let mut people_ids: Vec<u64> = vec![];
         while let Some(row) = rows.next().unwrap() {
             people_ids.push(row.get(0).unwrap());
@@ -398,9 +402,9 @@ pub mod db_helpers {
         let mut stmt = conn.prepare(&sql).expect("Invalid SQL statement");
 
         let rows = stmt
-            .query_map(crate::params_from_iter(people_ids.iter()), |row| {
+            .query_map(params_from_iter(people_ids.iter()), |row| {
                 let person_id = row.get(0).unwrap();
-                Ok(crate::Person {
+                Ok(crate::entities::Person {
                     id: person_id,
                     name: row.get(1).unwrap(),
                     birthday: Some(
@@ -426,9 +430,7 @@ pub mod db_helpers {
 
         notes
     }
-    pub fn init_db(
-        conn: &crate::Connection,
-    ) -> Result<(), crate::db::db_interface::DbOperationsError> {
+    pub fn init_db(conn: &Connection) -> Result<(), crate::db::db_interface::DbOperationsError> {
         let sql_create_statements = vec![
             "CREATE TABLE people (
             id INTEGER PRIMARY KEY,

@@ -1,8 +1,6 @@
 use prm::db::db_interface::DbOperations;
-use prm::{
-    Activity, Entities, Note, Person, Reminder, ACTIVITY_TEMPLATE, NOTE_TEMPLATE, PERSON_TEMPLATE,
-    REMINDER_TEMPLATE,
-};
+use prm::entities::{Activity, Entities, Note, Person, Reminder};
+use prm::{ACTIVITY_TEMPLATE, NOTE_TEMPLATE, PERSON_TEMPLATE, REMINDER_TEMPLATE};
 extern crate strfmt;
 use rusqlite::Connection;
 use std::collections::HashMap;
