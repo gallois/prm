@@ -5,11 +5,6 @@ pub mod helpers;
 
 pub use crate::db::{db_helpers, db_interface};
 
-pub enum ParseError {
-    FieldError,
-    FormatError,
-}
-
 pub static PERSON_TEMPLATE: &str = "Name: {name}
 Birthday: {birthday}
 Contact Info: {contact_info}

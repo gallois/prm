@@ -4,6 +4,11 @@ use crate::ACTIVITY_TEMPLATE;
 use std::collections::HashMap;
 use strfmt::strfmt;
 
+pub enum ParseError {
+    FieldError,
+    FormatError,
+}
+
 pub fn populate_activity_vars(vars: HashMap<String, String>) -> ActivityVars {
     let edited = edit::edit(strfmt(ACTIVITY_TEMPLATE, &vars).unwrap()).unwrap();
     let (n, d, t, c, p) = match Activity::parse_from_editor(edited.as_str()) {

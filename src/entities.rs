@@ -215,7 +215,7 @@ impl Person {
 
     pub fn parse_from_editor(
         content: &str,
-    ) -> Result<(String, Option<String>, Vec<String>), crate::ParseError> {
+    ) -> Result<(String, Option<String>, Vec<String>), crate::editor::ParseError> {
         let mut error = false;
         let mut name: String = String::new();
         let mut birthday: Option<String> = None;
@@ -239,7 +239,7 @@ impl Person {
         });
 
         if error {
-            return Err(crate::ParseError::FormatError);
+            return Err(crate::editor::ParseError::FormatError);
         }
 
         Ok((name, birthday, contact_info))
@@ -663,7 +663,7 @@ impl Activity {
             Option<String>,
             Vec<String>,
         ),
-        crate::ParseError,
+        crate::editor::ParseError,
     > {
         let mut error = false;
         let mut name: String = String::new();
@@ -700,7 +700,7 @@ impl Activity {
         });
 
         if error {
-            return Err(crate::ParseError::FormatError);
+            return Err(crate::editor::ParseError::FormatError);
         }
 
         Ok((name, date, activity_type, activity_content, people))
@@ -1092,7 +1092,7 @@ impl Reminder {
             Option<String>,
             Vec<String>,
         ),
-        crate::ParseError,
+        crate::editor::ParseError,
     > {
         let mut error = false;
         let mut name: String = String::new();
@@ -1129,7 +1129,7 @@ impl Reminder {
         });
 
         if error {
-            return Err(crate::ParseError::FormatError);
+            return Err(crate::editor::ParseError::FormatError);
         }
 
         Ok((name, date, recurring_type, description, people))
@@ -1493,7 +1493,7 @@ impl Note {
 
     pub fn parse_from_editor(
         content: &str,
-    ) -> Result<(String, String, Vec<String>), crate::ParseError> {
+    ) -> Result<(String, String, Vec<String>), crate::editor::ParseError> {
         let mut error = false;
         let mut date: String = String::new();
         let mut note_contents: String = String::new();
@@ -1519,7 +1519,7 @@ impl Note {
         });
 
         if error {
-            return Err(crate::ParseError::FormatError);
+            return Err(crate::editor::ParseError::FormatError);
         }
 
         Ok((date, note_contents, people))
