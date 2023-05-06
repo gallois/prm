@@ -1,6 +1,5 @@
-use crate::entities::Activity;
+use crate::entities::{Activity, ACTIVITY_TEMPLATE};
 use crate::helpers::ActivityVars;
-use crate::ACTIVITY_TEMPLATE;
 use std::collections::HashMap;
 use strfmt::strfmt;
 

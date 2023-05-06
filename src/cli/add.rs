@@ -4,7 +4,7 @@ use prm::db::db_interface::DbOperations;
 use prm::entities::{
     Activity, ActivityType, ContactInfo, ContactInfoType, Note, Person, RecurringType, Reminder,
 };
-use prm::{NOTE_TEMPLATE, PERSON_TEMPLATE, REMINDER_TEMPLATE};
+use prm::entities::{NOTE_TEMPLATE, PERSON_TEMPLATE, REMINDER_TEMPLATE};
 use rusqlite::Connection;
 
 extern crate strfmt;
