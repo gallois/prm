@@ -1,10 +1,10 @@
 use chrono::NaiveDate;
 use edit;
-use prm::db::db_interface::DbOperations;
-use prm::entities::{
-    Activity, ActivityType, ContactInfo, ContactInfoType, Note, Person, RecurringType, Reminder,
-};
-use prm::entities::{NOTE_TEMPLATE, PERSON_TEMPLATE, REMINDER_TEMPLATE};
+use prm::db_interface::DbOperations;
+use prm::entities::activity::{Activity, ActivityType};
+use prm::entities::note::{Note, NOTE_TEMPLATE};
+use prm::entities::person::{ContactInfo, ContactInfoType, Person, PERSON_TEMPLATE};
+use prm::entities::reminder::{RecurringType, Reminder, REMINDER_TEMPLATE};
 use rusqlite::Connection;
 
 extern crate strfmt;

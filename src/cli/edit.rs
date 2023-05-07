@@ -1,6 +1,9 @@
 use prm::db::db_interface::DbOperations;
-use prm::entities::{Activity, Entities, Note, Person, Reminder};
-use prm::entities::{ACTIVITY_TEMPLATE, NOTE_TEMPLATE, PERSON_TEMPLATE, REMINDER_TEMPLATE};
+use prm::entities::activity::{Activity, ACTIVITY_TEMPLATE};
+use prm::entities::note::{Note, NOTE_TEMPLATE};
+use prm::entities::person::{Person, PERSON_TEMPLATE};
+use prm::entities::reminder::{Reminder, REMINDER_TEMPLATE};
+use prm::entities::Entities;
 extern crate strfmt;
 use rusqlite::Connection;
 use std::collections::HashMap;
@@ -319,9 +322,6 @@ pub fn note(conn: &Connection, id: u64, date: Option<String>, content: Option<St
                 Entities::Note(note) => note,
                 _ => panic!("not a note"),
             };
-            // if [date.clone(), content.clone()].iter().all(Option::is_none) {
-            //     println!("You must set at least one of `date` or `content`");
-            // }
             let mut vars = HashMap::new();
             let date_placeholder: String;
             let content_placeholder: String;

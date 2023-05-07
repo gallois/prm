@@ -18,9 +18,12 @@ pub mod db_interface {
 
 pub mod db_helpers {
     use crate::db::{params, params_from_iter, Connection};
-    use crate::entities::ContactInfoType;
+    use crate::entities::person::ContactInfoType;
 
-    pub fn get_notes_by_person(conn: &Connection, person_id: u64) -> Vec<crate::entities::Note> {
+    pub fn get_notes_by_person(
+        conn: &Connection,
+        person_id: u64,
+    ) -> Vec<crate::entities::note::Note> {
         let mut stmt = conn
             .prepare(
                 "SELECT
@@ -53,7 +56,7 @@ pub mod db_helpers {
 
         let rows = stmt
             .query_map(params_from_iter(note_ids.iter()), |row| {
-                Ok(crate::entities::Note::new(
+                Ok(crate::entities::note::Note::new(
                     row.get(0).unwrap(),
                     crate::helpers::parse_from_str_ymd(
                         String::from(row.get::<usize, String>(1).unwrap_or_default()).as_str(),
@@ -76,7 +79,7 @@ pub mod db_helpers {
     pub fn get_reminders_by_person(
         conn: &Connection,
         person_id: u64,
-    ) -> Vec<crate::entities::Reminder> {
+    ) -> Vec<crate::entities::reminder::Reminder> {
         let mut stmt = conn
             .prepare(
                 "SELECT
@@ -109,7 +112,7 @@ pub mod db_helpers {
 
         let rows = stmt
             .query_map(params_from_iter(reminder_ids.iter()), |row| {
-                Ok(crate::entities::Reminder::new(
+                Ok(crate::entities::reminder::Reminder::new(
                     row.get(0).unwrap(),
                     row.get(1).unwrap(),
                     crate::helpers::parse_from_str_ymd(
@@ -117,7 +120,8 @@ pub mod db_helpers {
                     )
                     .unwrap_or_default(),
                     row.get(3).unwrap(),
-                    crate::entities::RecurringType::get_by_id(&conn, row.get(4).unwrap()).unwrap(),
+                    crate::entities::reminder::RecurringType::get_by_id(&conn, row.get(4).unwrap())
+                        .unwrap(),
                     vec![],
                 ))
             })
@@ -134,7 +138,7 @@ pub mod db_helpers {
     pub fn get_contact_info_by_person(
         conn: &Connection,
         person_id: u64,
-    ) -> Vec<crate::entities::ContactInfo> {
+    ) -> Vec<crate::entities::person::ContactInfo> {
         let mut stmt = conn
             .prepare(
                 "SELECT 
@@ -148,11 +152,11 @@ pub mod db_helpers {
             )
             .unwrap();
 
-        let mut contact_info_vec: Vec<crate::entities::ContactInfo> = vec![];
+        let mut contact_info_vec: Vec<crate::entities::person::ContactInfo> = vec![];
         let rows = stmt
             .query_map(params![person_id], |row| {
                 let contact_info_type =
-                    crate::entities::ContactInfoType::get_by_id(&conn, row.get(2).unwrap())
+                    crate::entities::person::ContactInfoType::get_by_id(&conn, row.get(2).unwrap())
                         .unwrap();
                 let contact_info_details: String = row.get(3).unwrap();
                 let contact_info = match contact_info_type {
@@ -161,7 +165,7 @@ pub mod db_helpers {
                     ContactInfoType::Email(_) => ContactInfoType::Email(contact_info_details),
                 };
 
-                Ok(crate::entities::ContactInfo::new(
+                Ok(crate::entities::person::ContactInfo::new(
                     row.get(0).unwrap(),
                     row.get(1).unwrap(),
                     contact_info,
@@ -179,7 +183,7 @@ pub mod db_helpers {
     pub fn get_activities_by_person(
         conn: &Connection,
         person_id: u64,
-    ) -> Vec<crate::entities::Activity> {
+    ) -> Vec<crate::entities::activity::Activity> {
         let mut stmt = conn
             .prepare(
                 "SELECT 
@@ -213,10 +217,11 @@ pub mod db_helpers {
         let rows = stmt
             .query_map(params_from_iter(activity_ids.iter()), |row| {
                 let activity_id = row.get(0).unwrap();
-                Ok(crate::entities::Activity::new(
+                Ok(crate::entities::activity::Activity::new(
                     activity_id,
                     row.get(1).unwrap(),
-                    crate::entities::ActivityType::get_by_id(&conn, row.get(2).unwrap()).unwrap(),
+                    crate::entities::activity::ActivityType::get_by_id(&conn, row.get(2).unwrap())
+                        .unwrap(),
                     crate::helpers::parse_from_str_ymd(
                         String::from(row.get::<usize, String>(3).unwrap_or_default()).as_str(),
                     )
@@ -239,7 +244,7 @@ pub mod db_helpers {
     pub fn get_people_by_reminder(
         conn: &Connection,
         reminder_id: u64,
-    ) -> Vec<crate::entities::Person> {
+    ) -> Vec<crate::entities::person::Person> {
         let mut stmt = conn
             .prepare(
                 "SELECT
@@ -273,7 +278,7 @@ pub mod db_helpers {
         let rows = stmt
             .query_map(params_from_iter(people_ids.iter()), |row| {
                 let person_id = row.get(0).unwrap();
-                Ok(crate::entities::Person {
+                Ok(crate::entities::person::Person {
                     id: person_id,
                     name: row.get(1).unwrap(),
                     birthday: Some(
@@ -305,7 +310,7 @@ pub mod db_helpers {
         conn: &Connection,
         activity_id: u64,
         recurse: bool,
-    ) -> Vec<crate::entities::Person> {
+    ) -> Vec<crate::entities::person::Person> {
         let mut stmt = conn
             .prepare(
                 "SELECT
@@ -339,7 +344,7 @@ pub mod db_helpers {
         let rows = stmt
             .query_map(params_from_iter(people_ids.iter()), |row| {
                 let person_id = row.get(0).unwrap();
-                Ok(crate::entities::Person {
+                Ok(crate::entities::person::Person {
                     id: person_id,
                     name: row.get(1).unwrap(),
                     birthday: Some(
@@ -370,7 +375,10 @@ pub mod db_helpers {
         people
     }
 
-    pub fn get_people_by_note(conn: &Connection, note_id: u64) -> Vec<crate::entities::Person> {
+    pub fn get_people_by_note(
+        conn: &Connection,
+        note_id: u64,
+    ) -> Vec<crate::entities::person::Person> {
         let mut stmt = conn
             .prepare(
                 "SELECT
@@ -404,7 +412,7 @@ pub mod db_helpers {
         let rows = stmt
             .query_map(params_from_iter(people_ids.iter()), |row| {
                 let person_id = row.get(0).unwrap();
-                Ok(crate::entities::Person {
+                Ok(crate::entities::person::Person {
                     id: person_id,
                     name: row.get(1).unwrap(),
                     birthday: Some(
@@ -503,7 +511,7 @@ pub mod db_helpers {
         ];
         for query in sql_create_statements {
             match conn.execute(query, ()) {
-                // Improve message
+                // TODO Improve message
                 Ok(_) => println!("Database table created"),
                 Err(error) => {
                     println!("Error creating database tables: {}", error);
@@ -538,7 +546,7 @@ pub mod db_helpers {
         ];
         for query in sql_populate_statements {
             match conn.execute(query, ()) {
-                // Improve message
+                // TODO Improve message
                 Ok(_) => println!("Database table populated"),
                 Err(error) => {
                     println!("Error populating database tables: {}", error);

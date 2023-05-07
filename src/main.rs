@@ -3,7 +3,12 @@ mod cli;
 use clap::builder::ArgAction;
 use clap::{Args, Parser, Subcommand};
 use prm::db_interface::DbOperations;
-use prm::entities::{Activity, Entities, Event, Note, Person, Reminder};
+use prm::entities::activity::Activity;
+use prm::entities::event::Event;
+use prm::entities::note::Note;
+use prm::entities::person::Person;
+use prm::entities::reminder::Reminder;
+use prm::entities::Entities;
 use rusqlite::Connection;
 
 #[derive(Parser)]
