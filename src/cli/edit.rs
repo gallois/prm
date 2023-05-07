@@ -215,7 +215,6 @@ pub fn reminder(
     let description_string: String;
     let people: Vec<String>;
 
-    // TODO include people when editing
     match reminder {
         Some(reminder) => {
             let mut reminder = match reminder {

@@ -628,7 +628,6 @@ impl Activity {
         activities
     }
 
-    // TODO might be a good idea to edit people
     pub fn update(
         &mut self,
         conn: &Connection,
