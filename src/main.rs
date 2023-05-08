@@ -73,6 +73,8 @@ struct IcsArgs {
     birthdays: bool,
     #[arg(short, long)]
     reminders: bool,
+    #[arg(short, long)]
+    all: bool,
 }
 
 #[derive(Subcommand)]
@@ -401,7 +403,7 @@ fn main() {
                 let dtstamp = chrono::Local::now().format("%Y%m%dT%H%M%SZ").to_string();
                 match event.details {
                     EventType::Person(person) => {
-                        if !ics.birthdays {
+                        if !ics.birthdays && !ics.all {
                             continue;
                         }
                         let mut ics_event = IcsEvent::new(uuid.to_string(), dtstamp);
@@ -416,19 +418,19 @@ fn main() {
                         calendar.add_event(ics_event);
                     }
                     EventType::Reminder(reminder) => {
-                        // FIXME Reminders.app is not able to read this properly
-                        // if !ics.reminders {
-                        //     continue;
-                        // }
-                        // let mut todo = ToDo::new(uuid.to_string(), dtstamp);
-                        // let dtdue = format!("{}T090000", event.date.format("%Y%m%d").to_string());
-                        // todo.push(Summary::new(reminder.name));
-                        // todo.push(Comment::new(
-                        //     reminder.description.unwrap_or(String::from("[Empty]")),
-                        // ));
-                        // todo.push(Status::needs_action());
-                        // todo.push(Due::new(dtdue));
-                        // calendar.add_todo(todo);
+                        // TODO macos reminders.app does not work well with caldav
+                        if !ics.reminders && !ics.all {
+                            continue;
+                        }
+                        let mut todo = ToDo::new(uuid.to_string(), dtstamp);
+                        let dtdue = format!("{}T090000", event.date.format("%Y%m%d").to_string());
+                        todo.push(Summary::new(reminder.name));
+                        todo.push(Comment::new(
+                            reminder.description.unwrap_or(String::from("[Empty]")),
+                        ));
+                        todo.push(Status::needs_action());
+                        todo.push(Due::new(dtdue));
+                        calendar.add_todo(todo);
                     }
                 }
             }
