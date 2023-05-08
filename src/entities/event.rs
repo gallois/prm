@@ -17,7 +17,10 @@ pub struct Event {
 }
 
 impl Event {
-    pub fn get_all(conn: &Connection, days: u64) -> Vec<Event> {
+    pub fn get_all(conn: &Connection, mut days: u64) -> Vec<Event> {
+        if days == 0 {
+            days = 10 * 365; // 10 years
+        }
         let mut events: Vec<Event> = vec![];
         let today = chrono::Local::now().naive_local();
         let today_str = format!("{}", today.format("%Y-%m-%d"));

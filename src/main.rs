@@ -2,14 +2,17 @@ mod cli;
 
 use clap::builder::ArgAction;
 use clap::{Args, Parser, Subcommand};
+use ics::properties::{Comment, DtStart, Due, RRule, Status, Summary};
+use ics::{escape_text, Event as IcsEvent, ICalendar, ToDo};
 use prm::db_interface::DbOperations;
 use prm::entities::activity::Activity;
-use prm::entities::event::Event;
+use prm::entities::event::{Event, EventType};
 use prm::entities::note::Note;
 use prm::entities::person::Person;
 use prm::entities::reminder::Reminder;
 use prm::entities::Entities;
 use rusqlite::Connection;
+use uuid::Uuid;
 
 #[derive(Parser)]
 struct Cli {
@@ -25,6 +28,7 @@ enum Commands {
     Edit(EditArgs),
     Remove(RemoveArgs),
     List(ListArgs),
+    Ics(IcsArgs),
 }
 
 #[derive(Args)]
@@ -60,6 +64,15 @@ struct ListArgs {
 struct RemoveArgs {
     #[command(subcommand)]
     entity: RemoveEntity,
+}
+
+#[derive(Args)]
+#[command(args_conflicts_with_subcommands = true)]
+struct IcsArgs {
+    #[arg(short, long)]
+    birthdays: bool,
+    #[arg(short, long)]
+    reminders: bool,
 }
 
 #[derive(Subcommand)]
@@ -379,5 +392,47 @@ fn main() {
                 }
             }
         },
+        Commands::Ics(ics) => {
+            let events = Event::get_all(&conn, 0);
+            let mut calendar = ICalendar::new("2.0", "ics-rs");
+
+            for event in events {
+                let uuid = Uuid::new_v4();
+                let dtstamp = chrono::Local::now().format("%Y%m%dT%H%M%SZ").to_string();
+                match event.details {
+                    EventType::Person(person) => {
+                        if !ics.birthdays {
+                            continue;
+                        }
+                        let mut ics_event = IcsEvent::new(uuid.to_string(), dtstamp);
+                        let dtstart = format!("{}", event.date.format("%Y%m%d").to_string());
+                        ics_event.push(Summary::new(format!("{}'s birthday", person.name)));
+                        ics_event.push(Comment::new(escape_text(format!(
+                            "Contact info: {:#?}",
+                            person.contact_info
+                        ))));
+                        ics_event.push(DtStart::new(dtstart));
+                        ics_event.push(RRule::new("FREQ=YEARLY"));
+                        calendar.add_event(ics_event);
+                    }
+                    EventType::Reminder(reminder) => {
+                        // FIXME Reminders.app is not able to read this properly
+                        // if !ics.reminders {
+                        //     continue;
+                        // }
+                        // let mut todo = ToDo::new(uuid.to_string(), dtstamp);
+                        // let dtdue = format!("{}T090000", event.date.format("%Y%m%d").to_string());
+                        // todo.push(Summary::new(reminder.name));
+                        // todo.push(Comment::new(
+                        //     reminder.description.unwrap_or(String::from("[Empty]")),
+                        // ));
+                        // todo.push(Status::needs_action());
+                        // todo.push(Due::new(dtdue));
+                        // calendar.add_todo(todo);
+                    }
+                }
+            }
+            calendar.save_file("calendar.ics").unwrap();
+        }
     }
 }
