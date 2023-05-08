@@ -432,7 +432,7 @@ fn main() {
                     }
                 }
             }
-            calendar.save_file("calendar.ics").unwrap();
+            calendar.save_file("data/calendar.ics").unwrap();
         }
     }
 }
