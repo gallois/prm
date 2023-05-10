@@ -12,7 +12,7 @@ Recurring: {recurring_type}
 Description: {description}
 People: {people}
 ";
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Reminder {
     pub id: u64,
     pub name: String,
@@ -399,7 +399,7 @@ impl fmt::Display for Reminder {
     }
 }
 
-#[derive(Debug, AsRefStr, EnumString, Clone)]
+#[derive(Debug, AsRefStr, EnumString, Clone, PartialEq)]
 pub enum RecurringType {
     OneTime,
     Daily,

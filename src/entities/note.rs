@@ -9,7 +9,7 @@ Content: {content}
 People: {people}
 ";
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Note {
     id: u64,
     pub date: NaiveDate,

@@ -12,7 +12,7 @@ pub static PERSON_TEMPLATE: &str = "Name: {name}
 Birthday: {birthday}
 Contact Info: {contact_info}
 ";
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Person {
     pub id: u64,
     pub name: String,
@@ -513,7 +513,7 @@ impl fmt::Display for Person {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ContactInfo {
     id: u64,
     person_id: u64,
@@ -543,7 +543,7 @@ impl ContactInfo {
     }
 }
 
-#[derive(Debug, AsRefStr, EnumString, Clone)]
+#[derive(Debug, AsRefStr, EnumString, Clone, PartialEq)]
 pub enum ContactInfoType {
     Phone(String),
     WhatsApp(String),

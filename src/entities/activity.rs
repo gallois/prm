@@ -12,7 +12,7 @@ Activity Type: {activity_type}
 Content: {content}
 People: {people}
 ";
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Activity {
     id: u64,
     pub name: String,
@@ -405,7 +405,7 @@ impl crate::db::db_interface::DbOperations for Activity {
     }
 }
 
-#[derive(Debug, AsRefStr, EnumString, Clone)]
+#[derive(Debug, AsRefStr, EnumString, Clone, PartialEq)]
 pub enum ActivityType {
     Phone,
     InPerson,
@@ -428,5 +428,37 @@ impl ActivityType {
             },
             Err(_) => None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_new() {
+        let id = 1;
+        let name = "hiking".to_string();
+        let activity_type = super::ActivityType::InPerson;
+        let date = crate::helpers::parse_from_str_ymd("2018-01-01").unwrap();
+        let content = "hiking the mountains".to_string();
+        let people: Vec<super::Person> = vec![];
+        let activity = super::Activity::new(
+            id,
+            name.clone(),
+            activity_type.clone(),
+            date,
+            content.clone(),
+            people.clone(),
+        );
+        assert_eq!(
+            super::Activity {
+                id,
+                name,
+                activity_type,
+                date,
+                content,
+                people
+            },
+            activity
+        );
     }
 }
