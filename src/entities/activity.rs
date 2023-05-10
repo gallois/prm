@@ -433,15 +433,17 @@ impl ActivityType {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
     fn test_new() {
         let id = 1;
         let name = "hiking".to_string();
-        let activity_type = super::ActivityType::InPerson;
+        let activity_type = ActivityType::InPerson;
         let date = crate::helpers::parse_from_str_ymd("2018-01-01").unwrap();
         let content = "hiking the mountains".to_string();
-        let people: Vec<super::Person> = vec![];
-        let activity = super::Activity::new(
+        let people: Vec<Person> = vec![];
+        let activity = Activity::new(
             id,
             name.clone(),
             activity_type.clone(),
@@ -450,7 +452,7 @@ mod tests {
             people.clone(),
         );
         assert_eq!(
-            super::Activity {
+            Activity {
                 id,
                 name,
                 activity_type,
