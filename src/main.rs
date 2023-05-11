@@ -227,6 +227,7 @@ fn main() {
     let args = Cli::parse();
 
     let conn = Connection::open("data/prm.db").unwrap();
+    let conn_ = prm::db::conn_init(prm::db::DbConnectionType::Real);
 
     match args.command {
         Commands::Init {} => {
@@ -272,7 +273,7 @@ fn main() {
             }
             ShowEntity::Activity { name } => {
                 // TODO likely useful to return a vector of activities
-                let reminder = Activity::get_by_name(&conn, &name).unwrap();
+                let reminder = Activity::get_by_name(&conn_, &name).unwrap();
                 println!("got reminder: {:#?}", reminder);
             }
             ShowEntity::Reminder { name } => {
@@ -325,7 +326,7 @@ fn main() {
                 println!("removed: {}", person);
             }
             RemoveEntity::Activity { name } => {
-                let reminder = Activity::get_by_name(&conn, &name).unwrap();
+                let reminder = Activity::get_by_name(&conn_, &name).unwrap();
                 match reminder.remove(&conn) {
                     Ok(_) => println!("{:#?} removed successfully", reminder),
                     Err(_) => panic!("Error while removing {:#?}", reminder),

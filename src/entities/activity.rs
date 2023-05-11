@@ -42,7 +42,12 @@ impl Activity {
     }
 
     // TODO remove duplication between different entities
-    pub fn get_by_name(conn: &Connection, name: &str) -> Option<Activity> {
+    // pub fn get_by_name(conn: &Connection, name: &str) -> Option<Activity> {
+    pub fn get_by_name(conn: &crate::db::AbstractConnection, name: &str) -> Option<Activity> {
+        // let conn = match conn {
+        //     crate::db::AbstractConnection::Connection(conn_) => conn_,
+        //     crate::db::AbstractConnection::MockConnection(mock_conn) => mock_conn,
+        // };
         let mut stmt = conn
             .prepare("SELECT * FROM activities WHERE name = ?1 COLLATE NOCASE")
             .expect("Invalid SQL statement");
@@ -54,17 +59,19 @@ impl Activity {
                     Some(Activity {
                         id: activity_id,
                         name: row.get(1).unwrap(),
-                        activity_type: ActivityType::get_by_id(&conn, row.get(2).unwrap()).unwrap(),
+                        // activity_type: ActivityType::get_by_id(&conn, row.get(2).unwrap()).unwrap(),
+                        activity_type: ActivityType::InPerson,
                         date: crate::helpers::parse_from_str_ymd(
                             String::from(row.get::<usize, String>(3).unwrap_or_default()).as_str(),
                         )
                         .unwrap_or_default(),
                         content: row.get(4).unwrap(),
-                        people: crate::db::db_helpers::get_people_by_activity(
-                            &conn,
-                            activity_id,
-                            true,
-                        ),
+                        // people: crate::db::db_helpers::get_people_by_activity(
+                        //     &conn,
+                        //     activity_id,
+                        //     true,
+                        // ),
+                        people: vec![],
                     })
                 }
                 None => return None,
@@ -433,6 +440,8 @@ impl ActivityType {
 
 #[cfg(test)]
 mod tests {
+    use crate::db::{conn_init, DbConnectionType};
+
     use super::*;
 
     #[test]
@@ -462,5 +471,15 @@ mod tests {
             },
             activity
         );
+    }
+
+    #[test]
+    fn test_get_by_names() {
+        let name = "cycling";
+        // let conn = crate::db::AbstractConnection::MockConnection(crate::db::MockConnection {});
+        let conn = conn_init(DbConnectionType::Mock);
+
+        let result = Activity::get_by_name(&conn, name);
+        assert!(result.is_none());
     }
 }
