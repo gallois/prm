@@ -272,7 +272,7 @@ fn main() {
             }
             ShowEntity::Activity { name } => {
                 // TODO likely useful to return a vector of activities
-                let reminder = Activity::get_by_name(&conn, &name).unwrap();
+                let reminder = Activity::get_by_name_new(&conn, &name).unwrap();
                 println!("got reminder: {:#?}", reminder);
             }
             ShowEntity::Reminder { name } => {

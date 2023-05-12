@@ -17,6 +17,40 @@ pub mod db_interface {
     }
 }
 
+pub mod entities {
+    pub mod activity {
+        use crate::db::db_interface::DbOperationsError;
+        use crate::db::{params, Connection};
+
+        pub fn get_by_name(
+            conn: &Connection,
+            name: &str,
+        ) -> Result<Vec<(u64, String, u64, String, String)>, DbOperationsError> {
+            let mut results = vec![];
+            let mut stmt = conn
+                .prepare("SELECT * FROM activities WHERE name = ?1 COLLATE NOCASE")
+                .expect("Invalid SQL statement");
+            let mut rows = stmt.query(params![name]).unwrap();
+            match rows.next() {
+                Ok(row) => match row {
+                    Some(row) => {
+                        results.push((
+                            row.get(0).unwrap(),
+                            row.get(1).unwrap(),
+                            row.get(2).unwrap(),
+                            row.get(3).unwrap(),
+                            row.get(4).unwrap(),
+                        ));
+                    }
+                    None => {}
+                },
+                Err(_) => return Err(DbOperationsError::GenericError),
+            }
+            Ok(results)
+        }
+    }
+}
+
 pub mod db_helpers {
     use crate::db::{params, params_from_iter, Connection};
     use crate::entities::person::ContactInfoType;

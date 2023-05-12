@@ -6,6 +6,11 @@ use strum_macros::{AsRefStr, EnumString};
 use crate::entities::person::Person;
 use crate::entities::Entities;
 
+#[derive(Debug)]
+pub enum ActivityError {
+    DbError,
+}
+
 pub static ACTIVITY_TEMPLATE: &str = "Name: {name}
 Date: {date}
 Activity Type: {activity_type}
@@ -41,7 +46,32 @@ impl Activity {
         }
     }
 
-    // TODO remove duplication between different entities
+    pub fn get_by_name_new(conn: &Connection, name: &str) -> Result<Vec<Activity>, ActivityError> {
+        let mut activities = vec![];
+
+        let results = match crate::db::entities::activity::get_by_name(conn, name) {
+            Ok(results) => results,
+            Err(_) => return Err(ActivityError::DbError),
+        };
+
+        if results.len() == 0 {
+            return Ok(activities);
+        }
+
+        for result in results {
+            activities.push(Activity {
+                id: result.0,
+                name: result.1,
+                activity_type: ActivityType::get_by_id(&conn, result.2).unwrap(),
+                date: crate::helpers::parse_from_str_ymd((result.3).as_str()).unwrap_or_default(),
+                content: result.4,
+                people: crate::db::db_helpers::get_people_by_activity(&conn, result.0, true),
+            })
+        }
+
+        Ok(activities)
+    }
+
     pub fn get_by_name(conn: &Connection, name: &str) -> Option<Activity> {
         let mut stmt = conn
             .prepare("SELECT * FROM activities WHERE name = ?1 COLLATE NOCASE")
