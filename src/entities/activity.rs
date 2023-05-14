@@ -3,13 +3,10 @@ use rusqlite::{params, Connection};
 use std::{convert::AsRef, str::FromStr};
 use strum_macros::{AsRefStr, EnumString};
 
+use crate::db::entities::{activity::DbActivity, DbEntities, Elements};
+use crate::db_interface::DbOperationsError;
 use crate::entities::person::Person;
 use crate::entities::Entities;
-
-#[derive(Debug)]
-pub enum ActivityError {
-    DbError,
-}
 
 pub static ACTIVITY_TEMPLATE: &str = "Name: {name}
 Date: {date}
@@ -46,12 +43,17 @@ impl Activity {
         }
     }
 
-    pub fn get_by_name_new(conn: &Connection, name: &str) -> Result<Vec<Activity>, ActivityError> {
+    pub fn get_by_name_new(
+        conn: &Connection,
+        name: &str,
+    ) -> Result<Vec<Activity>, DbOperationsError> {
         let mut activities = vec![];
 
-        let results = match crate::db::entities::activity::get_by_name(conn, name) {
+        let activity = DbActivity {};
+
+        let results = match activity.get_by_name(conn, name) {
             Ok(results) => results,
-            Err(_) => return Err(ActivityError::DbError),
+            Err(_) => return Err(DbOperationsError::GenericError),
         };
 
         if results.len() == 0 {
@@ -59,13 +61,46 @@ impl Activity {
         }
 
         for result in results {
+            let id: u64;
+            let name: String;
+            let activity_type_id: u64;
+            let date_string: String;
+            let content: String;
+
+            if let Elements::Integer(x) = result[0] {
+                id = x;
+            } else {
+                return Err(DbOperationsError::GenericError);
+            }
+            if let Elements::Text(x) = &result[1] {
+                name = x.to_string();
+            } else {
+                return Err(DbOperationsError::GenericError);
+            }
+            if let Elements::Integer(x) = result[2] {
+                activity_type_id = x;
+            } else {
+                return Err(DbOperationsError::GenericError);
+            }
+            if let Elements::Text(x) = &result[3] {
+                date_string = x.to_string();
+            } else {
+                return Err(DbOperationsError::GenericError);
+            }
+            if let Elements::Text(x) = &result[4] {
+                content = x.to_string();
+            } else {
+                return Err(DbOperationsError::GenericError);
+            }
+
             activities.push(Activity {
-                id: result.0,
-                name: result.1,
-                activity_type: ActivityType::get_by_id(&conn, result.2).unwrap(),
-                date: crate::helpers::parse_from_str_ymd((result.3).as_str()).unwrap_or_default(),
-                content: result.4,
-                people: crate::db::db_helpers::get_people_by_activity(&conn, result.0, true),
+                id,
+                name,
+                activity_type: ActivityType::get_by_id(&conn, activity_type_id).unwrap(),
+                date: crate::helpers::parse_from_str_ymd((&date_string).as_str())
+                    .unwrap_or_default(),
+                content,
+                people: crate::db::db_helpers::get_people_by_activity(&conn, id, true),
             })
         }
 

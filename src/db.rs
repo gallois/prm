@@ -18,35 +18,56 @@ pub mod db_interface {
 }
 
 pub mod entities {
-    pub mod activity {
-        use crate::db::db_interface::DbOperationsError;
-        use crate::db::{params, Connection};
+    use crate::db::db_interface::DbOperationsError;
+    use crate::db::Connection;
+    pub enum Elements {
+        Integer(u64),
+        Real(f64),
+        Text(String),
+    }
 
-        pub fn get_by_name(
+    pub trait DbEntities {
+        fn get_by_name(
+            &self,
             conn: &Connection,
             name: &str,
-        ) -> Result<Vec<(u64, String, u64, String, String)>, DbOperationsError> {
-            let mut results = vec![];
-            let mut stmt = conn
-                .prepare("SELECT * FROM activities WHERE name = ?1 COLLATE NOCASE")
-                .expect("Invalid SQL statement");
-            let mut rows = stmt.query(params![name]).unwrap();
-            match rows.next() {
-                Ok(row) => match row {
-                    Some(row) => {
-                        results.push((
-                            row.get(0).unwrap(),
-                            row.get(1).unwrap(),
-                            row.get(2).unwrap(),
-                            row.get(3).unwrap(),
-                            row.get(4).unwrap(),
-                        ));
-                    }
-                    None => {}
-                },
-                Err(_) => return Err(DbOperationsError::GenericError),
+        ) -> Result<Vec<Vec<Elements>>, DbOperationsError>;
+    }
+    pub mod activity {
+        use crate::db::db_interface::DbOperationsError;
+        use crate::db::entities::{DbEntities, Elements};
+        use crate::db::{params, Connection};
+
+        pub struct DbActivity {}
+
+        impl DbEntities for DbActivity {
+            fn get_by_name(
+                &self,
+                conn: &Connection,
+                name: &str,
+            ) -> Result<Vec<Vec<Elements>>, DbOperationsError> {
+                let mut results = vec![];
+                let mut stmt = conn
+                    .prepare("SELECT * FROM activities WHERE name = ?1 COLLATE NOCASE")
+                    .expect("Invalid SQL statement");
+                let mut rows = stmt.query(params![name]).unwrap();
+                match rows.next() {
+                    Ok(row) => match row {
+                        Some(row) => {
+                            let mut result = vec![];
+                            result.push(Elements::Integer(row.get(0).unwrap()));
+                            result.push(Elements::Text(row.get(1).unwrap()));
+                            result.push(Elements::Integer(row.get(2).unwrap()));
+                            result.push(Elements::Text(row.get(3).unwrap()));
+                            result.push(Elements::Text(row.get(4).unwrap()));
+                            results.push(result);
+                        }
+                        None => {}
+                    },
+                    Err(_) => return Err(DbOperationsError::GenericError),
+                }
+                Ok(results)
             }
-            Ok(results)
         }
     }
 }
