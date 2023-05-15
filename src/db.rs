@@ -20,12 +20,16 @@ pub mod db_interface {
 pub mod entities {
     use crate::db::db_interface::DbOperationsError;
     use crate::db::Connection;
+    use mockall::predicate::*;
+    use mockall::*;
+
     pub enum Elements {
         Integer(u64),
         Real(f64),
         Text(String),
     }
 
+    #[automock]
     pub trait DbEntities {
         fn get_by_name(
             &self,

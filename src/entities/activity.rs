@@ -49,9 +49,9 @@ impl Activity {
     ) -> Result<Vec<Activity>, DbOperationsError> {
         let mut activities = vec![];
 
-        let activity = DbActivity {};
+        let db_activity = DbActivity {};
 
-        let results = match activity.get_by_name(conn, name) {
+        let results = match db_activity.get_by_name(conn, name) {
             Ok(results) => results,
             Err(_) => return Err(DbOperationsError::GenericError),
         };
@@ -499,6 +499,7 @@ impl ActivityType {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::db::entities::MockDbEntities;
 
     #[test]
     fn test_new() {
@@ -530,11 +531,29 @@ mod tests {
     }
 
     #[test]
-    fn test_get_by_names() {
+    fn test_get_by_name() {
         let name = "cycling";
         let conn = Connection::open("data/prm_test.db").unwrap();
 
         let result = Activity::get_by_name(&conn, name);
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_get_by_names_new() {
+        let name = "cycling";
+        let mut mock = MockDbEntities::new();
+
+        let db_result = vec![];
+
+        mock.expect_get_by_name()
+            .return_once(move |_, _| Ok(db_result));
+
+        // FIXME create do something similar to a7e73a038bb7646913114efc489f64d78cfac7a6
+        //       to mock the db connection
+        let conn = Connection::open("data/prm_test.db").unwrap();
+        let result = Activity::get_by_name_new(&conn, name).unwrap();
+
+        assert_eq!(result.len(), 0);
     }
 }
