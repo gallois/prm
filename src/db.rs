@@ -1,4 +1,64 @@
-use rusqlite::{params, params_from_iter, Connection};
+use rusqlite::{params, params_from_iter, Connection, Error, Statement};
+use std::sync::Arc;
+
+trait DbConnection {
+    fn prepare(&self, sql: &str) -> Result<Statement<'_>, Error>;
+}
+
+#[derive(Clone)]
+pub struct AbstractConnection(Arc<dyn DbConnection>);
+
+impl AbstractConnection {
+    pub fn prepare(&self, sql: &str) -> Result<Statement<'_>, Error> {
+        self.0.prepare(sql)
+    }
+}
+
+pub enum DbConnectionType {
+    Mock,
+    Real,
+}
+
+impl Default for DbConnectionType {
+    #[inline]
+    fn default() -> Self {
+        DbConnectionType::Real
+    }
+}
+
+pub struct MockConnection();
+impl MockConnection {
+    #[inline]
+    pub(crate) fn init() -> Self {
+        MockConnection {}
+    }
+}
+impl DbConnection for MockConnection {
+    fn prepare(&self, sql: &str) -> Result<Statement<'_>, Error> {
+        Err(Error::InvalidQuery)
+    }
+}
+
+pub struct RealConnection();
+impl RealConnection {
+    #[inline]
+    pub(crate) fn init() -> Self {
+        RealConnection {}
+    }
+}
+impl DbConnection for RealConnection {
+    fn prepare(&self, sql: &str) -> Result<Statement<'_>, Error> {
+        self.prepare(sql)
+    }
+}
+
+#[inline]
+pub fn conn_init(t: DbConnectionType) -> AbstractConnection {
+    match t {
+        DbConnectionType::Mock => AbstractConnection(Arc::from(MockConnection::init())),
+        DbConnectionType::Real => AbstractConnection(Arc::from(RealConnection::init())),
+    }
+}
 
 pub mod db_interface {
     use crate::db::Connection;
