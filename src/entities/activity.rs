@@ -1,9 +1,10 @@
 use chrono::prelude::*;
-use rusqlite::{params, Connection};
+use rusqlite::params;
 use std::{convert::AsRef, str::FromStr};
 use strum_macros::{AsRefStr, EnumString};
 
 use crate::db::entities::{activity::DbActivity, DbEntities, Elements};
+use crate::db::AbstractConnection;
 use crate::db_interface::DbOperationsError;
 use crate::entities::person::Person;
 use crate::entities::Entities;
@@ -44,7 +45,7 @@ impl Activity {
     }
 
     pub fn get_by_name_new(
-        conn: &Connection,
+        conn: &AbstractConnection,
         name: &str,
     ) -> Result<Vec<Activity>, DbOperationsError> {
         let mut activities = vec![];
@@ -107,7 +108,7 @@ impl Activity {
         Ok(activities)
     }
 
-    pub fn get_by_name(conn: &Connection, name: &str) -> Option<Activity> {
+    pub fn get_by_name(conn: &AbstractConnection, name: &str) -> Option<Activity> {
         let mut stmt = conn
             .prepare("SELECT * FROM activities WHERE name = ?1 COLLATE NOCASE")
             .expect("Invalid SQL statement");
@@ -138,7 +139,7 @@ impl Activity {
         }
     }
 
-    pub fn get_all(conn: &Connection) -> Vec<Activity> {
+    pub fn get_all(conn: &AbstractConnection) -> Vec<Activity> {
         let mut stmt = conn
             .prepare("SELECT * FROM activities")
             .expect("Invalid SQL statement");
@@ -171,7 +172,7 @@ impl Activity {
 
     pub fn update(
         &mut self,
-        conn: &Connection,
+        conn: &AbstractConnection,
         name: Option<String>,
         activity_type: Option<String>,
         date: Option<String>,
@@ -274,7 +275,7 @@ impl Activity {
 impl crate::db::db_interface::DbOperations for Activity {
     fn add(
         &self,
-        conn: &Connection,
+        conn: &AbstractConnection,
     ) -> Result<&Activity, crate::db::db_interface::DbOperationsError> {
         let activity_type_str = self.activity_type.as_ref();
         let date_str = self.date.to_string();
@@ -330,7 +331,7 @@ impl crate::db::db_interface::DbOperations for Activity {
 
     fn remove(
         &self,
-        conn: &Connection,
+        conn: &AbstractConnection,
     ) -> Result<&Self, crate::db::db_interface::DbOperationsError> {
         let mut stmt = conn
             .prepare(
@@ -354,7 +355,7 @@ impl crate::db::db_interface::DbOperations for Activity {
 
     fn save(
         &self,
-        conn: &Connection,
+        conn: &AbstractConnection,
     ) -> Result<&Activity, crate::db::db_interface::DbOperationsError> {
         let activity_type_str = self.activity_type.as_ref();
 
@@ -448,7 +449,7 @@ impl crate::db::db_interface::DbOperations for Activity {
         Ok(self)
     }
 
-    fn get_by_id(conn: &Connection, id: u64) -> Option<Entities> {
+    fn get_by_id(conn: &AbstractConnection, id: u64) -> Option<Entities> {
         let mut stmt = conn
             .prepare("SELECT * FROM activities WHERE id = ?1")
             .expect("Invalid SQL statement");
@@ -488,7 +489,7 @@ pub enum ActivityType {
 }
 
 impl ActivityType {
-    pub fn get_by_id(conn: &Connection, id: u64) -> Option<ActivityType> {
+    pub fn get_by_id(conn: &AbstractConnection, id: u64) -> Option<ActivityType> {
         let mut stmt = conn
             .prepare("SELECT type FROM activity_types WHERE id = ?")
             .unwrap();
@@ -543,7 +544,7 @@ mod tests {
     #[test]
     fn test_get_by_name() {
         let name = "cycling";
-        let conn = Connection::open("data/prm_test.db").unwrap();
+        let conn = crate::db::conn_init(crate::db::DbConnectionType::Mock, None);
 
         let result = Activity::get_by_name(&conn, name);
         assert!(result.is_none());
@@ -559,9 +560,7 @@ mod tests {
         mock.expect_get_by_name()
             .return_once(move |_, _| Ok(db_result));
 
-        // FIXME create do something similar to a7e73a038bb7646913114efc489f64d78cfac7a6
-        //       to mock the db connection
-        let conn = Connection::open("data/prm_test.db").unwrap();
+        let conn = crate::db::conn_init(crate::db::DbConnectionType::Mock, None);
         let result = Activity::get_by_name_new(&conn, name).unwrap();
 
         assert_eq!(result.len(), 0);

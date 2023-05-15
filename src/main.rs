@@ -226,8 +226,7 @@ enum RemoveEntity {
 fn main() {
     let args = Cli::parse();
 
-    let conn = Connection::open("data/prm.db").unwrap();
-    // let conn = prm::db::conn_init(prm::db::DbConnectionType::Real);
+    let conn = prm::db::conn_init(prm::db::DbConnectionType::Real, Some("data/prm.db"));
 
     match args.command {
         Commands::Init {} => {

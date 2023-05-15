@@ -1,8 +1,9 @@
 use chrono::prelude::*;
-use rusqlite::{params, params_from_iter, Connection};
+use rusqlite::{params, params_from_iter};
 use std::{convert::AsRef, fmt, str::FromStr};
 use strum_macros::{AsRefStr, EnumString};
 
+use crate::db::AbstractConnection;
 use crate::entities::activity::Activity;
 use crate::entities::note::Note;
 use crate::entities::reminder::Reminder;
@@ -42,7 +43,7 @@ impl Person {
         }
     }
 
-    pub fn get_by_name(conn: &Connection, name: &str) -> Option<Person> {
+    pub fn get_by_name(conn: &AbstractConnection, name: &str) -> Option<Person> {
         let mut stmt = conn
             .prepare("SELECT * FROM people WHERE name = ?1 COLLATE NOCASE")
             .expect("Invalid SQL statement");
@@ -77,7 +78,7 @@ impl Person {
         }
     }
 
-    pub fn get_by_names(conn: &Connection, names: Vec<String>) -> Vec<Person> {
+    pub fn get_by_names(conn: &AbstractConnection, names: Vec<String>) -> Vec<Person> {
         if names.is_empty() {
             return vec![];
         }
@@ -113,7 +114,7 @@ impl Person {
         people
     }
 
-    pub fn get_all(conn: &Connection) -> Vec<Person> {
+    pub fn get_all(conn: &AbstractConnection) -> Vec<Person> {
         let mut stmt = conn
             .prepare("SELECT * FROM people")
             .expect("Invalid SQL statement");
@@ -250,7 +251,7 @@ impl Person {
 impl crate::db::db_interface::DbOperations for Person {
     fn add(
         &self,
-        conn: &Connection,
+        conn: &AbstractConnection,
     ) -> Result<&Person, crate::db::db_interface::DbOperationsError> {
         let mut error = false;
         let mut stmt = conn
@@ -337,7 +338,7 @@ impl crate::db::db_interface::DbOperations for Person {
 
     fn remove(
         &self,
-        conn: &Connection,
+        conn: &AbstractConnection,
     ) -> Result<&Person, crate::db::db_interface::DbOperationsError> {
         let mut stmt = conn
             .prepare(
@@ -361,7 +362,7 @@ impl crate::db::db_interface::DbOperations for Person {
 
     fn save(
         &self,
-        conn: &Connection,
+        conn: &AbstractConnection,
     ) -> Result<&Person, crate::db::db_interface::DbOperationsError> {
         let birthday_str = match self.birthday {
             Some(birthday) => birthday.to_string(),
@@ -445,7 +446,7 @@ impl crate::db::db_interface::DbOperations for Person {
         Ok(self)
     }
 
-    fn get_by_id(conn: &Connection, id: u64) -> Option<Entities> {
+    fn get_by_id(conn: &AbstractConnection, id: u64) -> Option<Entities> {
         let mut stmt = conn
             .prepare("SELECT * FROM people WHERE id = ?1")
             .expect("Invalid SQL statement");
@@ -559,7 +560,7 @@ pub enum ContactInfoType {
 }
 
 impl ContactInfoType {
-    pub fn get_by_id(conn: &Connection, id: u64) -> Option<ContactInfoType> {
+    pub fn get_by_id(conn: &AbstractConnection, id: u64) -> Option<ContactInfoType> {
         let mut stmt = conn
             .prepare("SELECT type FROM contact_info_types WHERE id = ?")
             .unwrap();

@@ -1,18 +1,18 @@
 use chrono::NaiveDate;
 use edit;
+use prm::db::AbstractConnection;
 use prm::db_interface::DbOperations;
 use prm::entities::activity::{Activity, ActivityType};
 use prm::entities::note::{Note, NOTE_TEMPLATE};
 use prm::entities::person::{ContactInfo, ContactInfoType, Person, PERSON_TEMPLATE};
 use prm::entities::reminder::{RecurringType, Reminder, REMINDER_TEMPLATE};
-use rusqlite::Connection;
 
 extern crate strfmt;
 use std::collections::HashMap;
 use strfmt::strfmt;
 
 pub fn person(
-    conn: &Connection,
+    conn: &AbstractConnection,
     name: Option<String>,
     birthday: Option<String>,
     contact_info: Option<Vec<String>>,
@@ -120,7 +120,7 @@ pub fn person(
 }
 
 pub fn activity(
-    conn: &Connection,
+    conn: &AbstractConnection,
     name: Option<String>,
     activity_type: Option<String>,
     date: Option<String>,
@@ -202,7 +202,7 @@ pub fn activity(
 }
 
 pub fn reminder(
-    conn: &Connection,
+    conn: &AbstractConnection,
     name: Option<String>,
     date: Option<String>,
     recurring: Option<String>,
@@ -301,7 +301,7 @@ pub fn reminder(
     };
 }
 
-pub fn note(conn: &Connection, content: Option<String>, people: Vec<String>) {
+pub fn note(conn: &AbstractConnection, content: Option<String>, people: Vec<String>) {
     let mut date_string: String = String::new();
     let mut content_string: String = String::new();
     let mut people_vec: Vec<Person> = Vec::new();
