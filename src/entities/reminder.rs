@@ -248,13 +248,15 @@ impl crate::db::db_interface::DbOperations for Reminder {
             types.push(row.get(0).unwrap());
         }
 
-        match conn.execute(
-            "INSERT INTO 
+        let mut stmt = conn
+            .prepare(
+                "INSERT INTO 
                 reminders (name, date, recurring, description, deleted)
                 VALUES (?1, ?2, ?3, ?4, FALSE)
             ",
-            params![self.name, date_str, types[0], self.description],
-        ) {
+            )
+            .unwrap();
+        match stmt.execute(params![self.name, date_str, types[0], self.description]) {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
             }
@@ -264,15 +266,17 @@ impl crate::db::db_interface::DbOperations for Reminder {
         let id = conn.last_insert_rowid();
 
         for person in &self.people {
-            match conn.execute(
-                "INSERT INTO people_reminders (
+            let mut stmt = conn
+                .prepare(
+                    "INSERT INTO people_reminders (
                     person_id, 
                     reminder_id,
                     deleted
                 )
                     VALUES (?1, ?2, FALSE)",
-                params![person.id, id],
-            ) {
+                )
+                .unwrap();
+            match stmt.execute(params![person.id, id]) {
                 Ok(updated) => {
                     println!("[DEBUG] {} rows were updated", updated);
                 }
@@ -287,15 +291,17 @@ impl crate::db::db_interface::DbOperations for Reminder {
         &self,
         conn: &Connection,
     ) -> Result<&Self, crate::db::db_interface::DbOperationsError> {
-        match conn.execute(
-            "UPDATE 
+        let mut stmt = conn
+            .prepare(
+                "UPDATE 
                     reminders 
                 SET
                     deleted = TRUE
                 WHERE
                     id = ?1",
-            [self.id],
-        ) {
+            )
+            .unwrap();
+        match stmt.execute([self.id]) {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
             }
@@ -323,8 +329,9 @@ impl crate::db::db_interface::DbOperations for Reminder {
             types.push(row.get(0).unwrap());
         }
 
-        match conn.execute(
-            "UPDATE
+        let mut stmt = conn
+            .prepare(
+                "UPDATE
                 reminders 
             SET
                 name = ?1,
@@ -334,8 +341,15 @@ impl crate::db::db_interface::DbOperations for Reminder {
             WHERE
                 id = ?5
             ",
-            params![self.name, date_str, types[0], self.description, self.id],
-        ) {
+            )
+            .unwrap();
+        match stmt.execute(params![
+            self.name,
+            date_str,
+            types[0],
+            self.description,
+            self.id
+        ]) {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
             }

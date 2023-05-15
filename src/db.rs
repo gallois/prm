@@ -570,14 +570,15 @@ pub mod db_helpers {
         );",
         ];
         for query in sql_create_statements {
-            match conn.execute(query, ()) {
+            let mut stmt = conn.prepare(query).unwrap();
+            match stmt.execute(params![]) {
                 // TODO Improve message
                 Ok(_) => println!("Database table created"),
                 Err(error) => {
                     println!("Error creating database tables: {}", error);
                     return Err(crate::db::db_interface::DbOperationsError::GenericError);
                 }
-            }
+            };
         }
         let sql_populate_statements = vec![
             "INSERT INTO contact_info_types (type, deleted)
@@ -605,14 +606,15 @@ pub mod db_helpers {
         ",
         ];
         for query in sql_populate_statements {
-            match conn.execute(query, ()) {
+            let mut stmt = conn.prepare(query).unwrap();
+            match stmt.execute(params![]) {
                 // TODO Improve message
                 Ok(_) => println!("Database table populated"),
                 Err(error) => {
                     println!("Error populating database tables: {}", error);
                     return Err(crate::db::db_interface::DbOperationsError::GenericError);
                 }
-            }
+            };
         }
         Ok(())
     }

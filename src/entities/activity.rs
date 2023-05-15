@@ -289,13 +289,15 @@ impl crate::db::db_interface::DbOperations for Activity {
             types.push(row.get(0).unwrap());
         }
 
-        match conn.execute(
-            "INSERT INTO 
+        let mut stmt = conn
+            .prepare(
+                "INSERT INTO 
                 activities (name, type, date, content, deleted)
                 VALUES (?1, ?2, ?3, ?4, FALSE)
             ",
-            params![self.name, types[0], date_str, self.content],
-        ) {
+            )
+            .unwrap();
+        match stmt.execute(params![self.name, types[0], date_str, self.content]) {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
             }
@@ -305,15 +307,17 @@ impl crate::db::db_interface::DbOperations for Activity {
         let id = conn.last_insert_rowid();
 
         for person in &self.people {
-            match conn.execute(
-                "INSERT INTO people_activities (
+            let mut stmt = conn
+                .prepare(
+                    "INSERT INTO people_activities (
                     person_id, 
                     activity_id,
                     deleted
                 )
                     VALUES (?1, ?2, FALSE)",
-                params![person.id, id],
-            ) {
+                )
+                .unwrap();
+            match stmt.execute(params![person.id, id]) {
                 Ok(updated) => {
                     println!("[DEBUG] {} rows were updated", updated);
                 }
@@ -328,15 +332,17 @@ impl crate::db::db_interface::DbOperations for Activity {
         &self,
         conn: &Connection,
     ) -> Result<&Self, crate::db::db_interface::DbOperationsError> {
-        match conn.execute(
-            "UPDATE 
+        let mut stmt = conn
+            .prepare(
+                "UPDATE 
                     activities 
                 SET
                     deleted = TRUE
                 WHERE
                     id = ?1",
-            [self.id],
-        ) {
+            )
+            .unwrap();
+        match stmt.execute([self.id]) {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
             }
@@ -362,8 +368,9 @@ impl crate::db::db_interface::DbOperations for Activity {
             types.push(row.get(0).unwrap());
         }
 
-        match conn.execute(
-            "UPDATE
+        let mut stmt = conn
+            .prepare(
+                "UPDATE
                 activities
             SET
                 name = ?1,
@@ -372,14 +379,15 @@ impl crate::db::db_interface::DbOperations for Activity {
                 content = ?4
             WHERE
                 id = ?5",
-            params![
-                self.name,
-                types[0],
-                self.date.to_string(),
-                self.content,
-                self.id,
-            ],
-        ) {
+            )
+            .unwrap();
+        match stmt.execute(params![
+            self.name,
+            types[0],
+            self.date.to_string(),
+            self.content,
+            self.id,
+        ]) {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
             }
@@ -406,10 +414,10 @@ impl crate::db::db_interface::DbOperations for Activity {
 
             if results.len() > 0 {
                 for id in results {
-                    match conn.execute(
-                        "UPDATE people_activities SET deleted = TRUE WHERE id = ?1",
-                        params![id],
-                    ) {
+                    let mut stmt = conn
+                        .prepare("UPDATE people_activities SET deleted = TRUE WHERE id = ?1")
+                        .unwrap();
+                    match stmt.execute(params![id]) {
                         Ok(updated) => {
                             println!("[DEBUG] {} rows were updated", updated);
                         }
@@ -420,14 +428,16 @@ impl crate::db::db_interface::DbOperations for Activity {
                 }
             }
 
-            match conn.execute(
-                "INSERT INTO people_activities (
+            let mut stmt = conn
+                .prepare(
+                    "INSERT INTO people_activities (
                         person_id,
                         activity_id,
                         deleted
                     ) VALUES (?1, ?2, FALSE)",
-                params![person.id, self.id],
-            ) {
+                )
+                .unwrap();
+            match stmt.execute(params![person.id, self.id]) {
                 Ok(updated) => {
                     println!("[DEBUG] {} rows were updated", updated);
                 }

@@ -272,10 +272,10 @@ impl crate::db::db_interface::DbOperations for Person {
             None => "".to_string(),
         };
 
-        match conn.execute(
-            "INSERT INTO people (name, birthday, deleted) VALUES (?1, ?2, FALSE)",
-            params![self.name, birthday_str],
-        ) {
+        let mut stmt = conn
+            .prepare("INSERT INTO people (name, birthday, deleted) VALUES (?1, ?2, FALSE)")
+            .unwrap();
+        match stmt.execute(params![self.name, birthday_str]) {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
             }
@@ -309,16 +309,18 @@ impl crate::db::db_interface::DbOperations for Person {
                 types.push(row.get(0).unwrap());
             }
 
-            match conn.execute(
-                "INSERT INTO contact_info (
+            let mut stmt = conn
+                .prepare(
+                    "INSERT INTO contact_info (
                     person_id, 
                     contact_info_type_id, 
                     contact_info_details,
                     deleted
                 )
                     VALUES (?1, ?2, ?3, FALSE)",
-                params![id, types[0], ci_value],
-            ) {
+                )
+                .unwrap();
+            match stmt.execute(params![id, types[0], ci_value]) {
                 Ok(updated) => {
                     println!("[DEBUG] {} rows were updated", updated);
                 }
@@ -337,15 +339,17 @@ impl crate::db::db_interface::DbOperations for Person {
         &self,
         conn: &Connection,
     ) -> Result<&Person, crate::db::db_interface::DbOperationsError> {
-        match conn.execute(
-            "UPDATE 
+        let mut stmt = conn
+            .prepare(
+                "UPDATE 
                     people 
                 SET
                     deleted = TRUE
                 WHERE
                     id = ?1",
-            [self.id],
-        ) {
+            )
+            .unwrap();
+        match stmt.execute([self.id]) {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
             }
@@ -364,16 +368,18 @@ impl crate::db::db_interface::DbOperations for Person {
             None => "".to_string(),
         };
 
-        match conn.execute(
-            "UPDATE
+        let mut stmt = conn
+            .prepare(
+                "UPDATE
                 people
             SET
                 name = ?1,
                 birthday = ?2
             WHERE
                 id = ?3",
-            params![self.name, birthday_str, self.id],
-        ) {
+            )
+            .unwrap();
+        match stmt.execute(params![self.name, birthday_str, self.id]) {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
             }
@@ -415,8 +421,9 @@ impl crate::db::db_interface::DbOperations for Person {
                     ci_ids.push(row.get(0).unwrap());
                 }
 
-                match conn.execute(
-                    "UPDATE
+                let mut stmt = conn
+                    .prepare(
+                        "UPDATE
                     contact_info 
                 SET
                     person_id = ?1,
@@ -424,8 +431,9 @@ impl crate::db::db_interface::DbOperations for Person {
                     contact_info_details = ?3
                 WHERE
                     id = ?4",
-                    params![self.id, types[0], ci_value, ci_ids[0]],
-                ) {
+                    )
+                    .unwrap();
+                match stmt.execute(params![self.id, types[0], ci_value, ci_ids[0]]) {
                     Ok(updated) => {
                         println!("[DEBUG] {} rows were updated", updated);
                     }
