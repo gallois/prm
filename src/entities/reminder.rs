@@ -3,9 +3,9 @@ use rusqlite::params;
 use std::{convert::AsRef, fmt, str::FromStr};
 use strum_macros::{AsRefStr, EnumString};
 
-use crate::db::AbstractConnection;
 use crate::entities::person::Person;
 use crate::entities::Entities;
+use rusqlite::Connection;
 
 pub static REMINDER_TEMPLATE: &str = "Name: {name}
 Date: {date}
@@ -43,7 +43,7 @@ impl Reminder {
     }
 
     // TODO remove duplication between different entities
-    pub fn get_by_name(conn: &AbstractConnection, name: &str) -> Option<Reminder> {
+    pub fn get_by_name(conn: &Connection, name: &str) -> Option<Reminder> {
         let mut stmt = conn
             .prepare("SELECT * FROM reminders WHERE name = ?1 COLLATE NOCASE")
             .expect("Invalid SQL statement");
@@ -70,7 +70,7 @@ impl Reminder {
         }
     }
 
-    pub fn get_all(conn: &AbstractConnection, include_past: bool) -> Vec<Reminder> {
+    pub fn get_all(conn: &Connection, include_past: bool) -> Vec<Reminder> {
         let sql: String;
         let base_sql = "SELECT * FROM reminders";
         if include_past {
@@ -108,7 +108,7 @@ impl Reminder {
 
     pub fn update(
         &mut self,
-        conn: &AbstractConnection,
+        conn: &Connection,
         name: Option<String>,
         date: Option<String>,
         description: Option<String>,
@@ -220,7 +220,7 @@ impl Reminder {
 impl crate::db::db_interface::DbOperations for Reminder {
     fn add(
         &self,
-        conn: &AbstractConnection,
+        conn: &Connection,
     ) -> Result<&Reminder, crate::db::db_interface::DbOperationsError> {
         let mut stmt = conn
             .prepare("SELECT id FROM reminders WHERE name = ?")
@@ -290,7 +290,7 @@ impl crate::db::db_interface::DbOperations for Reminder {
 
     fn remove(
         &self,
-        conn: &AbstractConnection,
+        conn: &Connection,
     ) -> Result<&Self, crate::db::db_interface::DbOperationsError> {
         let mut stmt = conn
             .prepare(
@@ -314,7 +314,7 @@ impl crate::db::db_interface::DbOperations for Reminder {
 
     fn save(
         &self,
-        conn: &AbstractConnection,
+        conn: &Connection,
     ) -> Result<&Reminder, crate::db::db_interface::DbOperationsError> {
         let recurring_str = &self.recurring.as_ref();
 
@@ -361,7 +361,7 @@ impl crate::db::db_interface::DbOperations for Reminder {
         Ok(self)
     }
 
-    fn get_by_id(conn: &AbstractConnection, id: u64) -> Option<Entities> {
+    fn get_by_id(conn: &Connection, id: u64) -> Option<Entities> {
         let mut stmt = conn
             .prepare("SELECT * FROM reminders WHERE id = ?1")
             .expect("Invalid SQL statement");
@@ -427,7 +427,7 @@ pub enum RecurringType {
 }
 
 impl RecurringType {
-    pub fn get_by_id(conn: &AbstractConnection, id: u64) -> Option<RecurringType> {
+    pub fn get_by_id(conn: &Connection, id: u64) -> Option<RecurringType> {
         let mut stmt = conn
             .prepare("SELECT type FROM recurring_types WHERE id = ?")
             .unwrap();

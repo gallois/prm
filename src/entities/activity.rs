@@ -3,11 +3,9 @@ use rusqlite::params;
 use std::{convert::AsRef, str::FromStr};
 use strum_macros::{AsRefStr, EnumString};
 
-use crate::db::entities::{activity::DbActivity, DbEntities, Elements};
-use crate::db::AbstractConnection;
-use crate::db_interface::DbOperationsError;
 use crate::entities::person::Person;
 use crate::entities::Entities;
+use rusqlite::Connection;
 
 pub static ACTIVITY_TEMPLATE: &str = "Name: {name}
 Date: {date}
@@ -44,71 +42,7 @@ impl Activity {
         }
     }
 
-    pub fn get_by_name_new(
-        conn: &AbstractConnection,
-        name: &str,
-    ) -> Result<Vec<Activity>, DbOperationsError> {
-        let mut activities = vec![];
-
-        let db_activity = DbActivity {};
-
-        let results = match db_activity.get_by_name(conn, name) {
-            Ok(results) => results,
-            Err(_) => return Err(DbOperationsError::GenericError),
-        };
-
-        if results.len() == 0 {
-            return Ok(activities);
-        }
-
-        for result in results {
-            let id: u64;
-            let name: String;
-            let activity_type_id: u64;
-            let date_string: String;
-            let content: String;
-
-            if let Elements::Integer(x) = result[0] {
-                id = x;
-            } else {
-                return Err(DbOperationsError::GenericError);
-            }
-            if let Elements::Text(x) = &result[1] {
-                name = x.to_string();
-            } else {
-                return Err(DbOperationsError::GenericError);
-            }
-            if let Elements::Integer(x) = result[2] {
-                activity_type_id = x;
-            } else {
-                return Err(DbOperationsError::GenericError);
-            }
-            if let Elements::Text(x) = &result[3] {
-                date_string = x.to_string();
-            } else {
-                return Err(DbOperationsError::GenericError);
-            }
-            if let Elements::Text(x) = &result[4] {
-                content = x.to_string();
-            } else {
-                return Err(DbOperationsError::GenericError);
-            }
-
-            activities.push(Activity {
-                id,
-                name,
-                activity_type: ActivityType::get_by_id(&conn, activity_type_id).unwrap(),
-                date: crate::helpers::parse_from_str_ymd((&date_string).as_str())
-                    .unwrap_or_default(),
-                content,
-                people: crate::db::db_helpers::get_people_by_activity(&conn, id, true),
-            })
-        }
-
-        Ok(activities)
-    }
-
-    pub fn get_by_name(conn: &AbstractConnection, name: &str) -> Option<Activity> {
+    pub fn get_by_name(conn: &Connection, name: &str) -> Option<Activity> {
         let mut stmt = conn
             .prepare("SELECT * FROM activities WHERE name = ?1 COLLATE NOCASE")
             .expect("Invalid SQL statement");
@@ -139,7 +73,7 @@ impl Activity {
         }
     }
 
-    pub fn get_all(conn: &AbstractConnection) -> Vec<Activity> {
+    pub fn get_all(conn: &Connection) -> Vec<Activity> {
         let mut stmt = conn
             .prepare("SELECT * FROM activities")
             .expect("Invalid SQL statement");
@@ -172,7 +106,7 @@ impl Activity {
 
     pub fn update(
         &mut self,
-        conn: &AbstractConnection,
+        conn: &Connection,
         name: Option<String>,
         activity_type: Option<String>,
         date: Option<String>,
@@ -275,7 +209,7 @@ impl Activity {
 impl crate::db::db_interface::DbOperations for Activity {
     fn add(
         &self,
-        conn: &AbstractConnection,
+        conn: &Connection,
     ) -> Result<&Activity, crate::db::db_interface::DbOperationsError> {
         let activity_type_str = self.activity_type.as_ref();
         let date_str = self.date.to_string();
@@ -331,7 +265,7 @@ impl crate::db::db_interface::DbOperations for Activity {
 
     fn remove(
         &self,
-        conn: &AbstractConnection,
+        conn: &Connection,
     ) -> Result<&Self, crate::db::db_interface::DbOperationsError> {
         let mut stmt = conn
             .prepare(
@@ -355,7 +289,7 @@ impl crate::db::db_interface::DbOperations for Activity {
 
     fn save(
         &self,
-        conn: &AbstractConnection,
+        conn: &Connection,
     ) -> Result<&Activity, crate::db::db_interface::DbOperationsError> {
         let activity_type_str = self.activity_type.as_ref();
 
@@ -449,7 +383,7 @@ impl crate::db::db_interface::DbOperations for Activity {
         Ok(self)
     }
 
-    fn get_by_id(conn: &AbstractConnection, id: u64) -> Option<Entities> {
+    fn get_by_id(conn: &Connection, id: u64) -> Option<Entities> {
         let mut stmt = conn
             .prepare("SELECT * FROM activities WHERE id = ?1")
             .expect("Invalid SQL statement");
@@ -489,7 +423,7 @@ pub enum ActivityType {
 }
 
 impl ActivityType {
-    pub fn get_by_id(conn: &AbstractConnection, id: u64) -> Option<ActivityType> {
+    pub fn get_by_id(conn: &Connection, id: u64) -> Option<ActivityType> {
         let mut stmt = conn
             .prepare("SELECT type FROM activity_types WHERE id = ?")
             .unwrap();
@@ -510,7 +444,6 @@ impl ActivityType {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::entities::MockDbEntities;
 
     #[test]
     fn test_new() {
@@ -539,30 +472,5 @@ mod tests {
             },
             activity
         );
-    }
-
-    #[test]
-    fn test_get_by_name() {
-        let name = "cycling";
-        let conn = crate::db::conn_init(crate::db::DbConnectionType::Mock, None);
-
-        let result = Activity::get_by_name(&conn, name);
-        assert!(result.is_none());
-    }
-
-    #[test]
-    fn test_get_by_names_new() {
-        let name = "cycling";
-        let mut mock = MockDbEntities::new();
-
-        let db_result = vec![];
-
-        mock.expect_get_by_name()
-            .return_once(move |_, _| Ok(db_result));
-
-        let conn = crate::db::conn_init(crate::db::DbConnectionType::Mock, None);
-        let result = Activity::get_by_name_new(&conn, name).unwrap();
-
-        assert_eq!(result.len(), 0);
     }
 }

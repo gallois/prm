@@ -1,85 +1,8 @@
-use rusqlite::{params, params_from_iter, Error, Statement};
-use std::sync::Arc;
-
-trait DbConnection {
-    fn prepare(&self, sql: &str) -> Result<Statement<'_>, Error>;
-    fn last_insert_rowid(&self) -> i64;
-}
-
-#[derive(Clone)]
-pub struct AbstractConnection(Arc<dyn DbConnection>);
-
-impl AbstractConnection {
-    pub fn prepare(&self, sql: &str) -> Result<Statement<'_>, Error> {
-        self.0.prepare(sql)
-    }
-
-    pub fn last_insert_rowid(&self) -> i64 {
-        self.0.last_insert_rowid()
-    }
-}
-
-pub enum DbConnectionType {
-    Mock,
-    Real,
-}
-
-impl Default for DbConnectionType {
-    #[inline]
-    fn default() -> Self {
-        DbConnectionType::Real
-    }
-}
-
-pub struct MockConnection();
-impl MockConnection {
-    #[inline]
-    pub(crate) fn init() -> Self {
-        MockConnection {}
-    }
-}
-impl DbConnection for MockConnection {
-    fn prepare(&self, sql: &str) -> Result<Statement<'_>, Error> {
-        Err(Error::InvalidQuery)
-    }
-    fn last_insert_rowid(&self) -> i64 {
-        -1
-    }
-}
-
-pub struct RealConnection {
-    conn: rusqlite::Connection,
-}
-impl RealConnection {
-    #[inline]
-    pub(crate) fn init(path: &str) -> Self {
-        RealConnection {
-            conn: rusqlite::Connection::open(path).unwrap(),
-        }
-    }
-}
-impl DbConnection for RealConnection {
-    fn prepare(&self, sql: &str) -> Result<Statement<'_>, Error> {
-        self.conn.prepare(sql)
-    }
-    fn last_insert_rowid(&self) -> i64 {
-        self.conn.last_insert_rowid()
-    }
-}
-
-#[inline]
-pub fn conn_init(t: DbConnectionType, path: Option<&str>) -> AbstractConnection {
-    match t {
-        DbConnectionType::Mock => AbstractConnection(Arc::from(MockConnection::init())),
-        DbConnectionType::Real => match path {
-            Some(path) => AbstractConnection(Arc::from(RealConnection::init(path))),
-            None => panic!("No path provided"),
-        },
-    }
-}
+use rusqlite::{params, params_from_iter, Connection};
 
 pub mod db_interface {
-    use crate::db::AbstractConnection;
+    use crate::db::Connection;
+
     #[derive(Debug)]
     pub enum DbOperationsError {
         DuplicateEntry,
@@ -87,79 +10,20 @@ pub mod db_interface {
     }
 
     pub trait DbOperations {
-        fn add(&self, conn: &AbstractConnection) -> Result<&Self, DbOperationsError>;
-        fn remove(&self, conn: &AbstractConnection) -> Result<&Self, DbOperationsError>;
-        fn save(&self, conn: &AbstractConnection) -> Result<&Self, DbOperationsError>;
-        fn get_by_id(conn: &AbstractConnection, id: u64) -> Option<crate::entities::Entities>;
+        fn add(&self, conn: &Connection) -> Result<&Self, DbOperationsError>;
+        fn remove(&self, conn: &Connection) -> Result<&Self, DbOperationsError>;
+        fn save(&self, conn: &Connection) -> Result<&Self, DbOperationsError>;
+        fn get_by_id(conn: &Connection, id: u64) -> Option<crate::entities::Entities>;
         // TODO get_all
     }
 }
 
-pub mod entities {
-    use crate::db::db_interface::DbOperationsError;
-    use crate::db::AbstractConnection;
-    use mockall::predicate::*;
-    use mockall::*;
-
-    pub enum Elements {
-        Integer(u64),
-        Real(f64),
-        Text(String),
-    }
-
-    #[automock]
-    pub trait DbEntities {
-        fn get_by_name(
-            &self,
-            conn: &AbstractConnection,
-            name: &str,
-        ) -> Result<Vec<Vec<Elements>>, DbOperationsError>;
-    }
-    pub mod activity {
-        use crate::db::db_interface::DbOperationsError;
-        use crate::db::entities::{DbEntities, Elements};
-        use crate::db::{params, AbstractConnection};
-
-        pub struct DbActivity {}
-
-        impl DbEntities for DbActivity {
-            fn get_by_name(
-                &self,
-                conn: &AbstractConnection,
-                name: &str,
-            ) -> Result<Vec<Vec<Elements>>, DbOperationsError> {
-                let mut results = vec![];
-                let mut stmt = conn
-                    .prepare("SELECT * FROM activities WHERE name = ?1 COLLATE NOCASE")
-                    .expect("Invalid SQL statement");
-                let mut rows = stmt.query(params![name]).unwrap();
-                match rows.next() {
-                    Ok(row) => match row {
-                        Some(row) => {
-                            let mut result = vec![];
-                            result.push(Elements::Integer(row.get(0).unwrap()));
-                            result.push(Elements::Text(row.get(1).unwrap()));
-                            result.push(Elements::Integer(row.get(2).unwrap()));
-                            result.push(Elements::Text(row.get(3).unwrap()));
-                            result.push(Elements::Text(row.get(4).unwrap()));
-                            results.push(result);
-                        }
-                        None => {}
-                    },
-                    Err(_) => return Err(DbOperationsError::GenericError),
-                }
-                Ok(results)
-            }
-        }
-    }
-}
-
 pub mod db_helpers {
-    use crate::db::{params, params_from_iter, AbstractConnection};
+    use crate::db::{params, params_from_iter, Connection};
     use crate::entities::person::ContactInfoType;
 
     pub fn get_notes_by_person(
-        conn: &AbstractConnection,
+        conn: &Connection,
         person_id: u64,
     ) -> Vec<crate::entities::note::Note> {
         let mut stmt = conn
@@ -215,7 +79,7 @@ pub mod db_helpers {
     }
 
     pub fn get_reminders_by_person(
-        conn: &AbstractConnection,
+        conn: &Connection,
         person_id: u64,
     ) -> Vec<crate::entities::reminder::Reminder> {
         let mut stmt = conn
@@ -274,7 +138,7 @@ pub mod db_helpers {
     }
 
     pub fn get_contact_info_by_person(
-        conn: &AbstractConnection,
+        conn: &Connection,
         person_id: u64,
     ) -> Vec<crate::entities::person::ContactInfo> {
         let mut stmt = conn
@@ -319,7 +183,7 @@ pub mod db_helpers {
     }
 
     pub fn get_activities_by_person(
-        conn: &AbstractConnection,
+        conn: &Connection,
         person_id: u64,
     ) -> Vec<crate::entities::activity::Activity> {
         let mut stmt = conn
@@ -380,7 +244,7 @@ pub mod db_helpers {
 
     // TODO remove duplication with similar functions
     pub fn get_people_by_reminder(
-        conn: &AbstractConnection,
+        conn: &Connection,
         reminder_id: u64,
     ) -> Vec<crate::entities::person::Person> {
         let mut stmt = conn
@@ -445,7 +309,7 @@ pub mod db_helpers {
 
     // TODO remove duplication with similar functions
     pub fn get_people_by_activity(
-        conn: &AbstractConnection,
+        conn: &Connection,
         activity_id: u64,
         recurse: bool,
     ) -> Vec<crate::entities::person::Person> {
@@ -514,7 +378,7 @@ pub mod db_helpers {
     }
 
     pub fn get_people_by_note(
-        conn: &AbstractConnection,
+        conn: &Connection,
         note_id: u64,
     ) -> Vec<crate::entities::person::Person> {
         let mut stmt = conn
@@ -576,9 +440,7 @@ pub mod db_helpers {
 
         notes
     }
-    pub fn init_db(
-        conn: &AbstractConnection,
-    ) -> Result<(), crate::db::db_interface::DbOperationsError> {
+    pub fn init_db(conn: &Connection) -> Result<(), crate::db::db_interface::DbOperationsError> {
         let sql_create_statements = vec![
             "CREATE TABLE people (
             id INTEGER PRIMARY KEY,

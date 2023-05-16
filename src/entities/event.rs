@@ -2,9 +2,9 @@ use chrono::prelude::*;
 use rusqlite::params;
 use std::{convert::AsRef, fmt};
 
-use crate::db::AbstractConnection;
 use crate::entities::person::Person;
 use crate::entities::reminder::{RecurringType, Reminder};
+use rusqlite::Connection;
 
 pub enum EventType {
     Person(Person),
@@ -18,7 +18,7 @@ pub struct Event {
 }
 
 impl Event {
-    pub fn get_all(conn: &AbstractConnection, mut days: u64) -> Vec<Event> {
+    pub fn get_all(conn: &Connection, mut days: u64) -> Vec<Event> {
         if days == 0 {
             days = 10 * 365; // 10 years
         }

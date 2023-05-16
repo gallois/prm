@@ -1,16 +1,16 @@
 use prm::db::db_interface::DbOperations;
-use prm::db::AbstractConnection;
 use prm::entities::activity::{Activity, ACTIVITY_TEMPLATE};
 use prm::entities::note::{Note, NOTE_TEMPLATE};
 use prm::entities::person::{Person, PERSON_TEMPLATE};
 use prm::entities::reminder::{Reminder, REMINDER_TEMPLATE};
 use prm::entities::Entities;
 extern crate strfmt;
+use rusqlite::Connection;
 use std::collections::HashMap;
 use strfmt::strfmt;
 
 pub fn person(
-    conn: &AbstractConnection,
+    conn: &Connection,
     id: u64,
     name: Option<String>,
     birthday: Option<String>,
@@ -93,7 +93,7 @@ pub fn person(
     }
 }
 pub fn activity(
-    conn: &AbstractConnection,
+    conn: &Connection,
     id: u64,
     name: Option<String>,
     activity_type: Option<String>,
@@ -203,7 +203,7 @@ pub fn activity(
 }
 
 pub fn reminder(
-    conn: &AbstractConnection,
+    conn: &Connection,
     id: u64,
     name: Option<String>,
     date: Option<String>,
@@ -309,7 +309,7 @@ pub fn reminder(
         }
     }
 }
-pub fn note(conn: &AbstractConnection, id: u64, date: Option<String>, content: Option<String>) {
+pub fn note(conn: &Connection, id: u64, date: Option<String>, content: Option<String>) {
     let note = Note::get_by_id(&conn, id);
 
     let date_string: String;

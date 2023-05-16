@@ -1,9 +1,9 @@
 use chrono::prelude::*;
 use rusqlite::params;
 
-use crate::db::AbstractConnection;
 use crate::entities::person::Person;
 use crate::entities::Entities;
+use rusqlite::Connection;
 
 pub static NOTE_TEMPLATE: &str = "Date: {date}
 Content: {content}
@@ -28,7 +28,7 @@ impl Note {
         }
     }
 
-    pub fn get_by_person(conn: &AbstractConnection, person: String) -> Vec<Note> {
+    pub fn get_by_person(conn: &Connection, person: String) -> Vec<Note> {
         let person = Person::get_by_name(&conn, &person);
         match person {
             Some(person) => person.notes,
@@ -36,7 +36,7 @@ impl Note {
         }
     }
 
-    pub fn get_all(conn: &AbstractConnection) -> Vec<Note> {
+    pub fn get_all(conn: &Connection) -> Vec<Note> {
         let mut stmt = conn
             .prepare("SELECT * FROM notes")
             .expect("Invalid SQL statement");
@@ -67,7 +67,7 @@ impl Note {
 
     pub fn update(
         &mut self,
-        conn: &AbstractConnection,
+        conn: &Connection,
         date: Option<String>,
         content: Option<String>,
         people: Vec<String>,
@@ -130,10 +130,7 @@ impl Note {
 }
 
 impl crate::db::db_interface::DbOperations for Note {
-    fn add(
-        &self,
-        conn: &AbstractConnection,
-    ) -> Result<&Note, crate::db::db_interface::DbOperationsError> {
+    fn add(&self, conn: &Connection) -> Result<&Note, crate::db::db_interface::DbOperationsError> {
         let date_str = self.date.to_string();
 
         let mut stmt = conn
@@ -177,7 +174,7 @@ impl crate::db::db_interface::DbOperations for Note {
 
     fn remove(
         &self,
-        conn: &AbstractConnection,
+        conn: &Connection,
     ) -> Result<&Self, crate::db::db_interface::DbOperationsError> {
         let mut stmt = conn
             .prepare(
@@ -199,10 +196,7 @@ impl crate::db::db_interface::DbOperations for Note {
         Ok(self)
     }
 
-    fn save(
-        &self,
-        conn: &AbstractConnection,
-    ) -> Result<&Note, crate::db::db_interface::DbOperationsError> {
+    fn save(&self, conn: &Connection) -> Result<&Note, crate::db::db_interface::DbOperationsError> {
         let mut stmt = conn
             .prepare(
                 "UPDATE
@@ -275,7 +269,7 @@ impl crate::db::db_interface::DbOperations for Note {
         Ok(self)
     }
 
-    fn get_by_id(conn: &AbstractConnection, id: u64) -> Option<Entities> {
+    fn get_by_id(conn: &Connection, id: u64) -> Option<Entities> {
         let mut stmt = conn
             .prepare("SELECT * FROM notes WHERE id = ?1")
             .expect("Invalid SQL statement");

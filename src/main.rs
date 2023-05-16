@@ -226,7 +226,7 @@ enum RemoveEntity {
 fn main() {
     let args = Cli::parse();
 
-    let conn = prm::db::conn_init(prm::db::DbConnectionType::Real, Some("data/prm.db"));
+    let conn = Connection::open("data/prm.db").unwrap();
 
     match args.command {
         Commands::Init {} => {
@@ -272,7 +272,7 @@ fn main() {
             }
             ShowEntity::Activity { name } => {
                 // TODO likely useful to return a vector of activities
-                let reminder = Activity::get_by_name_new(&conn, &name).unwrap();
+                let reminder = Activity::get_by_name(&conn, &name).unwrap();
                 println!("got reminder: {:#?}", reminder);
             }
             ShowEntity::Reminder { name } => {
