@@ -569,3 +569,34 @@ impl ContactInfoType {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_new() {
+        let id = 1;
+        let name = String::from("Zeh");
+        let birthday = crate::helpers::parse_from_str_ymd("2000-01-01").unwrap();
+        let contact_info: Vec<ContactInfo> = vec![];
+        let activities: Vec<Activity> = vec![];
+        let reminders: Vec<Reminder> = vec![];
+        let notes: Vec<Note> = vec![];
+
+        let person = Person::new(id, name.clone(), Some(birthday), contact_info.clone());
+
+        assert_eq!(
+            Person {
+                id,
+                name,
+                birthday: Some(birthday),
+                contact_info,
+                activities,
+                reminders,
+                notes,
+            },
+            person
+        );
+    }
+}
