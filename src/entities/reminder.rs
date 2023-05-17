@@ -444,3 +444,39 @@ impl RecurringType {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_new() {
+        let id = 1;
+        let name = String::from("I forgot");
+        let date = crate::helpers::parse_from_str_ymd("2022-01-01").unwrap();
+        let description = String::from("I don't remember");
+        let recurring = RecurringType::Daily;
+        let people: Vec<Person> = vec![];
+
+        let reminder = Reminder::new(
+            id,
+            name.clone(),
+            date,
+            Some(description.clone()),
+            recurring.clone(),
+            people.clone(),
+        );
+
+        assert_eq!(
+            Reminder {
+                id,
+                name,
+                date,
+                description: Some(description),
+                recurring,
+                people,
+            },
+            reminder
+        );
+    }
+}

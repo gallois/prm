@@ -294,3 +294,28 @@ impl crate::db::db_interface::DbOperations for Note {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_new() {
+        let id = 1;
+        let date = crate::helpers::parse_from_str_ymd("2020-01-01").unwrap();
+        let content = String::from("book");
+        let people: Vec<Person> = vec![];
+
+        let note = Note::new(id, date, content.clone(), people.clone());
+
+        assert_eq!(
+            Note {
+                id,
+                date,
+                content,
+                people,
+            },
+            note
+        );
+    }
+}
