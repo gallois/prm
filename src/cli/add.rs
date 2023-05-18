@@ -25,6 +25,8 @@ pub enum ParseError {
     ActivityTypeParseError { activity_type: String },
     #[snafu(display("Invalid date: {}", date))]
     DateParseError { date: String },
+    #[snafu(display("Invalid recurring type: {}", recurring_type))]
+    RecurringTypeParseError { recurring_type: String },
 }
 
 pub fn person(
@@ -252,7 +254,7 @@ pub fn reminder(
     recurring: Option<String>,
     description: Option<String>,
     mut people: Vec<String>,
-) {
+) -> Result<Reminder, ParseError> {
     let mut name_string: String = String::new();
     let mut date_string: String = String::new();
     let mut recurring_type_string: String = String::new();
@@ -319,13 +321,23 @@ pub fn reminder(
             "biannual" => RecurringType::Biannual,
             "yearly" => RecurringType::Yearly,
             "onetime" => RecurringType::OneTime,
-            _ => panic!("Unknown recurring pattern"),
+            _ => {
+                return RecurringTypeParseSnafu {
+                    recurring_type: recurring_type_str.clone(),
+                }
+                .fail()
+            }
         },
     };
 
     let date_obj = match prm::helpers::parse_from_str_ymd(date_string.as_str()) {
         Ok(date) => date,
-        Err(error) => panic!("Error parsing date: {}", error),
+        Err(_) => {
+            return DateParseSnafu {
+                date: String::from(date_string.clone()),
+            }
+            .fail()
+        }
     };
 
     let people = Person::get_by_names(&conn, people);
@@ -343,6 +355,7 @@ pub fn reminder(
         Ok(_) => println!("{:#?} added successfully", reminder),
         Err(_) => panic!("Error while adding {:#?}", reminder),
     };
+    Ok(reminder)
 }
 
 pub fn note(conn: &Connection, content: Option<String>, people: Vec<String>) {

@@ -269,7 +269,12 @@ fn main() {
                 description,
                 people,
             } => {
-                cli::add::reminder(&conn, name, date, recurring, description, people);
+                if let Err(e) =
+                    cli::add::reminder(&conn, name, date, recurring, description, people)
+                {
+                    eprintln!("{}", e);
+                    exit(exitcode::DATAERR);
+                };
             }
             AddEntity::Notes { content, people } => {
                 cli::add::note(&conn, content, people);
