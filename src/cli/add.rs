@@ -21,6 +21,10 @@ pub enum ParseError {
     BirthdayParseError { birthday: String },
     #[snafu(display("Invalid contact info: {}", contact_info))]
     ContactInfoParseError { contact_info: String },
+    #[snafu(display("Invalid activity type: {}", activity_type))]
+    ActivityTypeParseError { activity_type: String },
+    #[snafu(display("Invalid date: {}", date))]
+    DateParseError { date: String },
 }
 
 pub fn person(
@@ -105,21 +109,20 @@ pub fn person(
     if contact_info_splits.len() > 0 {
         contact_info_splits
             .into_iter()
-            .for_each(|contact_info_split| {
-                match contact_info_split[0].as_str() {
-                    "phone" => contact_info_types
-                        .push(ContactInfoType::Phone(contact_info_split[1].clone())),
-                    "whatsapp" => contact_info_types
-                        .push(ContactInfoType::WhatsApp(contact_info_split[1].clone())),
-                    "email" => contact_info_types
-                        .push(ContactInfoType::Email(contact_info_split[1].clone())),
-                    // TODO proper error handling and messaging
-                    _ => {
-                        invalid_contact_info.push(
-                            vec![contact_info_split[0].clone(), contact_info_split[1].clone()]
-                                .join(":"),
-                        );
-                    }
+            .for_each(|contact_info_split| match contact_info_split[0].as_str() {
+                "phone" => {
+                    contact_info_types.push(ContactInfoType::Phone(contact_info_split[1].clone()))
+                }
+                "whatsapp" => contact_info_types
+                    .push(ContactInfoType::WhatsApp(contact_info_split[1].clone())),
+                "email" => {
+                    contact_info_types.push(ContactInfoType::Email(contact_info_split[1].clone()))
+                }
+                _ => {
+                    invalid_contact_info.push(
+                        vec![contact_info_split[0].clone(), contact_info_split[1].clone()]
+                            .join(":"),
+                    );
                 }
             });
     }
@@ -143,6 +146,7 @@ pub fn person(
     let person = Person::new(0, name_str, birthday_obj, contact_info);
     match person.add(&conn) {
         Ok(_) => println!("{} added successfully", person),
+        // TODO better error handling
         Err(_) => panic!("Error while adding {}", person),
     };
     Ok(person)
@@ -155,7 +159,7 @@ pub fn activity(
     date: Option<String>,
     content: Option<String>,
     people: Vec<String>,
-) {
+) -> Result<Activity, ParseError> {
     let activity_vars: prm::helpers::ActivityVars;
     let mut vars = HashMap::new();
     vars.insert(
@@ -205,13 +209,22 @@ pub fn activity(
         "phone" => ActivityType::Phone,
         "in_person" => ActivityType::InPerson,
         "online" => ActivityType::Online,
-        // TODO proper error handling and messaging
-        _ => panic!("Unknown reminder type"),
+        _ => {
+            return ActivityTypeParseSnafu {
+                activity_type: activity_vars.activity_type.clone(),
+            }
+            .fail()
+        }
     };
 
     let date_obj = match prm::helpers::parse_from_str_ymd(activity_vars.date.as_str()) {
         Ok(date) => date,
-        Err(error) => panic!("Error parsing date: {}", error),
+        Err(_) => {
+            return DateParseSnafu {
+                date: String::from(activity_vars.date.clone()),
+            }
+            .fail()
+        }
     };
 
     let people = Person::get_by_names(&conn, activity_vars.people);
@@ -226,8 +239,10 @@ pub fn activity(
     );
     match activity.add(&conn) {
         Ok(_) => println!("{:#?} added successfully", activity),
+        // TODO better error handling
         Err(_) => panic!("Error while adding {:#?}", activity),
     };
+    Ok(activity)
 }
 
 pub fn reminder(

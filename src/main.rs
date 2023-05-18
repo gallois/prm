@@ -255,7 +255,12 @@ fn main() {
                 content,
                 people,
             } => {
-                cli::add::activity(&conn, name, activity_type, date, content, people);
+                if let Err(e) =
+                    cli::add::activity(&conn, name, activity_type, date, content, people)
+                {
+                    eprintln!("{}", e);
+                    exit(exitcode::DATAERR);
+                };
             }
             AddEntity::Reminder {
                 name,
