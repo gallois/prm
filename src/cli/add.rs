@@ -12,12 +12,23 @@ extern crate strfmt;
 use std::collections::HashMap;
 use strfmt::strfmt;
 
+use snafu::prelude::*;
+
+// TODO Add more descriptive error messages
+#[derive(Debug, Snafu)]
+pub enum ParseError {
+    #[snafu(display("Invalid birthday: {}", birthday))]
+    BirthdayParseError { birthday: String },
+    #[snafu(display("Invalid contact info: {}", contact_info))]
+    ContactInfoParseError { contact_info: String },
+}
+
 pub fn person(
     conn: &Connection,
     name: Option<String>,
     birthday: Option<String>,
     contact_info: Option<Vec<String>>,
-) {
+) -> Result<Person, ParseError> {
     let mut name_str: String = String::new();
     let mut birthday_str: Option<String> = None;
     let mut contact_info_vec: Vec<String> = vec![];
@@ -61,11 +72,15 @@ pub fn person(
 
     if let Some(birthday_str) = birthday_str {
         match prm::helpers::parse_from_str_ymd(&birthday_str) {
-            // TODO proper error handling and messaging
             Ok(date) => birthday_obj = Some(date),
             Err(_) => match prm::helpers::parse_from_str_md(&birthday_str) {
                 Ok(date) => birthday_obj = Some(date),
-                Err(error) => panic!("Error parsing birthday: {}", error),
+                Err(_) => {
+                    return BirthdayParseSnafu {
+                        birthday: String::from(birthday_str),
+                    }
+                    .fail()
+                }
             },
         }
     }
@@ -86,6 +101,7 @@ pub fn person(
         }
     }
 
+    let mut invalid_contact_info = vec![];
     if contact_info_splits.len() > 0 {
         contact_info_splits
             .into_iter()
@@ -98,9 +114,20 @@ pub fn person(
                     "email" => contact_info_types
                         .push(ContactInfoType::Email(contact_info_split[1].clone())),
                     // TODO proper error handling and messaging
-                    _ => panic!("Unknown contact info type"),
+                    _ => {
+                        invalid_contact_info.push(
+                            vec![contact_info_split[0].clone(), contact_info_split[1].clone()]
+                                .join(":"),
+                        );
+                    }
                 }
             });
+    }
+    if !invalid_contact_info.is_empty() {
+        return ContactInfoParseSnafu {
+            contact_info: String::from(invalid_contact_info.join(",")),
+        }
+        .fail();
     }
 
     let mut contact_info: Vec<ContactInfo> = Vec::new();
@@ -118,6 +145,7 @@ pub fn person(
         Ok(_) => println!("{} added successfully", person),
         Err(_) => panic!("Error while adding {}", person),
     };
+    Ok(person)
 }
 
 pub fn activity(

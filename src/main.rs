@@ -14,6 +14,8 @@ use prm::entities::Entities;
 use rusqlite::Connection;
 use uuid::Uuid;
 
+use std::process::exit;
+
 #[derive(Parser)]
 struct Cli {
     #[command(subcommand)]
@@ -241,7 +243,10 @@ fn main() {
                 birthday,
                 contact_info,
             } => {
-                cli::add::person(&conn, name, birthday, contact_info);
+                if let Err(e) = cli::add::person(&conn, name, birthday, contact_info) {
+                    eprintln!("{}", e);
+                    exit(exitcode::DATAERR);
+                };
             }
             AddEntity::Activity {
                 name,
