@@ -234,7 +234,10 @@ fn main() {
         Commands::Init {} => {
             match prm::db::db_helpers::init_db(&conn) {
                 Ok(_) => println!("Database initialised"),
-                Err(_) => panic!("Error initialising database"),
+                Err(_) => {
+                    eprintln!("Error initalising database");
+                    exit(exitcode::UNAVAILABLE);
+                }
             };
         }
         Commands::Add(add) => match add.entity {
