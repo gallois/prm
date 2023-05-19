@@ -16,7 +16,7 @@ use snafu::prelude::*;
 
 // TODO Add more descriptive error messages
 #[derive(Debug, Snafu)]
-pub enum ParseError {
+pub enum CliError {
     #[snafu(display("Invalid birthday: {}", birthday))]
     BirthdayParseError { birthday: String },
     #[snafu(display("Invalid contact info: {}", contact_info))]
@@ -27,6 +27,10 @@ pub enum ParseError {
     DateParseError { date: String },
     #[snafu(display("Invalid recurring type: {}", recurring_type))]
     RecurringTypeParseError { recurring_type: String },
+    #[snafu(display("Error parsing {} from editor", entity))]
+    EditorParseError { entity: String },
+    #[snafu(display("Error adding {}", entity))]
+    AddError { entity: String },
 }
 
 pub fn person(
@@ -34,7 +38,7 @@ pub fn person(
     name: Option<String>,
     birthday: Option<String>,
     contact_info: Option<Vec<String>>,
-) -> Result<Person, ParseError> {
+) -> Result<Person, CliError> {
     let mut name_str: String = String::new();
     let mut birthday_str: Option<String> = None;
     let mut contact_info_vec: Vec<String> = vec![];
@@ -59,7 +63,7 @@ pub fn person(
         let edited = edit::edit(strfmt(PERSON_TEMPLATE, &vars).unwrap()).unwrap();
         let (n, b, c) = match Person::parse_from_editor(edited.as_str()) {
             Ok((person, birthday, contact_info)) => (person, birthday, contact_info),
-            Err(_) => panic!("Error parsing person"),
+            Err(_) => return EditorParseSnafu { entity: "Person" }.fail(),
         };
         name_str = n;
         birthday_str = b;
@@ -149,7 +153,7 @@ pub fn person(
     match person.add(&conn) {
         Ok(_) => println!("{} added successfully", person),
         // TODO better error handling
-        Err(_) => panic!("Error while adding {}", person),
+        Err(_) => return AddSnafu { entity: "Person" }.fail(),
     };
     Ok(person)
 }
@@ -161,7 +165,7 @@ pub fn activity(
     date: Option<String>,
     content: Option<String>,
     people: Vec<String>,
-) -> Result<Activity, ParseError> {
+) -> Result<Activity, CliError> {
     let activity_vars: prm::helpers::ActivityVars;
     let mut vars = HashMap::new();
     vars.insert(
@@ -242,7 +246,7 @@ pub fn activity(
     match activity.add(&conn) {
         Ok(_) => println!("{:#?} added successfully", activity),
         // TODO better error handling
-        Err(_) => panic!("Error while adding {:#?}", activity),
+        Err(_) => return AddSnafu { entity: "Activity" }.fail(),
     };
     Ok(activity)
 }
@@ -254,7 +258,7 @@ pub fn reminder(
     recurring: Option<String>,
     description: Option<String>,
     mut people: Vec<String>,
-) -> Result<Reminder, ParseError> {
+) -> Result<Reminder, CliError> {
     let mut name_string: String = String::new();
     let mut date_string: String = String::new();
     let mut recurring_type_string: String = String::new();
@@ -295,7 +299,7 @@ pub fn reminder(
             Ok((name, date, recurring_type, description, people)) => {
                 (name, date, recurring_type, description, people)
             }
-            Err(_) => panic!("Error parsing reminder"),
+            Err(_) => return EditorParseSnafu { entity: "Reminder" }.fail(),
         };
         name_string = n;
         date_string = da.unwrap();
@@ -353,12 +357,16 @@ pub fn reminder(
     println!("Reminder: {:#?}", reminder);
     match reminder.add(&conn) {
         Ok(_) => println!("{:#?} added successfully", reminder),
-        Err(_) => panic!("Error while adding {:#?}", reminder),
+        Err(_) => return AddSnafu { entity: "Reminder" }.fail(),
     };
     Ok(reminder)
 }
 
-pub fn note(conn: &Connection, content: Option<String>, people: Vec<String>) {
+pub fn note(
+    conn: &Connection,
+    content: Option<String>,
+    people: Vec<String>,
+) -> Result<Note, CliError> {
     let mut date_string: String = String::new();
     let mut content_string: String = String::new();
     let mut people_vec: Vec<Person> = Vec::new();
@@ -374,7 +382,7 @@ pub fn note(conn: &Connection, content: Option<String>, people: Vec<String>) {
         let edited = edit::edit(strfmt(NOTE_TEMPLATE, &vars).unwrap()).unwrap();
         let (d, c, p) = match Note::parse_from_editor(edited.as_str()) {
             Ok((date, content, people)) => (date, content, people),
-            Err(_) => panic!("Error parsing note"),
+            Err(_) => return EditorParseSnafu { entity: "Note" }.fail(),
         };
         date_string = d;
         content_string = c;
@@ -383,13 +391,19 @@ pub fn note(conn: &Connection, content: Option<String>, people: Vec<String>) {
 
     let date = match prm::helpers::parse_from_str_ymd(date_string.as_str()) {
         Ok(date) => date,
-        Err(error) => panic!("Error parsing date: {}", error),
+        Err(_) => {
+            return DateParseSnafu {
+                date: String::from(date_string.clone()),
+            }
+            .fail()
+        }
     };
 
     let note = Note::new(0, date, content_string, people_vec);
     println!("Note: {:#?}", note);
     match note.add(&conn) {
         Ok(_) => println!("{:#?} added successfully", note),
-        Err(_) => panic!("Error while adding {:#?}", note),
+        Err(_) => return AddSnafu { entity: "Note" }.fail(),
     };
+    Ok(note)
 }
