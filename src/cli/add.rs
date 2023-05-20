@@ -16,6 +16,7 @@ use snafu::prelude::*;
 
 // TODO Add more descriptive error messages
 #[derive(Debug, Snafu)]
+#[snafu(visibility(pub(crate)))]
 pub enum CliError {
     #[snafu(display("Invalid birthday: {}", birthday))]
     BirthdayParseError { birthday: String },
@@ -31,6 +32,12 @@ pub enum CliError {
     EditorParseError { entity: String },
     #[snafu(display("Error adding {}", entity))]
     AddError { entity: String },
+    #[snafu(display("Entity error {}", entity))]
+    EntityError { entity: String },
+    #[snafu(display("Error editing {}", entity))]
+    EditError { entity: String },
+    #[snafu(display("Entity not found {} for id {}", entity, id))]
+    NotFoundError { entity: String, id: u64 },
 }
 
 pub fn person(

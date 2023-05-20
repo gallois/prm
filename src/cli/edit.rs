@@ -9,13 +9,16 @@ use rusqlite::Connection;
 use std::collections::HashMap;
 use strfmt::strfmt;
 
+use crate::cli::add::CliError;
+use crate::cli::add::{EditSnafu, EntitySnafu, NotFoundSnafu};
+
 pub fn person(
     conn: &Connection,
     id: u64,
     name: Option<String>,
     birthday: Option<String>,
     contact_info: Option<String>,
-) {
+) -> Result<Person, CliError> {
     let name_str: Option<String>;
     let birthday_str: Option<String>;
     let contact_info_str: Option<String>;
@@ -26,7 +29,12 @@ pub fn person(
         Some(person) => {
             let mut person = match person {
                 Entities::Person(person) => person,
-                _ => panic!("not a person"),
+                _ => {
+                    return EntitySnafu {
+                        entity: "Person".to_string(),
+                    }
+                    .fail()
+                }
             };
             // TODO allow this to be consumed from args like the args below
             let contact_info_field = person
@@ -74,7 +82,14 @@ pub fn person(
             let edited = edit::edit(strfmt(PERSON_TEMPLATE, &vars).unwrap()).unwrap();
             let (n, b, c) = match Person::parse_from_editor(edited.as_str()) {
                 Ok((person, birthday, contact_info)) => (person, birthday, contact_info),
-                Err(_) => panic!("Error parsing person"),
+                Err(_) => {
+                    return {
+                        EditSnafu {
+                            entity: "Person".to_string(),
+                        }
+                        .fail()
+                    }
+                }
             };
             name_str = Some(n);
             birthday_str = b;
@@ -85,10 +100,17 @@ pub fn person(
                 .save(&conn)
                 .expect(format!("Failed to update person: {}", person).as_str());
             println!("Updated person: {}", person);
+            Ok(person)
         }
         None => {
             println!("Could not find person id {}", id);
-            return;
+            return {
+                NotFoundSnafu {
+                    entity: "Person".to_string(),
+                    id,
+                }
+                .fail()
+            };
         }
     }
 }
