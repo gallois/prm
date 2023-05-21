@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use strfmt::strfmt;
 
 use crate::cli::add::CliError;
-use crate::cli::add::{EditSnafu, EntitySnafu, NotFoundSnafu};
+use crate::cli::add::{EditSnafu, EditorParseSnafu, EntitySnafu, NotFoundSnafu};
 
 pub fn person(
     conn: &Connection,
@@ -84,7 +84,7 @@ pub fn person(
                 Ok((person, birthday, contact_info)) => (person, birthday, contact_info),
                 Err(_) => {
                     return {
-                        EditSnafu {
+                        EditorParseSnafu {
                             entity: "Person".to_string(),
                         }
                         .fail()
@@ -96,10 +96,17 @@ pub fn person(
             contact_info_str = Some(c.join(","));
 
             person.update(name_str, birthday_str, contact_info_str);
-            person
-                .save(&conn)
-                .expect(format!("Failed to update person: {}", person).as_str());
-            println!("Updated person: {}", person);
+            match person.save(&conn) {
+                Ok(person) => println!("Updated person: {}", person),
+                Err(_) => {
+                    return {
+                        EditSnafu {
+                            entity: "Person".to_string(),
+                        }
+                        .fail()
+                    }
+                }
+            }
             Ok(person)
         }
         None => {
@@ -121,7 +128,7 @@ pub fn activity(
     activity_type: Option<String>,
     date: Option<String>,
     content: Option<String>,
-) {
+) -> Result<Activity, CliError> {
     let activity = Activity::get_by_id(&conn, id);
 
     let name_string: String;
@@ -134,7 +141,14 @@ pub fn activity(
         Some(activity) => {
             let mut activity = match activity {
                 Entities::Activity(activity) => activity,
-                _ => panic!("not an activity"),
+                _ => {
+                    return {
+                        EntitySnafu {
+                            entity: "Activity".to_string(),
+                        }
+                        .fail()
+                    }
+                }
             };
 
             let mut vars = HashMap::new();
@@ -196,7 +210,14 @@ pub fn activity(
                 Ok((name, date, activity_type, content, people)) => {
                     (name, date, activity_type, content, people)
                 }
-                Err(_) => panic!("Error parsing activity"),
+                Err(_) => {
+                    return {
+                        EditorParseSnafu {
+                            entity: "Activity".to_string(),
+                        }
+                        .fail()
+                    }
+                }
             };
             name_string = n;
             date_string = d.unwrap();
@@ -212,14 +233,27 @@ pub fn activity(
                 Some(content_string),
                 people,
             );
-            activity
-                .save(&conn)
-                .expect(format!("Failed to update activity: {:#?}", activity).as_str());
-            println!("Updated activity: {:#?}", activity);
+            match activity.save(&conn) {
+                Ok(activity) => println!("Updated activity: {:#?}", activity),
+                Err(_) => {
+                    return {
+                        EditSnafu {
+                            entity: "Activity".to_string(),
+                        }
+                    }
+                    .fail()
+                }
+            }
+            Ok(activity)
         }
         None => {
-            println!("Could not find activity id {}", id);
-            return;
+            return {
+                NotFoundSnafu {
+                    entity: "Activity".to_string(),
+                    id,
+                }
+                .fail()
+            }
         }
     }
 }
