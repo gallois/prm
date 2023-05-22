@@ -265,7 +265,7 @@ pub fn reminder(
     date: Option<String>,
     description: Option<String>,
     recurring: Option<String>,
-) {
+) -> Result<Reminder, CliError> {
     let reminder = Reminder::get_by_id(&conn, id);
 
     let name_string: String;
@@ -278,7 +278,14 @@ pub fn reminder(
         Some(reminder) => {
             let mut reminder = match reminder {
                 Entities::Reminder(reminder) => reminder,
-                _ => panic!("not a reminder"),
+                _ => {
+                    return {
+                        EntitySnafu {
+                            entity: "Reminder".to_string(),
+                        }
+                        .fail()
+                    }
+                }
             };
 
             let mut vars = HashMap::new();
@@ -338,7 +345,14 @@ pub fn reminder(
                 Ok((name, date, recurring_type, description, people)) => {
                     (name, date, recurring_type, description, people)
                 }
-                Err(_) => panic!("Error parsing reminder"),
+                Err(_) => {
+                    return {
+                        EditorParseSnafu {
+                            entity: "Reminder".to_string(),
+                        }
+                        .fail()
+                    }
+                }
             };
             name_string = n;
             date_string = da.unwrap();
@@ -354,14 +368,27 @@ pub fn reminder(
                 Some(recurring_type_string),
                 people,
             );
-            reminder
-                .save(&conn)
-                .expect(format!("Failed to update reminder: {:#?}", reminder).as_str());
-            println!("Updated reminder: {:#?}", reminder);
+            match reminder.save(&conn) {
+                Ok(reminder) => println!("Updated reminder: {:#?}", reminder),
+                Err(_) => {
+                    return {
+                        EditSnafu {
+                            entity: "Reminder".to_string(),
+                        }
+                        .fail()
+                    }
+                }
+            }
+            Ok(reminder)
         }
         None => {
-            println!("Could not find reminder id {}", id);
-            return;
+            return {
+                NotFoundSnafu {
+                    entity: "Reminder".to_string(),
+                    id,
+                }
+                .fail()
+            };
         }
     }
 }
