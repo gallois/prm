@@ -7,6 +7,8 @@ use crate::entities::person::Person;
 use crate::entities::Entities;
 use rusqlite::Connection;
 
+use snafu::prelude::*;
+
 pub static ACTIVITY_TEMPLATE: &str = "Name: {name}
 Date: {date}
 Activity Type: {activity_type}
@@ -21,6 +23,15 @@ pub struct Activity {
     pub date: NaiveDate,
     pub content: String,
     pub people: Vec<Person>,
+}
+
+#[derive(Debug, Snafu)]
+pub enum ActivityError {
+    #[snafu(display("Invalid activity type: {}", activity_type))]
+    ActivityTypeParseError { activity_type: String },
+    // FIXME this is a duplication of what we have in `CliError` (src/cli/add.rs)
+    #[snafu(display("Invalid date: {}", date))]
+    DateParseError { date: String },
 }
 
 impl Activity {
@@ -112,7 +123,7 @@ impl Activity {
         date: Option<String>,
         content: Option<String>,
         people: Vec<String>,
-    ) -> &Self {
+    ) -> Result<&Self, ActivityError> {
         // TODO clean up duplication between this and main.rs
         if let Some(name) = name {
             self.name = name;
@@ -123,8 +134,12 @@ impl Activity {
                 "phone" => ActivityType::Phone,
                 "in_person" => ActivityType::InPerson,
                 "online" => ActivityType::Online,
-                // TODO proper error handling and messaging
-                _ => panic!("Unknown activity type"),
+                _ => {
+                    return ActivityTypeParseSnafu {
+                        activity_type: activity_type.to_string(),
+                    }
+                    .fail()
+                }
             };
 
             self.activity_type = activity_type;
@@ -132,12 +147,18 @@ impl Activity {
 
         if let Some(date) = date {
             let date_obj: Option<NaiveDate>;
-            // TODO proper error handling and messaging
             match crate::helpers::parse_from_str_ymd(&date) {
                 Ok(date) => date_obj = Some(date),
                 Err(_) => match crate::helpers::parse_from_str_md(&date) {
                     Ok(date) => date_obj = Some(date),
-                    Err(error) => panic!("Error parsing date: {}", error),
+                    Err(_) => {
+                        return {
+                            DateParseSnafu {
+                                date: date.to_string(),
+                            }
+                            .fail()
+                        }
+                    }
                 },
             }
             self.date = date_obj.unwrap();
@@ -150,7 +171,7 @@ impl Activity {
         let people = Person::get_by_names(&conn, people);
         self.people = people;
 
-        self
+        Ok(self)
     }
     pub fn parse_from_editor(
         content: &str,

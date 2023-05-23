@@ -15,6 +15,7 @@ use strfmt::strfmt;
 use snafu::prelude::*;
 
 // TODO Add more descriptive error messages
+// TODO Extract some of these errors to a separate module where they can be reused
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub(crate)))]
 pub enum CliError {
@@ -159,7 +160,6 @@ pub fn person(
     let person = Person::new(0, name_str, birthday_obj, contact_info);
     match person.add(&conn) {
         Ok(_) => println!("{} added successfully", person),
-        // TODO better error handling
         Err(_) => return AddSnafu { entity: "Person" }.fail(),
     };
     Ok(person)
@@ -252,7 +252,6 @@ pub fn activity(
     );
     match activity.add(&conn) {
         Ok(_) => println!("{:#?} added successfully", activity),
-        // TODO better error handling
         Err(_) => return AddSnafu { entity: "Activity" }.fail(),
     };
     Ok(activity)
