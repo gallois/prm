@@ -1,3 +1,4 @@
+use exitcode::OK;
 use prm::db::db_interface::DbOperations;
 use prm::entities::activity::{Activity, ACTIVITY_TEMPLATE};
 use prm::entities::note::{Note, NOTE_TEMPLATE};
@@ -392,7 +393,12 @@ pub fn reminder(
         }
     }
 }
-pub fn note(conn: &Connection, id: u64, date: Option<String>, content: Option<String>) {
+pub fn note(
+    conn: &Connection,
+    id: u64,
+    date: Option<String>,
+    content: Option<String>,
+) -> Result<Note, CliError> {
     let note = Note::get_by_id(&conn, id);
 
     let date_string: String;
@@ -403,7 +409,14 @@ pub fn note(conn: &Connection, id: u64, date: Option<String>, content: Option<St
         Some(note) => {
             let mut note = match note {
                 Entities::Note(note) => note,
-                _ => panic!("not a note"),
+                _ => {
+                    return {
+                        EntitySnafu {
+                            entity: "Note".to_string(),
+                        }
+                    }
+                    .fail()
+                }
             };
             let mut vars = HashMap::new();
             let date_placeholder: String;
@@ -444,7 +457,14 @@ pub fn note(conn: &Connection, id: u64, date: Option<String>, content: Option<St
             let edited = edit::edit(strfmt(NOTE_TEMPLATE, &vars).unwrap()).unwrap();
             let (d, c, p) = match Note::parse_from_editor(edited.as_str()) {
                 Ok((date, content, people)) => (date, content, people),
-                Err(_) => panic!("Error parsing note"),
+                Err(_) => {
+                    return {
+                        EditorParseSnafu {
+                            entity: "Note".to_string(),
+                        }
+                        .fail()
+                    }
+                }
             };
 
             date_string = d;
@@ -452,13 +472,28 @@ pub fn note(conn: &Connection, id: u64, date: Option<String>, content: Option<St
             people = p;
 
             note.update(conn, Some(date_string), Some(content_string), people);
-            note.save(&conn)
-                .expect(format!("Failed to update note: {:#?}", note).as_str());
+            match note.save(&conn) {
+                Ok(note) => println!("Updated note: {:#?}", note),
+                Err(_) => {
+                    return {
+                        EditSnafu {
+                            entity: "Note".to_string(),
+                        }
+                        .fail()
+                    }
+                }
+            }
             println!("Updated note: {:#?}", note);
+            Ok(note)
         }
         None => {
-            println!("Could not find note id {}", id);
-            return;
+            return {
+                NotFoundSnafu {
+                    entity: "Note".to_string(),
+                    id,
+                }
+                .fail()
+            };
         }
     }
 }
