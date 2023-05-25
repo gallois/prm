@@ -10,12 +10,21 @@ Content: {content}
 People: {people}
 ";
 
+use snafu::prelude::*;
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Note {
     id: u64,
     pub date: NaiveDate,
     pub content: String,
     pub people: Vec<Person>,
+}
+
+#[derive(Debug, Snafu)]
+pub enum NoteError {
+    // FIXME this is a duplication of what we have in `CliError` (src/cli/add.rs)
+    #[snafu(display("Invalid date: {}", date))]
+    DateParseError { date: String },
 }
 
 impl Note {
@@ -71,15 +80,19 @@ impl Note {
         date: Option<String>,
         content: Option<String>,
         people: Vec<String>,
-    ) -> &Self {
+    ) -> Result<&Self, NoteError> {
         if let Some(date) = date {
             let date_obj: Option<NaiveDate>;
-            // TODO proper error handling and messaging
             match crate::helpers::parse_from_str_ymd(&date) {
                 Ok(date) => date_obj = Some(date),
                 Err(_) => match crate::helpers::parse_from_str_md(&date) {
                     Ok(date) => date_obj = Some(date),
-                    Err(error) => panic!("Error parsing date: {}", error),
+                    Err(_) => {
+                        return DateParseSnafu {
+                            date: date.to_string(),
+                        }
+                        .fail()
+                    }
                 },
             }
             self.date = date_obj.unwrap();
@@ -91,7 +104,7 @@ impl Note {
 
         self.people = Person::get_by_names(&conn, people);
 
-        self
+        Ok(self)
     }
 
     pub fn parse_from_editor(

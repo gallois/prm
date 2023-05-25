@@ -280,7 +280,10 @@ fn main() {
                 };
             }
             AddEntity::Notes { content, people } => {
-                cli::add::note(&conn, content, people);
+                match cli::add::note(&conn, content, people) {
+                    Ok(_) => (),
+                    Err(_) => eprintln!("Error adding note"),
+                };
             }
         },
         Commands::Show(show) => match show.entity {
@@ -309,7 +312,10 @@ fn main() {
                 birthday,
                 contact_info,
             } => {
-                cli::edit::person(&conn, id, name, birthday, contact_info);
+                match cli::edit::person(&conn, id, name, birthday, contact_info) {
+                    Ok(_) => (),
+                    Err(_) => eprintln!("Error editing person"),
+                };
             }
             EditEntity::Activity {
                 id,
@@ -318,7 +324,10 @@ fn main() {
                 date,
                 content,
             } => {
-                cli::edit::activity(&conn, id, name, activity_type, date, content);
+                match cli::edit::activity(&conn, id, name, activity_type, date, content) {
+                    Ok(_) => (),
+                    Err(_) => eprintln!("Error editing activity"),
+                };
             }
             EditEntity::Reminder {
                 id,
@@ -327,10 +336,16 @@ fn main() {
                 description,
                 recurring,
             } => {
-                cli::edit::reminder(&conn, id, name, date, description, recurring);
+                match cli::edit::reminder(&conn, id, name, date, description, recurring) {
+                    Ok(_) => (),
+                    Err(_) => eprintln!("Error editing reminder"),
+                };
             }
             EditEntity::Note { id, date, content } => {
-                cli::edit::note(&conn, id, date, content);
+                match cli::edit::note(&conn, id, date, content) {
+                    Ok(_) => (),
+                    Err(_) => eprintln!("Error editing note"),
+                };
             }
         },
         Commands::Remove(remove) => match remove.entity {

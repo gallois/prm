@@ -1,4 +1,3 @@
-use exitcode::OK;
 use prm::db::db_interface::DbOperations;
 use prm::entities::activity::{Activity, ACTIVITY_TEMPLATE};
 use prm::entities::note::{Note, NOTE_TEMPLATE};
@@ -226,14 +225,24 @@ pub fn activity(
             content_string = c.unwrap();
             people = p;
 
-            activity.update(
+            match activity.update(
                 &conn,
                 Some(name_string),
                 Some(activity_type_string),
                 Some(date_string),
                 Some(content_string),
                 people,
-            );
+            ) {
+                Ok(_) => (),
+                Err(_) => {
+                    return {
+                        EditSnafu {
+                            entity: "Activity".to_string(),
+                        }
+                    }
+                    .fail()
+                }
+            };
             match activity.save(&conn) {
                 Ok(activity) => println!("Updated activity: {:#?}", activity),
                 Err(_) => {
@@ -471,7 +480,17 @@ pub fn note(
             content_string = c;
             people = p;
 
-            note.update(conn, Some(date_string), Some(content_string), people);
+            match note.update(conn, Some(date_string), Some(content_string), people) {
+                Ok(_) => (),
+                Err(_) => {
+                    return {
+                        EditSnafu {
+                            entity: "Note".to_string(),
+                        }
+                        .fail()
+                    }
+                }
+            };
             match note.save(&conn) {
                 Ok(note) => println!("Updated note: {:#?}", note),
                 Err(_) => {
@@ -482,7 +501,7 @@ pub fn note(
                         .fail()
                     }
                 }
-            }
+            };
             println!("Updated note: {:#?}", note);
             Ok(note)
         }
