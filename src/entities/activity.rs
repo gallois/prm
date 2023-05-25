@@ -235,10 +235,10 @@ impl crate::db::db_interface::DbOperations for Activity {
         let activity_type_str = self.activity_type.as_ref();
         let date_str = self.date.to_string();
 
-        // TODO error handling
-        let mut stmt = conn
-            .prepare("SELECT id FROM activity_types WHERE type = ?")
-            .unwrap();
+        let mut stmt = match conn.prepare("SELECT id FROM activity_types WHERE type = ?") {
+            Ok(stmt) => stmt,
+            Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
+        };
         let mut rows = stmt.query(params![activity_type_str]).unwrap();
         let mut types: Vec<u32> = Vec::new();
         while let Some(row) = rows.next().unwrap() {
@@ -314,10 +314,10 @@ impl crate::db::db_interface::DbOperations for Activity {
     ) -> Result<&Activity, crate::db::db_interface::DbOperationsError> {
         let activity_type_str = self.activity_type.as_ref();
 
-        // TODO error handling
-        let mut stmt = conn
-            .prepare("SELECT id FROM activity_types WHERE type = ?")
-            .unwrap();
+        let mut stmt = match conn.prepare("SELECT id FROM activity_types WHERE type = ?") {
+            Ok(stmt) => stmt,
+            Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
+        };
         let mut rows = stmt.query(params![activity_type_str]).unwrap();
         let mut types: Vec<u32> = Vec::new();
         while let Some(row) = rows.next().unwrap() {
