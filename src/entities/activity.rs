@@ -3,6 +3,7 @@ use rusqlite::params;
 use std::{convert::AsRef, str::FromStr};
 use strum_macros::{AsRefStr, EnumString};
 
+use crate::db_interface::{DbOperations, DbOperationsError};
 use crate::entities::person::Person;
 use crate::entities::Entities;
 use rusqlite::Connection;
@@ -53,16 +54,21 @@ impl Activity {
         }
     }
 
-    pub fn get_by_name(conn: &Connection, name: &str) -> Option<Activity> {
-        let mut stmt = conn
-            .prepare("SELECT * FROM activities WHERE name = ?1 COLLATE NOCASE")
-            .expect("Invalid SQL statement");
+    pub fn get_by_name(
+        conn: &Connection,
+        name: &str,
+    ) -> Result<Option<Activity>, DbOperationsError> {
+        let mut stmt = match conn.prepare("SELECT * FROM activities WHERE name = ?1 COLLATE NOCASE")
+        {
+            Ok(stmt) => stmt,
+            Err(_) => return Err(DbOperationsError::GenericError),
+        };
         let mut rows = stmt.query(params![name]).unwrap();
         match rows.next() {
             Ok(row) => match row {
                 Some(row) => {
                     let activity_id = row.get(0).unwrap();
-                    Some(Activity {
+                    Ok(Some(Activity {
                         id: activity_id,
                         name: row.get(1).unwrap(),
                         activity_type: ActivityType::get_by_id(&conn, row.get(2).unwrap()).unwrap(),
@@ -76,35 +82,37 @@ impl Activity {
                             activity_id,
                             true,
                         ),
-                    })
+                    }))
                 }
-                None => return None,
+                None => return Ok(None),
             },
-            Err(_) => return None,
+            Err(_) => return Err(DbOperationsError::GenericError),
         }
     }
 
-    pub fn get_all(conn: &Connection) -> Vec<Activity> {
-        let mut stmt = conn
-            .prepare("SELECT * FROM activities")
-            .expect("Invalid SQL statement");
+    pub fn get_all(conn: &Connection) -> Result<Vec<Activity>, DbOperationsError> {
+        let mut stmt = match conn.prepare("SELECT * FROM activities") {
+            Ok(stmt) => stmt,
+            Err(_) => return Err(DbOperationsError::GenericError),
+        };
 
-        let rows = stmt
-            .query_map([], |row| {
-                let activity_id = row.get(0).unwrap();
-                Ok(Activity {
-                    id: activity_id,
-                    name: row.get(1).unwrap(),
-                    activity_type: ActivityType::get_by_id(&conn, row.get(2).unwrap()).unwrap(),
-                    date: crate::helpers::parse_from_str_ymd(
-                        String::from(row.get::<usize, String>(3).unwrap_or_default()).as_str(),
-                    )
-                    .unwrap_or_default(),
-                    content: row.get(4).unwrap(),
-                    people: crate::db::db_helpers::get_people_by_activity(&conn, activity_id, true),
-                })
+        let rows = match stmt.query_map([], |row| {
+            let activity_id = row.get(0).unwrap();
+            Ok(Activity {
+                id: activity_id,
+                name: row.get(1).unwrap(),
+                activity_type: ActivityType::get_by_id(&conn, row.get(2).unwrap()).unwrap(),
+                date: crate::helpers::parse_from_str_ymd(
+                    String::from(row.get::<usize, String>(3).unwrap_or_default()).as_str(),
+                )
+                .unwrap_or_default(),
+                content: row.get(4).unwrap(),
+                people: crate::db::db_helpers::get_people_by_activity(&conn, activity_id, true),
             })
-            .unwrap();
+        }) {
+            Ok(rows) => rows,
+            Err(_) => return Err(DbOperationsError::GenericError),
+        };
 
         let mut activities = Vec::new();
 
@@ -112,7 +120,7 @@ impl Activity {
             activities.push(activity.unwrap());
         }
 
-        activities
+        Ok(activities)
     }
 
     pub fn update(
@@ -161,7 +169,17 @@ impl Activity {
                     }
                 },
             }
-            self.date = date_obj.unwrap();
+            self.date = match date_obj {
+                Some(date) => date,
+                None => {
+                    return {
+                        DateParseSnafu {
+                            date: date.to_string(),
+                        }
+                        .fail()
+                    }
+                }
+            };
         }
 
         if let Some(content) = content {
@@ -227,17 +245,14 @@ impl Activity {
     }
 }
 
-impl crate::db::db_interface::DbOperations for Activity {
-    fn add(
-        &self,
-        conn: &Connection,
-    ) -> Result<&Activity, crate::db::db_interface::DbOperationsError> {
+impl DbOperations for Activity {
+    fn add(&self, conn: &Connection) -> Result<&Activity, DbOperationsError> {
         let activity_type_str = self.activity_type.as_ref();
         let date_str = self.date.to_string();
 
         let mut stmt = match conn.prepare("SELECT id FROM activity_types WHERE type = ?") {
             Ok(stmt) => stmt,
-            Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
+            Err(_) => return Err(DbOperationsError::GenericError),
         };
         let mut rows = stmt.query(params![activity_type_str]).unwrap();
         let mut types: Vec<u32> = Vec::new();
@@ -257,7 +272,7 @@ impl crate::db::db_interface::DbOperations for Activity {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
             }
-            Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
+            Err(_) => return Err(DbOperationsError::GenericError),
         }
 
         let id = conn.last_insert_rowid();
@@ -277,46 +292,41 @@ impl crate::db::db_interface::DbOperations for Activity {
                 Ok(updated) => {
                     println!("[DEBUG] {} rows were updated", updated);
                 }
-                Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
+                Err(_) => return Err(DbOperationsError::GenericError),
             }
         }
 
         Ok(self)
     }
 
-    fn remove(
-        &self,
-        conn: &Connection,
-    ) -> Result<&Self, crate::db::db_interface::DbOperationsError> {
-        let mut stmt = conn
-            .prepare(
-                "UPDATE 
+    fn remove(&self, conn: &Connection) -> Result<&Self, DbOperationsError> {
+        let mut stmt = match conn.prepare(
+            "UPDATE 
                     activities 
                 SET
                     deleted = TRUE
                 WHERE
                     id = ?1",
-            )
-            .unwrap();
+        ) {
+            Ok(stmt) => stmt,
+            Err(_) => return Err(DbOperationsError::GenericError),
+        };
         match stmt.execute([self.id]) {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
             }
-            Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
+            Err(_) => return Err(DbOperationsError::GenericError),
         }
 
         Ok(self)
     }
 
-    fn save(
-        &self,
-        conn: &Connection,
-    ) -> Result<&Activity, crate::db::db_interface::DbOperationsError> {
+    fn save(&self, conn: &Connection) -> Result<&Activity, DbOperationsError> {
         let activity_type_str = self.activity_type.as_ref();
 
         let mut stmt = match conn.prepare("SELECT id FROM activity_types WHERE type = ?") {
             Ok(stmt) => stmt,
-            Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
+            Err(_) => return Err(DbOperationsError::GenericError),
         };
         let mut rows = stmt.query(params![activity_type_str]).unwrap();
         let mut types: Vec<u32> = Vec::new();
@@ -347,7 +357,7 @@ impl crate::db::db_interface::DbOperations for Activity {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
             }
-            Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
+            Err(_) => return Err(DbOperationsError::GenericError),
         }
 
         for person in self.people.iter() {
@@ -397,7 +407,7 @@ impl crate::db::db_interface::DbOperations for Activity {
                 Ok(updated) => {
                     println!("[DEBUG] {} rows were updated", updated);
                 }
-                Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
+                Err(_) => return Err(DbOperationsError::GenericError),
             }
         }
 

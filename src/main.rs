@@ -358,12 +358,24 @@ fn main() {
                 println!("removed: {}", person);
             }
             RemoveEntity::Activity { name } => {
-                let reminder = Activity::get_by_name(&conn, &name).unwrap();
-                match reminder.remove(&conn) {
-                    Ok(_) => println!("{:#?} removed successfully", reminder),
-                    Err(_) => panic!("Error while removing {:#?}", reminder),
+                let activity = match Activity::get_by_name(&conn, &name) {
+                    Ok(activity) => match activity {
+                        Some(activity) => activity,
+                        None => {
+                            eprintln!("Activity not found");
+                            exit(exitcode::DATAERR);
+                        }
+                    },
+                    Err(e) => {
+                        eprintln!("Error while fetching activity: {:#?}", e);
+                        exit(exitcode::DATAERR);
+                    }
                 };
-                println!("removed: {:#?}", reminder);
+                match activity.remove(&conn) {
+                    Ok(_) => println!("{:#?} removed successfully", activity),
+                    Err(_) => panic!("Error while removing {:#?}", activity),
+                };
+                println!("removed: {:#?}", activity);
             }
             RemoveEntity::Reminder { name } => {
                 let reminder = Reminder::get_by_name(&conn, &name).unwrap();
