@@ -200,13 +200,29 @@ pub fn activity(
         },
     );
     if name == None {
-        activity_vars = prm::editor::populate_activity_vars(vars);
+        activity_vars = match prm::editor::populate_activity_vars(vars) {
+            Ok(activity_vars) => activity_vars,
+            Err(err) => {
+                return EditorParseSnafu {
+                    entity: err.to_string(),
+                }
+                .fail()
+            }
+        };
     } else {
         if [activity_type.clone(), date.clone(), content.clone()]
             .iter()
             .any(Option::is_none)
         {
-            activity_vars = prm::editor::populate_activity_vars(vars);
+            activity_vars = match prm::editor::populate_activity_vars(vars) {
+                Ok(activity_vars) => activity_vars,
+                Err(err) => {
+                    return EditorParseSnafu {
+                        entity: err.to_string(),
+                    }
+                    .fail()
+                }
+            };
         } else {
             activity_vars = prm::helpers::ActivityVars {
                 name: name.unwrap(),
