@@ -9,6 +9,17 @@ use crate::entities::reminder::Reminder;
 use crate::entities::Entities;
 use rusqlite::Connection;
 
+use snafu::prelude::*;
+
+// FIXME this is a duplication of what we have in `CliError` (src/cli/add.rs)
+#[derive(Debug, Snafu)]
+pub enum EntityError {
+    #[snafu(display("Invalid birthday: {}", birthday))]
+    BirthdayParseError { birthday: String },
+    #[snafu(display("Invalid contact info: {}", contact_info))]
+    ContactInfoParseError { contact_info: String },
+}
+
 pub static PERSON_TEMPLATE: &str = "Name: {name}
 Birthday: {birthday}
 Contact Info: {contact_info}
@@ -156,7 +167,7 @@ impl Person {
         name: Option<String>,
         birthday: Option<String>,
         contact_info: Option<String>,
-    ) -> &Self {
+    ) -> Result<&Self, EntityError> {
         // TODO clean up duplication between this and main.rs
         if let Some(name) = name {
             self.name = name;
@@ -168,7 +179,7 @@ impl Person {
                 Ok(date) => birthday_obj = Some(date),
                 Err(_) => match crate::helpers::parse_from_str_md(&birthday) {
                     Ok(date) => birthday_obj = Some(date),
-                    Err(error) => panic!("Error parsing birthday: {}", error),
+                    Err(error) => return BirthdayParseSnafu { birthday: birthday }.fail(),
                 },
             }
             self.birthday = birthday_obj;
@@ -187,6 +198,8 @@ impl Person {
             None => contact_info_splits = vec![],
         }
 
+        // FIXME duplication in src/cli/add.rs
+        let mut invalid_contact_info = vec![];
         if contact_info_splits.len() > 0 {
             for contact_info_split in contact_info_splits.iter() {
                 match contact_info_split[0].as_str() {
@@ -203,8 +216,18 @@ impl Person {
                             Some(ContactInfoType::Email(contact_info_split[1].clone()))
                     }
                     // TODO proper error handling and messaging
-                    _ => panic!("Unknown contact info type"),
+                    _ => {
+                        invalid_contact_info.push(
+                            vec![contact_info_split[0].clone(), contact_info_split[1].clone()]
+                                .join(":"),
+                        );
+                        return ContactInfoParseSnafu {
+                            contact_info: String::from(invalid_contact_info.join(",")),
+                        }
+                        .fail();
+                    }
                 }
+
                 if let Some(contact_info_type) = contact_info_type {
                     contact_info_vec.push(ContactInfo::new(0, self.id, contact_info_type));
                 }
@@ -212,7 +235,7 @@ impl Person {
         }
         self.contact_info = contact_info_vec;
 
-        self
+        Ok(self)
     }
 
     pub fn parse_from_editor(
@@ -236,7 +259,6 @@ impl Person {
                 let contact_info_str = s.trim_start_matches(contact_info_prefix);
                 contact_info = contact_info_str.split(",").map(|x| x.to_string()).collect();
             }
-            // FIXME
             _ => error = true,
         });
 

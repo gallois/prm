@@ -282,7 +282,10 @@ fn main() {
             AddEntity::Notes { content, people } => {
                 match cli::add::note(&conn, content, people) {
                     Ok(_) => (),
-                    Err(_) => eprintln!("Error adding note"),
+                    Err(_) => {
+                        eprintln!("Error adding note");
+                        exit(exitcode::DATAERR);
+                    }
                 };
             }
         },
@@ -314,7 +317,10 @@ fn main() {
             } => {
                 match cli::edit::person(&conn, id, name, birthday, contact_info) {
                     Ok(_) => (),
-                    Err(_) => eprintln!("Error editing person"),
+                    Err(_) => {
+                        eprintln!("Error editing person");
+                        exit(exitcode::DATAERR);
+                    }
                 };
             }
             EditEntity::Activity {
@@ -326,7 +332,10 @@ fn main() {
             } => {
                 match cli::edit::activity(&conn, id, name, activity_type, date, content) {
                     Ok(_) => (),
-                    Err(_) => eprintln!("Error editing activity"),
+                    Err(_) => {
+                        eprintln!("Error editing activity");
+                        exit(exitcode::DATAERR);
+                    }
                 };
             }
             EditEntity::Reminder {
@@ -338,13 +347,19 @@ fn main() {
             } => {
                 match cli::edit::reminder(&conn, id, name, date, description, recurring) {
                     Ok(_) => (),
-                    Err(_) => eprintln!("Error editing reminder"),
+                    Err(_) => {
+                        eprintln!("Error editing reminder");
+                        exit(exitcode::DATAERR);
+                    }
                 };
             }
             EditEntity::Note { id, date, content } => {
                 match cli::edit::note(&conn, id, date, content) {
                     Ok(_) => (),
-                    Err(_) => eprintln!("Error editing note"),
+                    Err(_) => {
+                        eprintln!("Error editing note");
+                        exit(exitcode::DATAERR);
+                    }
                 };
             }
         },
@@ -353,7 +368,10 @@ fn main() {
                 let person = Person::get_by_name(&conn, &name).unwrap();
                 match person.remove(&conn) {
                     Ok(_) => println!("{} removed successfully", person),
-                    Err(_) => panic!("Error while removing {}", person),
+                    Err(_) => {
+                        eprintln!("Error while removing {}", person);
+                        exit(exitcode::DATAERR);
+                    }
                 };
                 println!("removed: {}", person);
             }
@@ -373,7 +391,10 @@ fn main() {
                 };
                 match activity.remove(&conn) {
                     Ok(_) => println!("{:#?} removed successfully", activity),
-                    Err(_) => panic!("Error while removing {:#?}", activity),
+                    Err(_) => {
+                        eprintln!("Error while removing {:#?}", activity);
+                        exit(exitcode::DATAERR);
+                    }
                 };
                 println!("removed: {:#?}", activity);
             }
@@ -381,7 +402,10 @@ fn main() {
                 let reminder = Reminder::get_by_name(&conn, &name).unwrap();
                 match reminder.remove(&conn) {
                     Ok(_) => println!("{:#?} removed successfully", reminder),
-                    Err(_) => panic!("Error while removing {:#?}", reminder),
+                    Err(_) => {
+                        eprintln!("Error while removing {:#?}", reminder);
+                        exit(exitcode::DATAERR);
+                    }
                 };
                 println!("removed: {:#?}", reminder);
             }
@@ -392,7 +416,10 @@ fn main() {
                         if let Entities::Note(note) = note {
                             match note.remove(&conn) {
                                 Ok(_) => println!("{:#?} removed successfully", note),
-                                Err(_) => panic!("Error while removing {:#?}", note),
+                                Err(_) => {
+                                    eprintln!("Error while removing {:#?}", note);
+                                    exit(exitcode::DATAERR);
+                                }
                             };
                             println!("removed: {:#?}", note);
                         }
