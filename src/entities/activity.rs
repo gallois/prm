@@ -260,14 +260,16 @@ impl DbOperations for Activity {
             types.push(row.get(0).unwrap());
         }
 
-        let mut stmt = conn
-            .prepare(
-                "INSERT INTO 
+        let mut stmt = match conn.prepare(
+            "INSERT INTO 
                 activities (name, type, date, content, deleted)
                 VALUES (?1, ?2, ?3, ?4, FALSE)
             ",
-            )
-            .unwrap();
+        ) {
+            Ok(stmt) => stmt,
+            Err(_) => return Err(DbOperationsError::GenericError),
+        };
+
         match stmt.execute(params![self.name, types[0], date_str, self.content]) {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
@@ -278,16 +280,17 @@ impl DbOperations for Activity {
         let id = conn.last_insert_rowid();
 
         for person in &self.people {
-            let mut stmt = conn
-                .prepare(
-                    "INSERT INTO people_activities (
+            let mut stmt = match conn.prepare(
+                "INSERT INTO people_activities (
                     person_id, 
                     activity_id,
                     deleted
                 )
                     VALUES (?1, ?2, FALSE)",
-                )
-                .unwrap();
+            ) {
+                Ok(stmt) => stmt,
+                Err(_) => return Err(DbOperationsError::GenericError),
+            };
             match stmt.execute(params![person.id, id]) {
                 Ok(updated) => {
                     println!("[DEBUG] {} rows were updated", updated);
@@ -334,9 +337,8 @@ impl DbOperations for Activity {
             types.push(row.get(0).unwrap());
         }
 
-        let mut stmt = conn
-            .prepare(
-                "UPDATE
+        let mut stmt = match conn.prepare(
+            "UPDATE
                 activities
             SET
                 name = ?1,
@@ -345,8 +347,10 @@ impl DbOperations for Activity {
                 content = ?4
             WHERE
                 id = ?5",
-            )
-            .unwrap();
+        ) {
+            Ok(stmt) => stmt,
+            Err(_) => return Err(DbOperationsError::GenericError),
+        };
         match stmt.execute(params![
             self.name,
             types[0],
@@ -361,17 +365,18 @@ impl DbOperations for Activity {
         }
 
         for person in self.people.iter() {
-            let mut stmt = conn
-                .prepare(
-                    "SELECT 
+            let mut stmt = match conn.prepare(
+                "SELECT 
                         id
                     FROM
                         people_activities
                     WHERE
                         activity_id = ?1 
                         AND person_id = ?2",
-                )
-                .unwrap();
+            ) {
+                Ok(stmt) => stmt,
+                Err(_) => return Err(DbOperationsError::GenericError),
+            };
             let mut rows = stmt.query(params![self.id, person.id]).unwrap();
             let mut results: Vec<u32> = Vec::new();
             while let Some(row) = rows.next().unwrap() {
@@ -380,9 +385,12 @@ impl DbOperations for Activity {
 
             if results.len() > 0 {
                 for id in results {
-                    let mut stmt = conn
+                    let mut stmt = match conn
                         .prepare("UPDATE people_activities SET deleted = TRUE WHERE id = ?1")
-                        .unwrap();
+                    {
+                        Ok(stmt) => stmt,
+                        Err(_) => return Err(DbOperationsError::GenericError),
+                    };
                     match stmt.execute(params![id]) {
                         Ok(updated) => {
                             println!("[DEBUG] {} rows were updated", updated);
@@ -394,15 +402,16 @@ impl DbOperations for Activity {
                 }
             }
 
-            let mut stmt = conn
-                .prepare(
-                    "INSERT INTO people_activities (
+            let mut stmt = match conn.prepare(
+                "INSERT INTO people_activities (
                         person_id,
                         activity_id,
                         deleted
                     ) VALUES (?1, ?2, FALSE)",
-                )
-                .unwrap();
+            ) {
+                Ok(stmt) => stmt,
+                Err(_) => return Err(DbOperationsError::GenericError),
+            };
             match stmt.execute(params![person.id, self.id]) {
                 Ok(updated) => {
                     println!("[DEBUG] {} rows were updated", updated);
