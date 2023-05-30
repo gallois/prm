@@ -7,6 +7,18 @@ use crate::entities::person::Person;
 use crate::entities::Entities;
 use rusqlite::Connection;
 
+use snafu::prelude::*;
+
+// FIXME this is a duplication of what we have in `CliError` (src/cli/add.rs)
+#[derive(Debug, Snafu)]
+#[snafu(visibility(pub(crate)))]
+pub enum EntityError {
+    #[snafu(display("Invalid date: {}", date))]
+    DateParseError { date: String },
+    #[snafu(display("Invalid recurring type: {}", recurring_type))]
+    RecurringTypeParseError { recurring_type: String },
+}
+
 pub static REMINDER_TEMPLATE: &str = "Name: {name}
 Date: {date}
 Recurring: {recurring_type}
@@ -114,7 +126,7 @@ impl Reminder {
         description: Option<String>,
         recurring: Option<String>,
         people: Vec<String>,
-    ) -> &Self {
+    ) -> Result<&Self, EntityError> {
         if let Some(name) = name {
             self.name = name;
         }
@@ -126,7 +138,12 @@ impl Reminder {
                 Ok(date) => date_obj = Some(date),
                 Err(_) => match crate::helpers::parse_from_str_md(&date) {
                     Ok(date) => date_obj = Some(date),
-                    Err(error) => panic!("Error parsing date: {}", error),
+                    Err(_) => {
+                        return DateParseSnafu {
+                            date: date.to_string(),
+                        }
+                        .fail()
+                    }
                 },
             }
             self.date = date_obj.unwrap();
@@ -148,7 +165,12 @@ impl Reminder {
                 "biannual" => Some(RecurringType::Biannual),
                 "yearly" => Some(RecurringType::Yearly),
                 "onetime" => Some(RecurringType::OneTime),
-                _ => panic!("Unknown recurring pattern"),
+                _ => {
+                    return RecurringTypeParseSnafu {
+                        recurring_type: recurring_type_str.to_string(),
+                    }
+                    .fail()
+                }
             },
             None => Some(RecurringType::OneTime),
         };
@@ -160,7 +182,7 @@ impl Reminder {
         let people = Person::get_by_names(&conn, people);
         self.people = people;
 
-        self
+        Ok(self)
     }
 
     pub fn parse_from_editor(

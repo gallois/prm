@@ -95,7 +95,17 @@ pub fn person(
             birthday_str = b;
             contact_info_str = Some(c.join(","));
 
-            person.update(name_str, birthday_str, contact_info_str);
+            match person.update(name_str, birthday_str, contact_info_str) {
+                Ok(_) => (),
+                Err(_) => {
+                    return {
+                        EditSnafu {
+                            entity: "Person".to_string(),
+                        }
+                        .fail()
+                    }
+                }
+            };
             match person.save(&conn) {
                 Ok(person) => println!("Updated person: {}", person),
                 Err(_) => {
@@ -370,14 +380,24 @@ pub fn reminder(
             description_string = de.unwrap();
             people = p;
 
-            reminder.update(
+            match reminder.update(
                 conn,
                 Some(name_string),
                 Some(date_string),
                 Some(description_string),
                 Some(recurring_type_string),
                 people,
-            );
+            ) {
+                Ok(_) => (),
+                Err(_) => {
+                    return {
+                        EditSnafu {
+                            entity: "Reminder".to_string(),
+                        }
+                        .fail()
+                    }
+                }
+            };
             match reminder.save(&conn) {
                 Ok(reminder) => println!("Updated reminder: {:#?}", reminder),
                 Err(_) => {

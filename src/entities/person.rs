@@ -179,7 +179,7 @@ impl Person {
                 Ok(date) => birthday_obj = Some(date),
                 Err(_) => match crate::helpers::parse_from_str_md(&birthday) {
                     Ok(date) => birthday_obj = Some(date),
-                    Err(error) => return BirthdayParseSnafu { birthday: birthday }.fail(),
+                    Err(_) => return BirthdayParseSnafu { birthday: birthday }.fail(),
                 },
             }
             self.birthday = birthday_obj;
