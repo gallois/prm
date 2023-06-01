@@ -423,16 +423,17 @@ impl DbOperations for Activity {
         Ok(self)
     }
 
-    fn get_by_id(conn: &Connection, id: u64) -> Option<Entities> {
-        let mut stmt = conn
-            .prepare("SELECT * FROM activities WHERE id = ?1")
-            .expect("Invalid SQL statement");
+    fn get_by_id(conn: &Connection, id: u64) -> Result<Option<Entities>, DbOperationsError> {
+        let mut stmt = match conn.prepare("SELECT * FROM activities WHERE id = ?1") {
+            Ok(stmt) => stmt,
+            Err(_) => return Err(DbOperationsError::GenericError),
+        };
         let mut rows = stmt.query(params![id]).unwrap();
         match rows.next() {
             Ok(row) => match row {
                 Some(row) => {
                     let activity_id = row.get(0).unwrap();
-                    Some(Entities::Activity(Activity {
+                    Ok(Some(Entities::Activity(Activity {
                         id: activity_id,
                         name: row.get(1).unwrap(),
                         activity_type: ActivityType::get_by_id(&conn, row.get(2).unwrap()).unwrap(),
@@ -446,11 +447,11 @@ impl DbOperations for Activity {
                             activity_id,
                             true,
                         ),
-                    }))
+                    })))
                 }
-                None => return None,
+                None => return Ok(None),
             },
-            Err(_) => return None,
+            Err(_) => return Err(DbOperationsError::GenericError),
         }
     }
 }

@@ -3,6 +3,7 @@ use rusqlite::params;
 use std::{convert::AsRef, fmt, str::FromStr};
 use strum_macros::{AsRefStr, EnumString};
 
+use crate::db::db_interface::DbOperationsError;
 use crate::entities::person::Person;
 use crate::entities::Entities;
 use rusqlite::Connection;
@@ -383,16 +384,17 @@ impl crate::db::db_interface::DbOperations for Reminder {
         Ok(self)
     }
 
-    fn get_by_id(conn: &Connection, id: u64) -> Option<Entities> {
-        let mut stmt = conn
-            .prepare("SELECT * FROM reminders WHERE id = ?1")
-            .expect("Invalid SQL statement");
+    fn get_by_id(conn: &Connection, id: u64) -> Result<Option<Entities>, DbOperationsError> {
+        let mut stmt = match conn.prepare("SELECT * FROM reminders WHERE id = ?1") {
+            Ok(stmt) => stmt,
+            Err(_) => return Err(DbOperationsError::GenericError),
+        };
         let mut rows = stmt.query(params![id]).unwrap();
         match rows.next() {
             Ok(row) => match row {
                 Some(row) => {
                     let reminder_id = row.get(0).unwrap();
-                    Some(Entities::Reminder(Reminder {
+                    Ok(Some(Entities::Reminder(Reminder {
                         id: reminder_id,
                         name: row.get(1).unwrap(),
                         date: crate::helpers::parse_from_str_ymd(
@@ -402,11 +404,11 @@ impl crate::db::db_interface::DbOperations for Reminder {
                         description: row.get(3).unwrap(),
                         recurring: RecurringType::get_by_id(&conn, row.get(4).unwrap()).unwrap(),
                         people: crate::db::db_helpers::get_people_by_reminder(&conn, reminder_id),
-                    }))
+                    })))
                 }
-                None => return None,
+                None => return Ok(None),
             },
-            Err(_) => return None,
+            Err(_) => return Err(DbOperationsError::GenericError),
         }
     }
 }

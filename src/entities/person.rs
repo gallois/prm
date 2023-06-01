@@ -3,6 +3,7 @@ use rusqlite::{params, params_from_iter};
 use std::{convert::AsRef, fmt, str::FromStr};
 use strum_macros::{AsRefStr, EnumString};
 
+use crate::db::db_interface::DbOperationsError;
 use crate::entities::activity::Activity;
 use crate::entities::note::Note;
 use crate::entities::reminder::Reminder;
@@ -468,16 +469,17 @@ impl crate::db::db_interface::DbOperations for Person {
         Ok(self)
     }
 
-    fn get_by_id(conn: &Connection, id: u64) -> Option<Entities> {
-        let mut stmt = conn
-            .prepare("SELECT * FROM people WHERE id = ?1")
-            .expect("Invalid SQL statement");
+    fn get_by_id(conn: &Connection, id: u64) -> Result<Option<Entities>, DbOperationsError> {
+        let mut stmt = match conn.prepare("SELECT * FROM people WHERE id = ?1") {
+            Ok(stmt) => stmt,
+            Err(_) => return Err(DbOperationsError::GenericError),
+        };
         let mut rows = stmt.query(params![id]).unwrap();
         match rows.next() {
             Ok(row) => match row {
                 Some(row) => {
                     let person_id = row.get(0).unwrap();
-                    Some(Entities::Person(Person {
+                    Ok(Some(Entities::Person(Person {
                         id: person_id,
                         name: row.get(1).unwrap(),
                         birthday: Some(
@@ -495,11 +497,11 @@ impl crate::db::db_interface::DbOperations for Person {
                         ),
                         reminders: crate::db::db_helpers::get_reminders_by_person(&conn, person_id),
                         notes: crate::db::db_helpers::get_notes_by_person(&conn, person_id),
-                    }))
+                    })))
                 }
-                None => return None,
+                None => return Ok(None),
             },
-            Err(_) => return None,
+            Err(_) => return Err(DbOperationsError::GenericError),
         }
     }
 }

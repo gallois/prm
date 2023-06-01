@@ -13,7 +13,10 @@ pub mod db_interface {
         fn add(&self, conn: &Connection) -> Result<&Self, DbOperationsError>;
         fn remove(&self, conn: &Connection) -> Result<&Self, DbOperationsError>;
         fn save(&self, conn: &Connection) -> Result<&Self, DbOperationsError>;
-        fn get_by_id(conn: &Connection, id: u64) -> Option<crate::entities::Entities>;
+        fn get_by_id(
+            conn: &Connection,
+            id: u64,
+        ) -> Result<Option<crate::entities::Entities>, DbOperationsError>;
         // TODO get_all
     }
 }

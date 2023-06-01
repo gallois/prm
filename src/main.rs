@@ -412,20 +412,26 @@ fn main() {
             RemoveEntity::Note { id } => {
                 let note = Note::get_by_id(&conn, id);
                 match note {
-                    Some(note) => {
-                        if let Entities::Note(note) = note {
-                            match note.remove(&conn) {
-                                Ok(_) => println!("{:#?} removed successfully", note),
-                                Err(_) => {
-                                    eprintln!("Error while removing {:#?}", note);
-                                    exit(exitcode::DATAERR);
-                                }
-                            };
-                            println!("removed: {:#?}", note);
+                    Ok(note) => match note {
+                        Some(note) => {
+                            if let Entities::Note(note) = note {
+                                match note.remove(&conn) {
+                                    Ok(_) => println!("{:#?} removed successfully", note),
+                                    Err(_) => {
+                                        eprintln!("Error while removing {:#?}", note);
+                                        exit(exitcode::DATAERR);
+                                    }
+                                };
+                                println!("removed: {:#?}", note);
+                            }
                         }
-                    }
-                    None => {
-                        println!("Could not find note with id: {}", id);
+                        None => {
+                            println!("Could not find note with id: {}", id);
+                            return;
+                        }
+                    },
+                    Err(e) => {
+                        eprintln!("Error while fetching note: {:#?}", e);
                         return;
                     }
                 };
