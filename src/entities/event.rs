@@ -46,6 +46,10 @@ impl Event {
         let rows = stmt
             .query_map(params![days], |row| {
                 let person_id = row.get(0).unwrap();
+                let notes = match crate::db::db_helpers::get_notes_by_person(&conn, person_id) {
+                    Ok(notes) => notes,
+                    Err(e) => panic!("{:#?}", e),
+                };
                 Ok(Person {
                     id: person_id,
                     name: row.get(1).unwrap(),
@@ -60,7 +64,7 @@ impl Event {
                     ),
                     activities: crate::db::db_helpers::get_activities_by_person(&conn, person_id),
                     reminders: crate::db::db_helpers::get_reminders_by_person(&conn, person_id),
-                    notes: crate::db::db_helpers::get_notes_by_person(&conn, person_id),
+                    notes: notes,
                 })
             })
             .unwrap();

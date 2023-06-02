@@ -479,7 +479,7 @@ pub mod db_helpers {
 
         notes
     }
-    pub fn init_db(conn: &Connection) -> Result<(), crate::db::db_interface::DbOperationsError> {
+    pub fn init_db(conn: &Connection) -> Result<(), DbOperationsError> {
         let sql_create_statements = vec![
             "CREATE TABLE people (
             id INTEGER PRIMARY KEY,
@@ -551,13 +551,16 @@ pub mod db_helpers {
         );",
         ];
         for query in sql_create_statements {
-            let mut stmt = conn.prepare(query).unwrap();
+            let mut stmt = match conn.prepare(query) {
+                Ok(stmt) => stmt,
+                Err(_) => return Err(DbOperationsError::InvalidStatement),
+            };
             match stmt.execute(params![]) {
                 // TODO Improve message
                 Ok(_) => println!("Database table created"),
                 Err(error) => {
                     println!("Error creating database tables: {}", error);
-                    return Err(crate::db::db_interface::DbOperationsError::GenericError);
+                    return Err(DbOperationsError::GenericError);
                 }
             };
         }
@@ -587,13 +590,16 @@ pub mod db_helpers {
         ",
         ];
         for query in sql_populate_statements {
-            let mut stmt = conn.prepare(query).unwrap();
+            let mut stmt = match conn.prepare(query) {
+                Ok(stmt) => stmt,
+                Err(_) => return Err(DbOperationsError::InvalidStatement),
+            };
             match stmt.execute(params![]) {
                 // TODO Improve message
                 Ok(_) => println!("Database table populated"),
                 Err(error) => {
                     println!("Error populating database tables: {}", error);
-                    return Err(crate::db::db_interface::DbOperationsError::GenericError);
+                    return Err(DbOperationsError::GenericError);
                 }
             };
         }

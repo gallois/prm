@@ -64,6 +64,10 @@ impl Person {
             Ok(row) => match row {
                 Some(row) => {
                     let person_id = row.get(0).unwrap();
+                    let notes = match crate::db::db_helpers::get_notes_by_person(&conn, person_id) {
+                        Ok(notes) => notes,
+                        Err(e) => panic!("{:#?}", e),
+                    };
                     Some(Person {
                         id: person_id,
                         name: row.get(1).unwrap(),
@@ -81,7 +85,7 @@ impl Person {
                             &conn, person_id,
                         ),
                         reminders: crate::db::db_helpers::get_reminders_by_person(&conn, person_id),
-                        notes: crate::db::db_helpers::get_notes_by_person(&conn, person_id),
+                        notes: notes,
                     })
                 }
                 None => return None,
@@ -134,6 +138,10 @@ impl Person {
         let rows = stmt
             .query_map([], |row| {
                 let person_id = row.get(0).unwrap();
+                let notes = match crate::db::db_helpers::get_notes_by_person(&conn, person_id) {
+                    Ok(notes) => notes,
+                    Err(e) => panic!("{:#?}", e),
+                };
                 Ok(Person {
                     id: person_id,
                     name: row.get(1).unwrap(),
@@ -148,7 +156,7 @@ impl Person {
                     ),
                     activities: crate::db::db_helpers::get_activities_by_person(&conn, person_id),
                     reminders: crate::db::db_helpers::get_reminders_by_person(&conn, person_id),
-                    notes: crate::db::db_helpers::get_notes_by_person(&conn, person_id),
+                    notes: notes,
                 })
             })
             .unwrap();
@@ -479,6 +487,10 @@ impl crate::db::db_interface::DbOperations for Person {
             Ok(row) => match row {
                 Some(row) => {
                     let person_id = row.get(0).unwrap();
+                    let notes = match crate::db::db_helpers::get_notes_by_person(&conn, person_id) {
+                        Ok(notes) => notes,
+                        Err(e) => panic!("{:#?}", e),
+                    };
                     Ok(Some(Entities::Person(Person {
                         id: person_id,
                         name: row.get(1).unwrap(),
@@ -496,7 +508,7 @@ impl crate::db::db_interface::DbOperations for Person {
                             &conn, person_id,
                         ),
                         reminders: crate::db::db_helpers::get_reminders_by_person(&conn, person_id),
-                        notes: crate::db::db_helpers::get_notes_by_person(&conn, person_id),
+                        notes: notes,
                     })))
                 }
                 None => return Ok(None),
