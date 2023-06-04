@@ -2,9 +2,16 @@ use chrono::prelude::*;
 use rusqlite::params;
 use std::{convert::AsRef, fmt};
 
+use crate::db::db_interface::DbOperationsError;
 use crate::entities::person::Person;
 use crate::entities::reminder::{RecurringType, Reminder};
 use rusqlite::Connection;
+
+#[derive(Debug)]
+pub enum EventError {
+    DbError(DbOperationsError),
+    EntityError(String),
+}
 
 pub enum EventType {
     Person(Person),
@@ -18,7 +25,7 @@ pub struct Event {
 }
 
 impl Event {
-    pub fn get_all(conn: &Connection, mut days: u64) -> Vec<Event> {
+    pub fn get_all(conn: &Connection, mut days: u64) -> Result<Vec<Event>, EventError> {
         if days == 0 {
             days = 10 * 365; // 10 years
         }
@@ -28,9 +35,8 @@ impl Event {
         let date_limit = today.checked_add_days(chrono::Days::new(days)).unwrap();
         let date_limit_str = format!("{}", date_limit.format("%Y-%m-%d"));
 
-        let mut stmt = conn
-            .prepare(
-                "SELECT
+        let mut stmt = match conn.prepare(
+            "SELECT
                     *,
                     strftime('%j', birthday) - strftime('%j', 'now') AS days_remaining
                 FROM
@@ -40,36 +46,42 @@ impl Event {
                     ELSE days_remaining + strftime('%j', strftime('%Y-12-31', 'now'))
                     END
                 ",
-            )
-            .expect("Invalid SQL statement");
+        ) {
+            Ok(stmt) => stmt,
+            Err(_) => {
+                return Err(EventError::DbError(DbOperationsError::InvalidStatement));
+            }
+        };
 
-        let rows = stmt
-            .query_map(params![days], |row| {
-                let person_id = row.get(0).unwrap();
-                let notes = match crate::db::db_helpers::get_notes_by_person(&conn, person_id) {
-                    Ok(notes) => notes,
-                    Err(e) => panic!("{:#?}", e),
-                };
-                Ok(Person {
-                    id: person_id,
-                    name: row.get(1).unwrap(),
-                    birthday: Some(
-                        crate::helpers::parse_from_str_ymd(
-                            String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
-                        )
-                        .unwrap_or_default(),
-                    ),
-                    contact_info: crate::db::db_helpers::get_contact_info_by_person(
-                        &conn, person_id,
-                    ),
-                    activities: crate::db::db_helpers::get_activities_by_person(&conn, person_id),
-                    reminders: crate::db::db_helpers::get_reminders_by_person(&conn, person_id),
-                    notes: notes,
-                })
+        let rows = match stmt.query_map(params![days], |row| {
+            let person_id = row.get(0).unwrap();
+            let notes = match crate::db::db_helpers::get_notes_by_person(&conn, person_id) {
+                Ok(notes) => notes,
+                Err(e) => panic!("{:#?}", e),
+            };
+            Ok(Person {
+                id: person_id,
+                name: row.get(1).unwrap(),
+                birthday: Some(
+                    crate::helpers::parse_from_str_ymd(
+                        String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
+                    )
+                    .unwrap_or_default(),
+                ),
+                contact_info: crate::db::db_helpers::get_contact_info_by_person(&conn, person_id),
+                activities: crate::db::db_helpers::get_activities_by_person(&conn, person_id),
+                reminders: crate::db::db_helpers::get_reminders_by_person(&conn, person_id),
+                notes: notes,
             })
-            .unwrap();
+        }) {
+            Ok(rows) => rows,
+            Err(_) => return Err(EventError::DbError(DbOperationsError::QueryError)),
+        };
         for person in rows.into_iter() {
-            let person = person.unwrap();
+            let person = match person {
+                Ok(person) => person,
+                Err(_) => return Err(EventError::EntityError("Person".to_string())),
+            };
             if let Some(birthday) = person.birthday {
                 events.push(Event {
                     date: birthday,
@@ -80,34 +92,40 @@ impl Event {
         }
 
         // TODO handle periodic events
-        let mut stmt = conn
-            .prepare("SELECT * FROM reminders WHERE date BETWEEN ?1 AND ?2")
-            .expect("Invalid SQL statement");
-        let rows = stmt
-            .query_map(params![today_str, date_limit_str], |row| {
-                let reminder_id = row.get(0).unwrap();
-                Ok(Reminder {
-                    id: reminder_id,
-                    name: row.get(1).unwrap(),
-                    date: crate::helpers::parse_from_str_ymd(
-                        String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
-                    )
-                    .unwrap_or_default(),
-                    description: row.get(3).unwrap(),
-                    recurring: RecurringType::get_by_id(&conn, row.get(4).unwrap()).unwrap(),
-                    people: crate::db::db_helpers::get_people_by_reminder(&conn, reminder_id),
-                })
+        let mut stmt = match conn.prepare("SELECT * FROM reminders WHERE date BETWEEN ?1 AND ?2") {
+            Ok(stmt) => stmt,
+            Err(_) => return Err(EventError::DbError(DbOperationsError::InvalidStatement)),
+        };
+        let rows = match stmt.query_map(params![today_str, date_limit_str], |row| {
+            let reminder_id = row.get(0).unwrap();
+            Ok(Reminder {
+                id: reminder_id,
+                name: row.get(1).unwrap(),
+                date: crate::helpers::parse_from_str_ymd(
+                    String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
+                )
+                .unwrap_or_default(),
+                description: row.get(3).unwrap(),
+                recurring: RecurringType::get_by_id(&conn, row.get(4).unwrap()).unwrap(),
+                people: crate::db::db_helpers::get_people_by_reminder(&conn, reminder_id),
             })
-            .unwrap();
+        }) {
+            Ok(rows) => rows,
+            Err(_) => return Err(EventError::DbError(DbOperationsError::QueryError)),
+        };
+
         for reminder in rows.into_iter() {
-            let reminder = reminder.unwrap();
+            let reminder = match reminder {
+                Ok(reminder) => reminder,
+                Err(_) => return Err(EventError::EntityError("Reminder".to_string())),
+            };
             events.push(Event {
                 date: reminder.date,
                 kind: "Reminder".to_string(),
                 details: EventType::Reminder(reminder),
             });
         }
-        events
+        Ok(events)
     }
 }
 

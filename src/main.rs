@@ -459,7 +459,13 @@ fn main() {
                 println!("listing notes: {:#?}", notes);
             }
             ListEntity::Events { days } => {
-                let mut events = Event::get_all(&conn, days);
+                let mut events = match Event::get_all(&conn, days) {
+                    Ok(events) => events,
+                    Err(e) => {
+                        eprintln!("Error while fetching events: {:#?}", e);
+                        exit(exitcode::DATAERR);
+                    }
+                };
 
                 // Sort events by date (month and day)
                 events.sort_by(|a, b| {
@@ -473,7 +479,13 @@ fn main() {
             }
         },
         Commands::Ics(ics) => {
-            let events = Event::get_all(&conn, 0);
+            let events = match Event::get_all(&conn, 0) {
+                Ok(events) => events,
+                Err(e) => {
+                    eprintln!("Error while fetching events: {:#?}", e);
+                    exit(exitcode::DATAERR);
+                }
+            };
             let mut calendar = ICalendar::new("2.0", "ics-rs");
 
             for event in events {
