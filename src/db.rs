@@ -105,10 +105,9 @@ pub mod db_helpers {
     pub fn get_reminders_by_person(
         conn: &Connection,
         person_id: u64,
-    ) -> Vec<crate::entities::reminder::Reminder> {
-        let mut stmt = conn
-            .prepare(
-                "SELECT
+    ) -> Result<Vec<crate::entities::reminder::Reminder>, DbOperationsError> {
+        let mut stmt = match conn.prepare(
+            "SELECT
             reminder_id
         FROM
             people_reminders
@@ -116,8 +115,10 @@ pub mod db_helpers {
             person_id = ?
             AND deleted = FALSE
         ",
-            )
-            .unwrap();
+        ) {
+            Ok(stmt) => stmt,
+            Err(_) => return Err(DbOperationsError::InvalidStatement),
+        };
 
         let mut rows = stmt.query(params![person_id]).unwrap();
         let mut reminder_ids: Vec<u64> = vec![];
@@ -126,7 +127,7 @@ pub mod db_helpers {
         }
 
         if reminder_ids.is_empty() {
-            return vec![];
+            return Ok(vec![]);
         }
 
         let vars = crate::helpers::repeat_vars(reminder_ids.len());
@@ -134,31 +135,35 @@ pub mod db_helpers {
             "SELECT * FROM reminders WHERE id IN ({}) AND deleted = FALSE",
             vars
         );
-        let mut stmt = conn.prepare(&sql).expect("Invalid SQL statement");
+        let mut stmt = match conn.prepare(&sql) {
+            Ok(stmt) => stmt,
+            Err(_) => return Err(DbOperationsError::InvalidStatement),
+        };
 
-        let rows = stmt
-            .query_map(params_from_iter(reminder_ids.iter()), |row| {
-                Ok(crate::entities::reminder::Reminder::new(
-                    row.get(0).unwrap(),
-                    row.get(1).unwrap(),
-                    crate::helpers::parse_from_str_ymd(
-                        String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
-                    )
-                    .unwrap_or_default(),
-                    row.get(3).unwrap(),
-                    crate::entities::reminder::RecurringType::get_by_id(&conn, row.get(4).unwrap())
-                        .unwrap(),
-                    vec![],
-                ))
-            })
-            .unwrap();
+        let rows = match stmt.query_map(params_from_iter(reminder_ids.iter()), |row| {
+            Ok(crate::entities::reminder::Reminder::new(
+                row.get(0).unwrap(),
+                row.get(1).unwrap(),
+                crate::helpers::parse_from_str_ymd(
+                    String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
+                )
+                .unwrap_or_default(),
+                row.get(3).unwrap(),
+                crate::entities::reminder::RecurringType::get_by_id(&conn, row.get(4).unwrap())
+                    .unwrap(),
+                vec![],
+            ))
+        }) {
+            Ok(rows) => rows,
+            Err(_) => return Err(DbOperationsError::QueryError),
+        };
 
         let mut reminders = vec![];
         for reminder in rows {
             reminders.push(reminder.unwrap());
         }
 
-        reminders
+        Ok(reminders)
     }
 
     pub fn get_contact_info_by_person(
@@ -309,6 +314,11 @@ pub mod db_helpers {
                     Ok(notes) => notes,
                     Err(e) => panic!("{:#?}", e),
                 };
+                let reminders =
+                    match crate::db::db_helpers::get_reminders_by_person(&conn, person_id) {
+                        Ok(reminders) => reminders,
+                        Err(e) => panic!("{:#?}", e),
+                    };
                 Ok(crate::entities::person::Person {
                     id: person_id,
                     name: row.get(1).unwrap(),
@@ -322,7 +332,7 @@ pub mod db_helpers {
                         &conn, person_id,
                     ),
                     activities: crate::db::db_helpers::get_activities_by_person(&conn, person_id),
-                    reminders: crate::db::db_helpers::get_reminders_by_person(&conn, person_id),
+                    reminders: reminders,
                     notes: notes,
                 })
             })
@@ -380,6 +390,11 @@ pub mod db_helpers {
                     Ok(notes) => notes,
                     Err(e) => panic!("{:#?}", e),
                 };
+                let reminders =
+                    match crate::db::db_helpers::get_reminders_by_person(&conn, person_id) {
+                        Ok(reminders) => reminders,
+                        Err(e) => panic!("{:#?}", e),
+                    };
                 Ok(crate::entities::person::Person {
                     id: person_id,
                     name: row.get(1).unwrap(),
@@ -397,7 +412,7 @@ pub mod db_helpers {
                     } else {
                         vec![]
                     },
-                    reminders: crate::db::db_helpers::get_reminders_by_person(&conn, person_id),
+                    reminders: reminders,
                     notes: notes,
                 })
             })
@@ -453,6 +468,11 @@ pub mod db_helpers {
                     Ok(notes) => notes,
                     Err(e) => panic!("{:#?}", e),
                 };
+                let reminders =
+                    match crate::db::db_helpers::get_reminders_by_person(&conn, person_id) {
+                        Ok(reminders) => reminders,
+                        Err(e) => panic!("{:#?}", e),
+                    };
                 Ok(crate::entities::person::Person {
                     id: person_id,
                     name: row.get(1).unwrap(),
@@ -466,7 +486,7 @@ pub mod db_helpers {
                         &conn, person_id,
                     ),
                     activities: crate::db::db_helpers::get_activities_by_person(&conn, person_id),
-                    reminders: crate::db::db_helpers::get_reminders_by_person(&conn, person_id),
+                    reminders: reminders,
                     notes: notes,
                 })
             })
