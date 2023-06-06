@@ -63,6 +63,11 @@ impl Event {
                 Ok(reminders) => reminders,
                 Err(e) => panic!("{:#?}", e),
             };
+            let contact_info =
+                match crate::db::db_helpers::get_contact_info_by_person(&conn, person_id) {
+                    Ok(contact_info) => contact_info,
+                    Err(e) => panic!("{:#?}", e),
+                };
             Ok(Person {
                 id: person_id,
                 name: row.get(1).unwrap(),
@@ -72,7 +77,7 @@ impl Event {
                     )
                     .unwrap_or_default(),
                 ),
-                contact_info: crate::db::db_helpers::get_contact_info_by_person(&conn, person_id),
+                contact_info: contact_info,
                 activities: crate::db::db_helpers::get_activities_by_person(&conn, person_id),
                 reminders: reminders,
                 notes: notes,

@@ -169,10 +169,9 @@ pub mod db_helpers {
     pub fn get_contact_info_by_person(
         conn: &Connection,
         person_id: u64,
-    ) -> Vec<crate::entities::person::ContactInfo> {
-        let mut stmt = conn
-            .prepare(
-                "SELECT 
+    ) -> Result<Vec<crate::entities::person::ContactInfo>, DbOperationsError> {
+        let mut stmt = match conn.prepare(
+            "SELECT 
                 * 
             FROM
                 contact_info
@@ -180,35 +179,38 @@ pub mod db_helpers {
                 person_id = ?
                 AND deleted = FALSE
             ",
-            )
-            .unwrap();
+        ) {
+            Ok(stmt) => stmt,
+            Err(_) => return Err(DbOperationsError::InvalidStatement),
+        };
 
         let mut contact_info_vec: Vec<crate::entities::person::ContactInfo> = vec![];
-        let rows = stmt
-            .query_map(params![person_id], |row| {
-                let contact_info_type =
-                    crate::entities::person::ContactInfoType::get_by_id(&conn, row.get(2).unwrap())
-                        .unwrap();
-                let contact_info_details: String = row.get(3).unwrap();
-                let contact_info = match contact_info_type {
-                    ContactInfoType::Phone(_) => ContactInfoType::Phone(contact_info_details),
-                    ContactInfoType::WhatsApp(_) => ContactInfoType::WhatsApp(contact_info_details),
-                    ContactInfoType::Email(_) => ContactInfoType::Email(contact_info_details),
-                };
+        let rows = match stmt.query_map(params![person_id], |row| {
+            let contact_info_type =
+                crate::entities::person::ContactInfoType::get_by_id(&conn, row.get(2).unwrap())
+                    .unwrap();
+            let contact_info_details: String = row.get(3).unwrap();
+            let contact_info = match contact_info_type {
+                ContactInfoType::Phone(_) => ContactInfoType::Phone(contact_info_details),
+                ContactInfoType::WhatsApp(_) => ContactInfoType::WhatsApp(contact_info_details),
+                ContactInfoType::Email(_) => ContactInfoType::Email(contact_info_details),
+            };
 
-                Ok(crate::entities::person::ContactInfo::new(
-                    row.get(0).unwrap(),
-                    row.get(1).unwrap(),
-                    contact_info,
-                ))
-            })
-            .unwrap();
+            Ok(crate::entities::person::ContactInfo::new(
+                row.get(0).unwrap(),
+                row.get(1).unwrap(),
+                contact_info,
+            ))
+        }) {
+            Ok(rows) => rows,
+            Err(_) => return Err(DbOperationsError::QueryError),
+        };
 
         for contact_info in rows {
             contact_info_vec.push(contact_info.unwrap());
         }
 
-        contact_info_vec
+        Ok(contact_info_vec)
     }
 
     pub fn get_activities_by_person(
@@ -319,6 +321,11 @@ pub mod db_helpers {
                         Ok(reminders) => reminders,
                         Err(e) => panic!("{:#?}", e),
                     };
+                let contact_info =
+                    match crate::db::db_helpers::get_contact_info_by_person(&conn, person_id) {
+                        Ok(contact_info) => contact_info,
+                        Err(e) => panic!("{:#?}", e),
+                    };
                 Ok(crate::entities::person::Person {
                     id: person_id,
                     name: row.get(1).unwrap(),
@@ -328,9 +335,7 @@ pub mod db_helpers {
                         )
                         .unwrap_or_default(),
                     ),
-                    contact_info: crate::db::db_helpers::get_contact_info_by_person(
-                        &conn, person_id,
-                    ),
+                    contact_info: contact_info,
                     activities: crate::db::db_helpers::get_activities_by_person(&conn, person_id),
                     reminders: reminders,
                     notes: notes,
@@ -395,6 +400,11 @@ pub mod db_helpers {
                         Ok(reminders) => reminders,
                         Err(e) => panic!("{:#?}", e),
                     };
+                let contact_info =
+                    match crate::db::db_helpers::get_contact_info_by_person(&conn, person_id) {
+                        Ok(contact_info) => contact_info,
+                        Err(e) => panic!("{:#?}", e),
+                    };
                 Ok(crate::entities::person::Person {
                     id: person_id,
                     name: row.get(1).unwrap(),
@@ -404,9 +414,7 @@ pub mod db_helpers {
                         )
                         .unwrap_or_default(),
                     ),
-                    contact_info: crate::db::db_helpers::get_contact_info_by_person(
-                        &conn, person_id,
-                    ),
+                    contact_info: contact_info,
                     activities: if recurse {
                         crate::db::db_helpers::get_activities_by_person(&conn, person_id)
                     } else {
@@ -473,6 +481,11 @@ pub mod db_helpers {
                         Ok(reminders) => reminders,
                         Err(e) => panic!("{:#?}", e),
                     };
+                let contact_info =
+                    match crate::db::db_helpers::get_contact_info_by_person(&conn, person_id) {
+                        Ok(contact_info) => contact_info,
+                        Err(e) => panic!("{:#?}", e),
+                    };
                 Ok(crate::entities::person::Person {
                     id: person_id,
                     name: row.get(1).unwrap(),
@@ -482,9 +495,7 @@ pub mod db_helpers {
                         )
                         .unwrap_or_default(),
                     ),
-                    contact_info: crate::db::db_helpers::get_contact_info_by_person(
-                        &conn, person_id,
-                    ),
+                    contact_info: contact_info,
                     activities: crate::db::db_helpers::get_activities_by_person(&conn, person_id),
                     reminders: reminders,
                     notes: notes,
