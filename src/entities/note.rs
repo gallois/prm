@@ -54,6 +54,10 @@ impl Note {
         let rows = stmt
             .query_map([], |row| {
                 let note_id = row.get(0).unwrap();
+                let people = match crate::db::db_helpers::get_people_by_note(&conn, note_id) {
+                    Ok(people) => people,
+                    Err(e) => panic!("{:#?}", e),
+                };
                 Ok(Note {
                     id: note_id,
                     date: crate::helpers::parse_from_str_ymd(
@@ -61,7 +65,7 @@ impl Note {
                     )
                     .unwrap_or_default(),
                     content: row.get(2).unwrap(),
-                    people: crate::db::db_helpers::get_people_by_note(&conn, note_id),
+                    people: people,
                 })
             })
             .unwrap();
@@ -293,6 +297,10 @@ impl crate::db::db_interface::DbOperations for Note {
             Ok(row) => match row {
                 Some(row) => {
                     let note_id = row.get(0).unwrap();
+                    let people = match crate::db::db_helpers::get_people_by_note(&conn, note_id) {
+                        Ok(people) => people,
+                        Err(e) => panic!("{:#?}", e),
+                    };
                     Ok(Some(Entities::Note(Note {
                         id: note_id,
                         date: crate::helpers::parse_from_str_ymd(
@@ -300,7 +308,7 @@ impl crate::db::db_interface::DbOperations for Note {
                         )
                         .unwrap_or_default(),
                         content: row.get(2).unwrap(),
-                        people: crate::db::db_helpers::get_people_by_note(&conn, note_id),
+                        people: people,
                     })))
                 }
                 None => return Ok(None),

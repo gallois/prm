@@ -68,6 +68,14 @@ impl Activity {
             Ok(row) => match row {
                 Some(row) => {
                     let activity_id = row.get(0).unwrap();
+                    let people = match crate::db::db_helpers::get_people_by_activity(
+                        &conn,
+                        activity_id,
+                        true,
+                    ) {
+                        Ok(people) => people,
+                        Err(e) => panic!("{:#?}", e),
+                    };
                     Ok(Some(Activity {
                         id: activity_id,
                         name: row.get(1).unwrap(),
@@ -77,11 +85,7 @@ impl Activity {
                         )
                         .unwrap_or_default(),
                         content: row.get(4).unwrap(),
-                        people: crate::db::db_helpers::get_people_by_activity(
-                            &conn,
-                            activity_id,
-                            true,
-                        ),
+                        people: people,
                     }))
                 }
                 None => return Ok(None),
@@ -98,6 +102,11 @@ impl Activity {
 
         let rows = match stmt.query_map([], |row| {
             let activity_id = row.get(0).unwrap();
+            let people =
+                match crate::db::db_helpers::get_people_by_activity(&conn, activity_id, true) {
+                    Ok(people) => people,
+                    Err(e) => panic!("{:#?}", e),
+                };
             Ok(Activity {
                 id: activity_id,
                 name: row.get(1).unwrap(),
@@ -107,7 +116,7 @@ impl Activity {
                 )
                 .unwrap_or_default(),
                 content: row.get(4).unwrap(),
-                people: crate::db::db_helpers::get_people_by_activity(&conn, activity_id, true),
+                people: people,
             })
         }) {
             Ok(rows) => rows,
@@ -433,6 +442,14 @@ impl DbOperations for Activity {
             Ok(row) => match row {
                 Some(row) => {
                     let activity_id = row.get(0).unwrap();
+                    let people = match crate::db::db_helpers::get_people_by_activity(
+                        &conn,
+                        activity_id,
+                        true,
+                    ) {
+                        Ok(people) => people,
+                        Err(e) => panic!("{:#?}", e),
+                    };
                     Ok(Some(Entities::Activity(Activity {
                         id: activity_id,
                         name: row.get(1).unwrap(),
@@ -442,11 +459,7 @@ impl DbOperations for Activity {
                         )
                         .unwrap_or_default(),
                         content: row.get(4).unwrap(),
-                        people: crate::db::db_helpers::get_people_by_activity(
-                            &conn,
-                            activity_id,
-                            true,
-                        ),
+                        people: people,
                     })))
                 }
                 None => return Ok(None),
