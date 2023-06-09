@@ -112,6 +112,10 @@ impl Event {
         };
         let rows = match stmt.query_map(params![today_str, date_limit_str], |row| {
             let reminder_id = row.get(0).unwrap();
+            let people = match crate::db_helpers::get_people_by_reminder(&conn, reminder_id) {
+                Ok(people) => people,
+                Err(e) => panic!("{:#?}", e),
+            };
             Ok(Reminder {
                 id: reminder_id,
                 name: row.get(1).unwrap(),
@@ -121,7 +125,7 @@ impl Event {
                 .unwrap_or_default(),
                 description: row.get(3).unwrap(),
                 recurring: RecurringType::get_by_id(&conn, row.get(4).unwrap()).unwrap(),
-                people: crate::db::db_helpers::get_people_by_reminder(&conn, reminder_id),
+                people: people,
             })
         }) {
             Ok(rows) => rows,

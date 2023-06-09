@@ -288,7 +288,10 @@ pub mod db_helpers {
         };
 
         let rows = match stmt.query_map(params_from_iter(activity_ids.iter()), |row| {
-            let activity_id = row.get(0).unwrap();
+            let activity_id = match row.get(0) {
+                Ok(activity_id) => activity_id,
+                Err(e) => panic!("{:#?}", e),
+            };
             let people = match crate::db_helpers::get_people_by_activity(&conn, activity_id, false)
             {
                 Ok(people) => people,
@@ -327,7 +330,7 @@ pub mod db_helpers {
     pub fn get_people_by_reminder(
         conn: &Connection,
         reminder_id: u64,
-    ) -> Vec<crate::entities::person::Person> {
+    ) -> Result<Vec<crate::entities::person::Person>, DbOperationsError> {
         let mut stmt = conn
             .prepare(
                 "SELECT
@@ -343,12 +346,21 @@ pub mod db_helpers {
 
         let mut rows = stmt.query(params![reminder_id]).unwrap();
         let mut people_ids: Vec<u64> = vec![];
-        while let Some(row) = rows.next().unwrap() {
-            people_ids.push(row.get(0).unwrap());
+        loop {
+            match rows.next() {
+                Ok(row) => match row {
+                    Some(row) => match row.get(0) {
+                        Ok(row) => people_ids.push(row),
+                        Err(_) => return Err(DbOperationsError::RecordError),
+                    },
+                    None => break,
+                },
+                Err(_) => return Err(DbOperationsError::RecordError),
+            }
         }
 
         if people_ids.is_empty() {
-            return vec![];
+            return Ok(vec![]);
         }
 
         let vars = crate::helpers::repeat_vars(people_ids.len());
@@ -356,54 +368,61 @@ pub mod db_helpers {
             "SELECT * FROM people WHERE id IN ({}) AND deleted = FALSE",
             vars
         );
-        let mut stmt = conn.prepare(&sql).expect("Invalid SQL statement");
+        let mut stmt = match conn.prepare(&sql) {
+            Ok(stmt) => stmt,
+            Err(_) => return Err(DbOperationsError::InvalidStatement),
+        };
 
-        let rows = stmt
-            .query_map(params_from_iter(people_ids.iter()), |row| {
-                let person_id = row.get(0).unwrap();
-                // TODO handle this properly
-                let notes = match crate::db::db_helpers::get_notes_by_person(&conn, person_id) {
-                    Ok(notes) => notes,
+        let rows = match stmt.query_map(params_from_iter(people_ids.iter()), |row| {
+            let person_id = row.get(0).unwrap();
+            // TODO handle this properly
+            let notes = match crate::db::db_helpers::get_notes_by_person(&conn, person_id) {
+                Ok(notes) => notes,
+                Err(e) => panic!("{:#?}", e),
+            };
+            let reminders = match crate::db::db_helpers::get_reminders_by_person(&conn, person_id) {
+                Ok(reminders) => reminders,
+                Err(e) => panic!("{:#?}", e),
+            };
+            let contact_info =
+                match crate::db::db_helpers::get_contact_info_by_person(&conn, person_id) {
+                    Ok(contact_info) => contact_info,
                     Err(e) => panic!("{:#?}", e),
                 };
-                let reminders =
-                    match crate::db::db_helpers::get_reminders_by_person(&conn, person_id) {
-                        Ok(reminders) => reminders,
-                        Err(e) => panic!("{:#?}", e),
-                    };
-                let contact_info =
-                    match crate::db::db_helpers::get_contact_info_by_person(&conn, person_id) {
-                        Ok(contact_info) => contact_info,
-                        Err(e) => panic!("{:#?}", e),
-                    };
-                let activities =
-                    match crate::db::db_helpers::get_activities_by_person(&conn, person_id) {
-                        Ok(activities) => activities,
-                        Err(e) => panic!("{:#?}", e),
-                    };
-                Ok(crate::entities::person::Person {
-                    id: person_id,
-                    name: row.get(1).unwrap(),
-                    birthday: Some(
-                        crate::helpers::parse_from_str_ymd(
-                            String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
-                        )
-                        .unwrap_or_default(),
-                    ),
-                    contact_info: contact_info,
-                    activities: activities,
-                    reminders: reminders,
-                    notes: notes,
-                })
+            let activities = match crate::db::db_helpers::get_activities_by_person(&conn, person_id)
+            {
+                Ok(activities) => activities,
+                Err(e) => panic!("{:#?}", e),
+            };
+            Ok(crate::entities::person::Person {
+                id: person_id,
+                name: row.get(1).unwrap(),
+                birthday: Some(
+                    crate::helpers::parse_from_str_ymd(
+                        String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
+                    )
+                    .unwrap_or_default(),
+                ),
+                contact_info: contact_info,
+                activities: activities,
+                reminders: reminders,
+                notes: notes,
             })
-            .unwrap();
+        }) {
+            Ok(rows) => rows,
+            Err(_) => return Err(DbOperationsError::QueryError),
+        };
 
         let mut activities = vec![];
         for activity in rows {
-            activities.push(activity.unwrap());
+            let activity = match activity {
+                Ok(activity) => activity,
+                Err(_) => return Err(DbOperationsError::RecordError),
+            };
+            activities.push(activity);
         }
 
-        activities
+        Ok(activities)
     }
 
     // TODO remove duplication with similar functions
@@ -425,10 +444,22 @@ pub mod db_helpers {
             )
             .expect("Invalid SQL statement");
 
-        let mut rows = stmt.query(params![activity_id]).unwrap();
+        let mut rows = match stmt.query(params![activity_id]) {
+            Ok(rows) => rows,
+            Err(_) => return Err(DbOperationsError::QueryError),
+        };
         let mut people_ids: Vec<u64> = vec![];
-        while let Some(row) = rows.next().unwrap() {
-            people_ids.push(row.get(0).unwrap());
+        loop {
+            match rows.next() {
+                Ok(row) => match row {
+                    Some(row) => match row.get(0) {
+                        Ok(row) => people_ids.push(row),
+                        Err(_) => return Err(DbOperationsError::RecordError),
+                    },
+                    None => break,
+                },
+                Err(_) => return Err(DbOperationsError::RecordError),
+            }
         }
 
         if people_ids.is_empty() {
@@ -479,14 +510,14 @@ pub mod db_helpers {
             })
         }) {
             Ok(rows) => rows,
-            Err(e) => return Err(DbOperationsError::QueryError),
+            Err(_) => return Err(DbOperationsError::QueryError),
         };
 
         let mut people = vec![];
         for person in rows {
             let person = match person {
                 Ok(person) => person,
-                Err(e) => return Err(DbOperationsError::RecordError),
+                Err(_) => return Err(DbOperationsError::RecordError),
             };
             people.push(person);
         }
@@ -509,12 +540,12 @@ pub mod db_helpers {
                     ",
         ) {
             Ok(stmt) => stmt,
-            Err(e) => return Err(DbOperationsError::InvalidStatement),
+            Err(_) => return Err(DbOperationsError::InvalidStatement),
         };
 
         let mut rows = match stmt.query(params![note_id]) {
             Ok(rows) => rows,
-            Err(e) => return Err(DbOperationsError::QueryError),
+            Err(_) => return Err(DbOperationsError::QueryError),
         };
         let mut people_ids: Vec<u64> = vec![];
         loop {
@@ -541,7 +572,7 @@ pub mod db_helpers {
         );
         let mut stmt = match conn.prepare(&sql) {
             Ok(stmt) => stmt,
-            Err(e) => return Err(DbOperationsError::InvalidStatement),
+            Err(_) => return Err(DbOperationsError::InvalidStatement),
         };
 
         let rows = stmt
@@ -588,7 +619,7 @@ pub mod db_helpers {
         for note in rows {
             let note = match note {
                 Ok(note) => note,
-                Err(e) => return Err(DbOperationsError::RecordError),
+                Err(_) => return Err(DbOperationsError::RecordError),
             };
             notes.push(note);
         }

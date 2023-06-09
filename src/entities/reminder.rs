@@ -65,6 +65,11 @@ impl Reminder {
             Ok(row) => match row {
                 Some(row) => {
                     let reminder_id = row.get(0).unwrap();
+                    let people = match crate::db_helpers::get_people_by_reminder(&conn, reminder_id)
+                    {
+                        Ok(people) => people,
+                        Err(e) => panic!("{:#?}", e),
+                    };
                     Some(Reminder {
                         id: reminder_id,
                         name: row.get(1).unwrap(),
@@ -74,7 +79,7 @@ impl Reminder {
                         .unwrap_or_default(),
                         description: row.get(3).unwrap(),
                         recurring: RecurringType::get_by_id(&conn, row.get(4).unwrap()).unwrap(),
-                        people: crate::db::db_helpers::get_people_by_reminder(&conn, reminder_id),
+                        people: people,
                     })
                 }
                 None => return None,
@@ -96,6 +101,10 @@ impl Reminder {
         let rows = stmt
             .query_map([], |row| {
                 let reminder_id = row.get(0).unwrap();
+                let people = match crate::db_helpers::get_people_by_reminder(&conn, reminder_id) {
+                    Ok(people) => people,
+                    Err(e) => panic!("{:#?}", e),
+                };
                 Ok(Reminder {
                     id: reminder_id,
                     name: row.get(1).unwrap(),
@@ -105,7 +114,7 @@ impl Reminder {
                     .unwrap_or_default(),
                     description: row.get(3).unwrap(),
                     recurring: RecurringType::get_by_id(&conn, row.get(4).unwrap()).unwrap(),
-                    people: crate::db::db_helpers::get_people_by_reminder(&conn, reminder_id),
+                    people: people,
                 })
             })
             .unwrap();
@@ -394,6 +403,11 @@ impl crate::db::db_interface::DbOperations for Reminder {
             Ok(row) => match row {
                 Some(row) => {
                     let reminder_id = row.get(0).unwrap();
+                    let people = match crate::db_helpers::get_people_by_reminder(&conn, reminder_id)
+                    {
+                        Ok(people) => people,
+                        Err(e) => panic!("{:#?}", e),
+                    };
                     Ok(Some(Entities::Reminder(Reminder {
                         id: reminder_id,
                         name: row.get(1).unwrap(),
@@ -403,7 +417,7 @@ impl crate::db::db_interface::DbOperations for Reminder {
                         .unwrap_or_default(),
                         description: row.get(3).unwrap(),
                         recurring: RecurringType::get_by_id(&conn, row.get(4).unwrap()).unwrap(),
-                        people: crate::db::db_helpers::get_people_by_reminder(&conn, reminder_id),
+                        people: people,
                     })))
                 }
                 None => return Ok(None),
