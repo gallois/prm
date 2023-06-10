@@ -297,11 +297,17 @@ pub mod db_helpers {
                 Ok(people) => people,
                 Err(e) => panic!("{:#?}", e),
             };
+            let activity_type = match crate::entities::activity::ActivityType::get_by_id(
+                &conn,
+                row.get(2).unwrap(),
+            ) {
+                Some(activity_type) => activity_type,
+                None => panic!("Invalid ActivityType (None)"),
+            };
             Ok(crate::entities::activity::Activity::new(
                 activity_id,
                 row.get(1).unwrap(),
-                crate::entities::activity::ActivityType::get_by_id(&conn, row.get(2).unwrap())
-                    .unwrap(),
+                activity_type,
                 crate::helpers::parse_from_str_ymd(
                     String::from(row.get::<usize, String>(3).unwrap_or_default()).as_str(),
                 )
@@ -344,7 +350,10 @@ pub mod db_helpers {
             )
             .expect("Invalid SQL statement");
 
-        let mut rows = stmt.query(params![reminder_id]).unwrap();
+        let mut rows = match stmt.query(params![reminder_id]) {
+            Ok(rows) => rows,
+            Err(_) => return Err(DbOperationsError::QueryError),
+        };
         let mut people_ids: Vec<u64> = vec![];
         loop {
             match rows.next() {
@@ -575,45 +584,45 @@ pub mod db_helpers {
             Err(_) => return Err(DbOperationsError::InvalidStatement),
         };
 
-        let rows = stmt
-            .query_map(params_from_iter(people_ids.iter()), |row| {
-                let person_id = row.get(0).unwrap();
-                // TODO handle this properly
-                let notes = match crate::db::db_helpers::get_notes_by_person(&conn, person_id) {
-                    Ok(notes) => notes,
+        let rows = match stmt.query_map(params_from_iter(people_ids.iter()), |row| {
+            let person_id = row.get(0).unwrap();
+            // TODO handle this properly
+            let notes = match crate::db::db_helpers::get_notes_by_person(&conn, person_id) {
+                Ok(notes) => notes,
+                Err(e) => panic!("{:#?}", e),
+            };
+            let reminders = match crate::db::db_helpers::get_reminders_by_person(&conn, person_id) {
+                Ok(reminders) => reminders,
+                Err(e) => panic!("{:#?}", e),
+            };
+            let contact_info =
+                match crate::db::db_helpers::get_contact_info_by_person(&conn, person_id) {
+                    Ok(contact_info) => contact_info,
                     Err(e) => panic!("{:#?}", e),
                 };
-                let reminders =
-                    match crate::db::db_helpers::get_reminders_by_person(&conn, person_id) {
-                        Ok(reminders) => reminders,
-                        Err(e) => panic!("{:#?}", e),
-                    };
-                let contact_info =
-                    match crate::db::db_helpers::get_contact_info_by_person(&conn, person_id) {
-                        Ok(contact_info) => contact_info,
-                        Err(e) => panic!("{:#?}", e),
-                    };
-                let activities =
-                    match crate::db::db_helpers::get_activities_by_person(&conn, person_id) {
-                        Ok(activities) => activities,
-                        Err(e) => panic!("{:#?}", e),
-                    };
-                Ok(crate::entities::person::Person {
-                    id: person_id,
-                    name: row.get(1).unwrap(),
-                    birthday: Some(
-                        crate::helpers::parse_from_str_ymd(
-                            String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
-                        )
-                        .unwrap_or_default(),
-                    ),
-                    contact_info: contact_info,
-                    activities: activities,
-                    reminders: reminders,
-                    notes: notes,
-                })
+            let activities = match crate::db::db_helpers::get_activities_by_person(&conn, person_id)
+            {
+                Ok(activities) => activities,
+                Err(e) => panic!("{:#?}", e),
+            };
+            Ok(crate::entities::person::Person {
+                id: person_id,
+                name: row.get(1).unwrap(),
+                birthday: Some(
+                    crate::helpers::parse_from_str_ymd(
+                        String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
+                    )
+                    .unwrap_or_default(),
+                ),
+                contact_info: contact_info,
+                activities: activities,
+                reminders: reminders,
+                notes: notes,
             })
-            .unwrap();
+        }) {
+            Ok(rows) => rows,
+            Err(_) => return Err(DbOperationsError::QueryError),
+        };
 
         let mut notes = vec![];
         for note in rows {
