@@ -14,6 +14,7 @@ use prm::entities::Entities;
 use rusqlite::Connection;
 use uuid::Uuid;
 
+use std::f32::consts::E;
 use std::process::exit;
 
 #[derive(Parser)]
@@ -228,7 +229,13 @@ enum RemoveEntity {
 fn main() {
     let args = Cli::parse();
 
-    let conn = Connection::open("data/prm.db").unwrap();
+    let conn = match Connection::open("data/prm.db") {
+        Ok(conn) => conn,
+        Err(_) => {
+            eprintln!("Error opening database");
+            exit(exitcode::UNAVAILABLE);
+        }
+    };
 
     match args.command {
         Commands::Init {} => {
@@ -291,16 +298,40 @@ fn main() {
         },
         Commands::Show(show) => match show.entity {
             ShowEntity::Person { name } => {
-                let person = Person::get_by_name(&conn, &name).unwrap();
+                let person = match Person::get_by_name(&conn, &name) {
+                    Some(person) => person,
+                    None => {
+                        eprintln!("Person not found");
+                        exit(exitcode::DATAERR);
+                    }
+                };
                 println!("got person: {}", person);
             }
             ShowEntity::Activity { name } => {
                 // TODO likely useful to return a vector of activities
-                let reminder = Activity::get_by_name(&conn, &name).unwrap();
-                println!("got reminder: {:#?}", reminder);
+                let activity = match Activity::get_by_name(&conn, &name) {
+                    Ok(activity) => match activity {
+                        Some(activity) => activity,
+                        None => {
+                            eprintln!("Activity not found");
+                            exit(exitcode::DATAERR);
+                        }
+                    },
+                    Err(_) => {
+                        eprintln!("Activity not found");
+                        exit(exitcode::SOFTWARE);
+                    }
+                };
+                println!("got activity: {:#?}", activity);
             }
             ShowEntity::Reminder { name } => {
-                let reminder = Reminder::get_by_name(&conn, &name).unwrap();
+                let reminder = match Reminder::get_by_name(&conn, &name) {
+                    Some(reminder) => reminder,
+                    None => {
+                        eprintln!("Reminder not found");
+                        exit(exitcode::DATAERR);
+                    }
+                };
                 println!("got reminder: {:#?}", reminder);
             }
             ShowEntity::Notes { person } => {
@@ -365,7 +396,13 @@ fn main() {
         },
         Commands::Remove(remove) => match remove.entity {
             RemoveEntity::Person { name } => {
-                let person = Person::get_by_name(&conn, &name).unwrap();
+                let person = match Person::get_by_name(&conn, &name) {
+                    Some(person) => person,
+                    None => {
+                        eprintln!("Person not found");
+                        exit(exitcode::DATAERR);
+                    }
+                };
                 match person.remove(&conn) {
                     Ok(_) => println!("{} removed successfully", person),
                     Err(_) => {
@@ -399,7 +436,13 @@ fn main() {
                 println!("removed: {:#?}", activity);
             }
             RemoveEntity::Reminder { name } => {
-                let reminder = Reminder::get_by_name(&conn, &name).unwrap();
+                let reminder = match Reminder::get_by_name(&conn, &name) {
+                    Some(reminder) => reminder,
+                    None => {
+                        eprintln!("Reminder not found");
+                        exit(exitcode::DATAERR);
+                    }
+                };
                 match reminder.remove(&conn) {
                     Ok(_) => println!("{:#?} removed successfully", reminder),
                     Err(_) => {
@@ -524,7 +567,13 @@ fn main() {
                     }
                 }
             }
-            calendar.save_file("data/calendar.ics").unwrap();
+            match calendar.save_file("data/calendar.ics") {
+                Ok(_) => println!("Saved to data/calendar.ics"),
+                Err(e) => {
+                    eprintln!("Error while saving to data/calendar.ics: {:#?}", e);
+                    exit(exitcode::SOFTWARE);
+                }
+            };
         }
     }
 }
