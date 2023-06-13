@@ -39,6 +39,13 @@ pub enum CliError {
     EditError { entity: String },
     #[snafu(display("Entity not found {} for id {}", entity, id))]
     NotFoundError { entity: String, id: u64 },
+    #[snafu(display("Unexpected missing field {}: {}", entity, field))]
+    MissingFieldError { entity: String, field: String },
+    #[snafu(display("Failed to apply string template {}: {:#?}", template, vars))]
+    TemplateError {
+        template: String,
+        vars: HashMap<String, String>,
+    },
 }
 
 pub fn person(
@@ -68,7 +75,20 @@ pub fn person(
             contact_info.clone().unwrap_or_default().join(","),
         );
 
-        let edited = edit::edit(strfmt(PERSON_TEMPLATE, &vars).unwrap()).unwrap();
+        let person_str = match strfmt(PERSON_TEMPLATE, &vars) {
+            Ok(person_str) => person_str,
+            Err(_) => {
+                return TemplateSnafu {
+                    template: PERSON_TEMPLATE,
+                    vars: vars,
+                }
+                .fail()
+            }
+        };
+        let edited = match edit::edit(&person_str) {
+            Ok(edited) => edited,
+            Err(_) => return EditorParseSnafu { entity: "Person" }.fail(),
+        };
         let (n, b, c) = match Person::parse_from_editor(edited.as_str()) {
             Ok((person, birthday, contact_info)) => (person, birthday, contact_info),
             Err(_) => return EditorParseSnafu { entity: "Person" }.fail(),
@@ -79,7 +99,16 @@ pub fn person(
     }
 
     if !editor {
-        name_str = name.unwrap();
+        name_str = match name {
+            Some(name) => name,
+            None => {
+                return MissingFieldSnafu {
+                    entity: "Person",
+                    field: "Name",
+                }
+                .fail()
+            }
+        };
     }
     let mut birthday_obj: Option<NaiveDate> = None;
     if !editor {
@@ -224,12 +253,53 @@ pub fn activity(
                 }
             };
         } else {
+            let entity = "Activity";
+            let name = match name {
+                Some(name) => name,
+                None => {
+                    return MissingFieldSnafu {
+                        entity: String::from(entity),
+                        field: "Name",
+                    }
+                    .fail()
+                }
+            };
+            let date = match date {
+                Some(date) => date,
+                None => {
+                    return MissingFieldSnafu {
+                        entity: String::from(entity),
+                        field: "Date",
+                    }
+                    .fail()
+                }
+            };
+            let activity_type = match activity_type {
+                Some(activity_type) => activity_type,
+                None => {
+                    return MissingFieldSnafu {
+                        entity: String::from(entity),
+                        field: "Activity Type",
+                    }
+                    .fail()
+                }
+            };
+            let content = match content {
+                Some(content) => content,
+                None => {
+                    return MissingFieldSnafu {
+                        entity: String::from(entity),
+                        field: "Content",
+                    }
+                    .fail()
+                }
+            };
             activity_vars = prm::helpers::ActivityVars {
-                name: name.unwrap(),
-                date: date.unwrap(),
-                activity_type: activity_type.unwrap(),
-                content: content.unwrap(),
-                people: people,
+                name,
+                date,
+                activity_type,
+                content,
+                people,
             };
         }
     }
@@ -287,6 +357,7 @@ pub fn reminder(
     let mut description_string: String = String::new();
 
     let mut editor = false;
+    let entity = String::from("Reminder");
     if name == None {
         editor = true;
 
@@ -316,7 +387,20 @@ pub fn reminder(
             },
         );
 
-        let edited = edit::edit(strfmt(REMINDER_TEMPLATE, &vars).unwrap()).unwrap();
+        let reminder_str = match strfmt(REMINDER_TEMPLATE, &vars) {
+            Ok(reminder_str) => reminder_str,
+            Err(_) => {
+                return TemplateSnafu {
+                    template: REMINDER_TEMPLATE,
+                    vars: vars,
+                }
+                .fail()
+            }
+        };
+        let edited = match edit::edit(reminder_str) {
+            Ok(edited) => edited,
+            Err(_) => return EditorParseSnafu { entity: "Reminder" }.fail(),
+        };
         let (n, da, r, de, p) = match Reminder::parse_from_editor(edited.as_str()) {
             Ok((name, date, recurring_type, description, people)) => {
                 (name, date, recurring_type, description, people)
@@ -324,16 +408,70 @@ pub fn reminder(
             Err(_) => return EditorParseSnafu { entity: "Reminder" }.fail(),
         };
         name_string = n;
-        date_string = da.unwrap();
-        recurring_type_string = r.unwrap();
-        description_string = de.unwrap();
+        date_string = match da {
+            Some(da) => da,
+            None => {
+                return MissingFieldSnafu {
+                    entity: entity,
+                    field: "Date",
+                }
+                .fail()
+            }
+        };
+        recurring_type_string = match r {
+            Some(r) => r,
+            None => {
+                return MissingFieldSnafu {
+                    entity: entity,
+                    field: "Recurring Type",
+                }
+                .fail()
+            }
+        };
+        description_string = match de {
+            Some(de) => de,
+            None => {
+                return MissingFieldSnafu {
+                    entity: entity,
+                    field: "Description",
+                }
+                .fail()
+            }
+        };
         people = p;
     }
 
     if !editor {
-        name_string = name.unwrap();
-        date_string = date.unwrap();
-        recurring_type_string = recurring.unwrap();
+        name_string = match name {
+            Some(name) => name,
+            None => {
+                return MissingFieldSnafu {
+                    entity: entity,
+                    field: "Name",
+                }
+                .fail()
+            }
+        };
+        date_string = match date {
+            Some(date) => date,
+            None => {
+                return MissingFieldSnafu {
+                    entity: entity,
+                    field: "Date",
+                }
+                .fail()
+            }
+        };
+        recurring_type_string = match recurring {
+            Some(recurring) => recurring,
+            None => {
+                return MissingFieldSnafu {
+                    entity: entity,
+                    field: "Recurring Type",
+                }
+                .fail()
+            }
+        };
         description_string = description.unwrap_or("".to_string());
     }
 
@@ -392,6 +530,7 @@ pub fn note(
     let mut date_string: String = String::new();
     let mut content_string: String = String::new();
     let mut people_vec: Vec<Person> = Vec::new();
+    let entity = String::from("Note");
 
     if content == None {
         let mut vars = HashMap::new();
@@ -401,10 +540,23 @@ pub fn note(
         );
         vars.insert("people".to_string(), people.clone().join(","));
 
-        let edited = edit::edit(strfmt(NOTE_TEMPLATE, &vars).unwrap()).unwrap();
+        let note_str = match strfmt(NOTE_TEMPLATE, &vars) {
+            Ok(note_str) => note_str,
+            Err(_) => {
+                return TemplateSnafu {
+                    template: NOTE_TEMPLATE,
+                    vars: vars,
+                }
+                .fail()
+            }
+        };
+        let edited = match edit::edit(note_str) {
+            Ok(edited) => edited,
+            Err(_) => return EditorParseSnafu { entity: entity }.fail(),
+        };
         let (d, c, p) = match Note::parse_from_editor(edited.as_str()) {
             Ok((date, content, people)) => (date, content, people),
-            Err(_) => return EditorParseSnafu { entity: "Note" }.fail(),
+            Err(_) => return EditorParseSnafu { entity: entity }.fail(),
         };
         date_string = d;
         content_string = c;
@@ -425,7 +577,7 @@ pub fn note(
     println!("Note: {:#?}", note);
     match note.add(&conn) {
         Ok(_) => println!("{:#?} added successfully", note),
-        Err(_) => return AddSnafu { entity: "Note" }.fail(),
+        Err(_) => return AddSnafu { entity: entity }.fail(),
     };
     Ok(note)
 }

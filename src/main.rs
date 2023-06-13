@@ -14,7 +14,6 @@ use prm::entities::Entities;
 use rusqlite::Connection;
 use uuid::Uuid;
 
-use std::f32::consts::E;
 use std::process::exit;
 
 #[derive(Parser)]
