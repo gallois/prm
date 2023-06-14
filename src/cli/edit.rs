@@ -12,6 +12,8 @@ use strfmt::strfmt;
 use crate::cli::add::CliError;
 use crate::cli::add::{EditSnafu, EditorParseSnafu, EntitySnafu, NotFoundSnafu};
 
+use super::add::TemplateSnafu;
+
 pub fn person(
     conn: &Connection,
     id: u64,
@@ -54,7 +56,10 @@ pub fn person(
                 let mut vars = HashMap::new();
                 let name_placeholder: String;
                 if name.is_some() {
-                    name_placeholder = name.unwrap();
+                    name_placeholder = match name {
+                        Some(name) => name,
+                        None => panic!("Name shouldn't be None!"),
+                    };
                 } else if !person.name.is_empty() {
                     name_placeholder = person.name.clone();
                 } else {
@@ -62,15 +67,24 @@ pub fn person(
                 }
                 let birthday_placeholder: String;
                 if birthday.is_some() {
-                    birthday_placeholder = birthday.unwrap();
+                    birthday_placeholder = match birthday {
+                        Some(birthday) => birthday,
+                        None => panic!("Birthday shouldn't be None!"),
+                    };
                 } else if !person.birthday.is_none() {
-                    birthday_placeholder = person.birthday.unwrap().to_string();
+                    birthday_placeholder = match person.birthday {
+                        Some(birthday) => birthday.to_string(),
+                        None => panic!("Person's birthday shouldn't be None!"),
+                    };
                 } else {
                     birthday_placeholder = "".to_string();
                 }
                 let contact_info_placeholder: String;
                 if contact_info.is_some() {
-                    contact_info_placeholder = contact_info.unwrap();
+                    contact_info_placeholder = match contact_info {
+                        Some(contact_info) => contact_info,
+                        None => panic!("Contact info shouldn't be None!"),
+                    };
                 } else if !contact_info_field.is_empty() {
                     contact_info_placeholder = contact_info_field;
                 } else {
@@ -80,7 +94,29 @@ pub fn person(
                 vars.insert("birthday".to_string(), birthday_placeholder);
                 vars.insert("contact_info".to_string(), contact_info_placeholder);
 
-                let edited = edit::edit(strfmt(PERSON_TEMPLATE, &vars).unwrap()).unwrap();
+                let person_str = match strfmt(PERSON_TEMPLATE, &vars) {
+                    Ok(person_str) => person_str,
+                    Err(_) => {
+                        return {
+                            TemplateSnafu {
+                                template: PERSON_TEMPLATE,
+                                vars: vars,
+                            }
+                        }
+                        .fail()
+                    }
+                };
+                let edited = match edit::edit(person_str) {
+                    Ok(edited) => edited,
+                    Err(_) => {
+                        return {
+                            EditorParseSnafu {
+                                entity: "Person".to_string(),
+                            }
+                            .fail()
+                        }
+                    }
+                };
                 let (n, b, c) = match Person::parse_from_editor(edited.as_str()) {
                     Ok((person, birthday, contact_info)) => (person, birthday, contact_info),
                     Err(_) => {
@@ -173,7 +209,10 @@ pub fn activity(
                 let mut vars = HashMap::new();
                 let name_placeholder: String;
                 if name.clone().is_some() {
-                    name_placeholder = name.clone().unwrap();
+                    name_placeholder = match name.clone() {
+                        Some(name) => name,
+                        None => panic!("Name shouldn't be None!"),
+                    };
                 } else if !activity.name.is_empty() {
                     name_placeholder = activity.name.clone();
                 } else {
@@ -181,7 +220,10 @@ pub fn activity(
                 }
                 let date_placeholder: String;
                 if date.clone().is_some() {
-                    date_placeholder = date.clone().unwrap();
+                    date_placeholder = match date.clone() {
+                        Some(date) => date,
+                        None => panic!("Date shouldn't be None!"),
+                    };
                 } else if !activity.date.to_string().is_empty() {
                     date_placeholder = activity.date.clone().to_string();
                 } else {
@@ -189,7 +231,10 @@ pub fn activity(
                 }
                 let activity_type_placeholder: String;
                 if activity_type.clone().is_some() {
-                    activity_type_placeholder = activity_type.clone().unwrap();
+                    activity_type_placeholder = match activity_type.clone() {
+                        Some(activity_type) => activity_type,
+                        None => panic!("Activity type shouldn't be None!"),
+                    };
                 } else if !activity.activity_type.as_ref().is_empty() {
                     activity_type_placeholder =
                         activity.activity_type.as_ref().to_string().to_lowercase();
@@ -198,7 +243,10 @@ pub fn activity(
                 }
                 let content_placeholder: String;
                 if content.clone().is_some() {
-                    content_placeholder = content.clone().unwrap();
+                    content_placeholder = match content.clone() {
+                        Some(content) => content,
+                        None => panic!("Content shouldn't be None!"),
+                    };
                 } else if !activity.content.is_empty() {
                     content_placeholder = activity.content.clone();
                 } else {
@@ -224,7 +272,29 @@ pub fn activity(
                 vars.insert("content".to_string(), content_placeholder);
                 vars.insert("people".to_string(), people_placeholder);
 
-                let edited = edit::edit(strfmt(ACTIVITY_TEMPLATE, &vars).unwrap()).unwrap();
+                let activity_str = match strfmt(ACTIVITY_TEMPLATE, &vars) {
+                    Ok(activity_str) => activity_str,
+                    Err(_) => {
+                        return {
+                            TemplateSnafu {
+                                template: ACTIVITY_TEMPLATE,
+                                vars: vars,
+                            }
+                            .fail()
+                        }
+                    }
+                };
+                let edited = match edit::edit(activity_str) {
+                    Ok(edited) => edited,
+                    Err(_) => {
+                        return {
+                            EditorParseSnafu {
+                                entity: "Activity".to_string(),
+                            }
+                            .fail()
+                        }
+                    }
+                };
                 let (n, d, t, c, p) = match Activity::parse_from_editor(edited.as_str()) {
                     Ok((name, date, activity_type, content, people)) => {
                         (name, date, activity_type, content, people)
