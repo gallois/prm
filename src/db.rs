@@ -301,8 +301,11 @@ pub mod db_helpers {
                 &conn,
                 row.get(2).unwrap(),
             ) {
-                Some(activity_type) => activity_type,
-                None => panic!("Invalid ActivityType (None)"),
+                Ok(activity_type) => match activity_type {
+                    Some(activity_type) => activity_type,
+                    None => panic!("Activity type cannot be None"),
+                },
+                Err(e) => panic!("{:#?}", e),
             };
             Ok(crate::entities::activity::Activity::new(
                 activity_id,

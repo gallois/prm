@@ -63,7 +63,10 @@ impl Activity {
             Ok(stmt) => stmt,
             Err(_) => return Err(DbOperationsError::GenericError),
         };
-        let mut rows = stmt.query(params![name]).unwrap();
+        let mut rows = match stmt.query(params![name]) {
+            Ok(rows) => rows,
+            Err(_) => return Err(DbOperationsError::QueryError),
+        };
         match rows.next() {
             Ok(row) => match row {
                 Some(row) => {
@@ -76,10 +79,17 @@ impl Activity {
                         Ok(people) => people,
                         Err(e) => panic!("{:#?}", e),
                     };
+                    let activity_type = match ActivityType::get_by_id(&conn, row.get(2).unwrap()) {
+                        Ok(activity_type) => match activity_type {
+                            Some(activity_type) => activity_type,
+                            None => panic!("Activity type cannot be None"),
+                        },
+                        Err(e) => panic!("{:#?}", e),
+                    };
                     Ok(Some(Activity {
                         id: activity_id,
                         name: row.get(1).unwrap(),
-                        activity_type: ActivityType::get_by_id(&conn, row.get(2).unwrap()).unwrap(),
+                        activity_type,
                         date: crate::helpers::parse_from_str_ymd(
                             String::from(row.get::<usize, String>(3).unwrap_or_default()).as_str(),
                         )
@@ -107,10 +117,17 @@ impl Activity {
                     Ok(people) => people,
                     Err(e) => panic!("{:#?}", e),
                 };
+            let activity_type = match ActivityType::get_by_id(&conn, row.get(2).unwrap()) {
+                Ok(activity_type) => match activity_type {
+                    Some(activity_type) => activity_type,
+                    None => panic!("Activity type cannot be None"),
+                },
+                Err(e) => panic!("{:#?}", e),
+            };
             Ok(Activity {
                 id: activity_id,
                 name: row.get(1).unwrap(),
-                activity_type: ActivityType::get_by_id(&conn, row.get(2).unwrap()).unwrap(),
+                activity_type,
                 date: crate::helpers::parse_from_str_ymd(
                     String::from(row.get::<usize, String>(3).unwrap_or_default()).as_str(),
                 )
@@ -126,7 +143,11 @@ impl Activity {
         let mut activities = Vec::new();
 
         for activity in rows.into_iter() {
-            activities.push(activity.unwrap());
+            let activity = match activity {
+                Ok(activity) => activity,
+                Err(_) => return Err(DbOperationsError::RecordError),
+            };
+            activities.push(activity);
         }
 
         Ok(activities)
@@ -263,10 +284,22 @@ impl DbOperations for Activity {
             Ok(stmt) => stmt,
             Err(_) => return Err(DbOperationsError::GenericError),
         };
-        let mut rows = stmt.query(params![activity_type_str]).unwrap();
+        let mut rows = match stmt.query(params![activity_type_str]) {
+            Ok(rows) => rows,
+            Err(_) => return Err(DbOperationsError::QueryError),
+        };
         let mut types: Vec<u32> = Vec::new();
-        while let Some(row) = rows.next().unwrap() {
-            types.push(row.get(0).unwrap());
+        loop {
+            match rows.next() {
+                Ok(row) => match row {
+                    Some(row) => match row.get(0) {
+                        Ok(row) => types.push(row),
+                        Err(_) => return Err(DbOperationsError::RecordError),
+                    },
+                    None => break,
+                },
+                Err(_) => return Err(DbOperationsError::RecordError),
+            }
         }
 
         let mut stmt = match conn.prepare(
@@ -340,10 +373,22 @@ impl DbOperations for Activity {
             Ok(stmt) => stmt,
             Err(_) => return Err(DbOperationsError::GenericError),
         };
-        let mut rows = stmt.query(params![activity_type_str]).unwrap();
+        let mut rows = match stmt.query(params![activity_type_str]) {
+            Ok(rows) => rows,
+            Err(_) => return Err(DbOperationsError::QueryError),
+        };
         let mut types: Vec<u32> = Vec::new();
-        while let Some(row) = rows.next().unwrap() {
-            types.push(row.get(0).unwrap());
+        loop {
+            match rows.next() {
+                Ok(row) => match row {
+                    Some(row) => match row.get(0) {
+                        Ok(row) => types.push(row),
+                        Err(_) => return Err(DbOperationsError::RecordError),
+                    },
+                    None => break,
+                },
+                Err(_) => return Err(DbOperationsError::RecordError),
+            }
         }
 
         let mut stmt = match conn.prepare(
@@ -386,10 +431,22 @@ impl DbOperations for Activity {
                 Ok(stmt) => stmt,
                 Err(_) => return Err(DbOperationsError::GenericError),
             };
-            let mut rows = stmt.query(params![self.id, person.id]).unwrap();
+            let mut rows = match stmt.query(params![self.id, person.id]) {
+                Ok(rows) => rows,
+                Err(_) => return Err(DbOperationsError::QueryError),
+            };
             let mut results: Vec<u32> = Vec::new();
-            while let Some(row) = rows.next().unwrap() {
-                results.push(row.get(0).unwrap());
+            loop {
+                match rows.next() {
+                    Ok(row) => match row {
+                        Some(row) => match row.get(0) {
+                            Ok(row) => results.push(row),
+                            Err(_) => return Err(DbOperationsError::RecordError),
+                        },
+                        None => break,
+                    },
+                    Err(_) => return Err(DbOperationsError::RecordError),
+                }
             }
 
             if results.len() > 0 {
@@ -437,7 +494,10 @@ impl DbOperations for Activity {
             Ok(stmt) => stmt,
             Err(_) => return Err(DbOperationsError::GenericError),
         };
-        let mut rows = stmt.query(params![id]).unwrap();
+        let mut rows = match stmt.query(params![id]) {
+            Ok(rows) => rows,
+            Err(_) => return Err(DbOperationsError::QueryError),
+        };
         match rows.next() {
             Ok(row) => match row {
                 Some(row) => {
@@ -450,10 +510,17 @@ impl DbOperations for Activity {
                         Ok(people) => people,
                         Err(e) => panic!("{:#?}", e),
                     };
+                    let activity_type = match ActivityType::get_by_id(&conn, row.get(2).unwrap()) {
+                        Ok(activity_type) => match activity_type {
+                            Some(activity_type) => activity_type,
+                            None => panic!("Activity type cannot be None"),
+                        },
+                        Err(e) => panic!("{:#?}", e),
+                    };
                     Ok(Some(Entities::Activity(Activity {
                         id: activity_id,
                         name: row.get(1).unwrap(),
-                        activity_type: ActivityType::get_by_id(&conn, row.get(2).unwrap()).unwrap(),
+                        activity_type,
                         date: crate::helpers::parse_from_str_ymd(
                             String::from(row.get::<usize, String>(3).unwrap_or_default()).as_str(),
                         )
@@ -477,20 +544,34 @@ pub enum ActivityType {
 }
 
 impl ActivityType {
-    pub fn get_by_id(conn: &Connection, id: u64) -> Option<ActivityType> {
-        let mut stmt = conn
-            .prepare("SELECT type FROM activity_types WHERE id = ?")
-            .unwrap();
-        let mut rows = stmt.query(params![id]).unwrap();
+    pub fn get_by_id(
+        conn: &Connection,
+        id: u64,
+    ) -> Result<Option<ActivityType>, DbOperationsError> {
+        let mut stmt = match conn.prepare("SELECT type FROM activity_types WHERE id = ?") {
+            Ok(stmt) => stmt,
+            Err(_) => return Err(DbOperationsError::InvalidStatement),
+        };
+
+        let mut rows = match stmt.query(params![id]) {
+            Ok(rows) => rows,
+            Err(_) => return Err(DbOperationsError::QueryError),
+        };
 
         match rows.next() {
             Ok(row) => match row {
-                Some(row) => Some(
-                    ActivityType::from_str(row.get::<usize, String>(0).unwrap().as_str()).unwrap(),
-                ),
-                None => None,
+                Some(row) => {
+                    let activity_type =
+                        match ActivityType::from_str(row.get::<usize, String>(0).unwrap().as_str())
+                        {
+                            Ok(activity_type) => activity_type,
+                            Err(_) => return Err(DbOperationsError::RecordError),
+                        };
+                    Ok(Some(activity_type))
+                }
+                None => Ok(None),
             },
-            Err(_) => None,
+            Err(_) => return Err(DbOperationsError::RecordError),
         }
     }
 }
