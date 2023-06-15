@@ -309,9 +309,18 @@ pub fn activity(
                     }
                 };
                 name_string = n;
-                date_string = d.unwrap();
-                activity_type_string = t.unwrap();
-                content_string = c.unwrap();
+                date_string = match d {
+                    Some(d) => d,
+                    None => panic!("Date shouldn't be None!"),
+                };
+                activity_type_string = match t {
+                    Some(t) => t,
+                    None => panic!("Activity type shouldn't be None!"),
+                };
+                content_string = match c {
+                    Some(c) => c,
+                    None => panic!("Content shouldn't be None!"),
+                };
                 people = p;
 
                 match activity.update(
@@ -398,7 +407,10 @@ pub fn reminder(
                 let mut vars = HashMap::new();
                 let name_placeholder: String;
                 if name.clone().is_some() {
-                    name_placeholder = name.clone().unwrap();
+                    name_placeholder = match name.clone() {
+                        Some(name) => name,
+                        None => panic!("Name shouldn't be None!"),
+                    }
                 } else if !reminder.name.is_empty() {
                     name_placeholder = reminder.name.clone();
                 } else {
@@ -406,23 +418,36 @@ pub fn reminder(
                 }
                 let date_placeholder: String;
                 if date.clone().is_some() {
-                    date_placeholder = date.clone().unwrap();
+                    date_placeholder = match date.clone() {
+                        Some(date) => date,
+                        None => panic!("Date shouldn't be None!"),
+                    }
                 } else if !reminder.date.to_string().is_empty() {
                     date_placeholder = reminder.date.clone().to_string();
                 } else {
                     date_placeholder = "".to_string();
                 }
                 let description_placeholder: String;
+                let reminder_description = match reminder.description.as_ref() {
+                    Some(description) => description,
+                    None => "",
+                };
                 if description.is_some() {
-                    description_placeholder = description.clone().unwrap();
-                } else if !reminder.description.as_ref().unwrap().is_empty() {
-                    description_placeholder = reminder.description.clone().unwrap();
+                    description_placeholder = match description.clone() {
+                        Some(description) => description,
+                        None => panic!("Description shouldn't be None!"),
+                    }
+                } else if !reminder_description.is_empty() {
+                    description_placeholder = String::from(reminder_description);
                 } else {
                     description_placeholder = "".to_string();
                 }
                 let recurring_placeholder: String;
                 if recurring.clone().is_some() {
-                    recurring_placeholder = recurring.clone().unwrap();
+                    recurring_placeholder = match recurring.clone() {
+                        Some(recurring) => recurring,
+                        None => panic!("Recurring shouldn't be None!"),
+                    };
                 } else if !reminder.recurring.as_ref().is_empty() {
                     recurring_placeholder = reminder.recurring.as_ref().to_string().to_lowercase();
                 } else {
@@ -447,7 +472,29 @@ pub fn reminder(
                 vars.insert("recurring_type".to_string(), recurring_placeholder);
                 vars.insert("people".to_string(), people_placeholder);
 
-                let edited = edit::edit(strfmt(REMINDER_TEMPLATE, &vars).unwrap()).unwrap();
+                let reminder_str = match strfmt(REMINDER_TEMPLATE, &vars) {
+                    Ok(s) => s,
+                    Err(_) => {
+                        return {
+                            TemplateSnafu {
+                                template: "Reminder".to_string(),
+                                vars: vars,
+                            }
+                            .fail()
+                        }
+                    }
+                };
+                let edited = match edit::edit(reminder_str) {
+                    Ok(edited) => edited,
+                    Err(_) => {
+                        return {
+                            EditorParseSnafu {
+                                entity: "Reminder".to_string(),
+                            }
+                            .fail()
+                        }
+                    }
+                };
                 let (n, da, r, de, p) = match Reminder::parse_from_editor(edited.as_str()) {
                     Ok((name, date, recurring_type, description, people)) => {
                         (name, date, recurring_type, description, people)
@@ -462,9 +509,18 @@ pub fn reminder(
                     }
                 };
                 name_string = n;
-                date_string = da.unwrap();
-                recurring_type_string = r.unwrap();
-                description_string = de.unwrap();
+                date_string = match da {
+                    Some(da) => da,
+                    None => panic!("Date shouldn't be None!"),
+                };
+                recurring_type_string = match r {
+                    Some(r) => r,
+                    None => panic!("Recurring type shouldn't be None!"),
+                };
+                description_string = match de {
+                    Some(de) => de,
+                    None => panic!("Description shouldn't be None!"),
+                };
                 people = p;
 
                 match reminder.update(
@@ -548,14 +604,20 @@ pub fn note(
                 let people_placeholder: String;
 
                 if date.clone().is_some() {
-                    date_placeholder = date.clone().unwrap();
+                    date_placeholder = match date.clone() {
+                        Some(date) => date,
+                        None => panic!("Date shouldn't be None!"),
+                    }
                 } else if !note.date.to_string().is_empty() {
                     date_placeholder = note.date.clone().to_string();
                 } else {
                     date_placeholder = "".to_string();
                 }
                 if content.clone().is_some() {
-                    content_placeholder = content.clone().unwrap();
+                    content_placeholder = match content.clone() {
+                        Some(content) => content,
+                        None => panic!("Content shouldn't be None!"),
+                    }
                 } else if !note.content.is_empty() {
                     content_placeholder = note.content.clone();
                 } else {
@@ -578,7 +640,29 @@ pub fn note(
                 vars.insert("content".to_string(), content_placeholder);
                 vars.insert("people".to_string(), people_placeholder);
 
-                let edited = edit::edit(strfmt(NOTE_TEMPLATE, &vars).unwrap()).unwrap();
+                let note_str = match strfmt(NOTE_TEMPLATE, &vars) {
+                    Ok(s) => s,
+                    Err(_) => {
+                        return {
+                            TemplateSnafu {
+                                template: NOTE_TEMPLATE,
+                                vars: vars,
+                            }
+                            .fail()
+                        }
+                    }
+                };
+                let edited = match edit::edit(note_str) {
+                    Ok(edited) => edited,
+                    Err(_) => {
+                        return {
+                            EditorParseSnafu {
+                                entity: "Note".to_string(),
+                            }
+                            .fail()
+                        }
+                    }
+                };
                 let (d, c, p) = match Note::parse_from_editor(edited.as_str()) {
                     Ok((date, content, people)) => (date, content, people),
                     Err(_) => {
