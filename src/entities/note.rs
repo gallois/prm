@@ -46,37 +46,42 @@ impl Note {
         }
     }
 
-    pub fn get_all(conn: &Connection) -> Vec<Note> {
+    pub fn get_all(conn: &Connection) -> Result<Vec<Note>, DbOperationsError> {
         let mut stmt = conn
             .prepare("SELECT * FROM notes")
             .expect("Invalid SQL statement");
 
-        let rows = stmt
-            .query_map([], |row| {
-                let note_id = row.get(0).unwrap();
-                let people = match crate::db::db_helpers::get_people_by_note(&conn, note_id) {
-                    Ok(people) => people,
-                    Err(e) => panic!("{:#?}", e),
-                };
-                Ok(Note {
-                    id: note_id,
-                    date: crate::helpers::parse_from_str_ymd(
-                        String::from(row.get::<usize, String>(1).unwrap_or_default()).as_str(),
-                    )
-                    .unwrap_or_default(),
-                    content: row.get(2).unwrap(),
-                    people: people,
-                })
+        let rows = match stmt.query_map([], |row| {
+            let note_id = row.get(0).unwrap();
+            let people = match crate::db::db_helpers::get_people_by_note(&conn, note_id) {
+                Ok(people) => people,
+                Err(e) => panic!("{:#?}", e),
+            };
+            Ok(Note {
+                id: note_id,
+                date: crate::helpers::parse_from_str_ymd(
+                    String::from(row.get::<usize, String>(1).unwrap_or_default()).as_str(),
+                )
+                .unwrap_or_default(),
+                content: row.get(2).unwrap(),
+                people: people,
             })
-            .unwrap();
+        }) {
+            Ok(rows) => rows,
+            Err(_) => return Err(DbOperationsError::QueryError),
+        };
 
         let mut notes = Vec::new();
 
         for note in rows.into_iter() {
-            notes.push(note.unwrap());
+            let note = match note {
+                Ok(note) => note,
+                Err(_) => return Err(DbOperationsError::RecordError),
+            };
+            notes.push(note);
         }
 
-        notes
+        Ok(notes)
     }
 
     pub fn update(
@@ -100,7 +105,15 @@ impl Note {
                     }
                 },
             }
-            self.date = date_obj.unwrap();
+            self.date = match date_obj {
+                Some(date) => date,
+                None => {
+                    return DateParseSnafu {
+                        date: date.to_string(),
+                    }
+                    .fail()
+                }
+            };
         }
 
         if let Some(content) = content {
@@ -151,14 +164,16 @@ impl crate::db::db_interface::DbOperations for Note {
     fn add(&self, conn: &Connection) -> Result<&Note, crate::db::db_interface::DbOperationsError> {
         let date_str = self.date.to_string();
 
-        let mut stmt = conn
-            .prepare(
-                "INSERT INTO 
+        let mut stmt = match conn.prepare(
+            "INSERT INTO 
                 notes (date, content, deleted)
                 VALUES (?1, ?2, FALSE)
             ",
-            )
-            .unwrap();
+        ) {
+            Ok(stmt) => stmt,
+            Err(_) => return Err(crate::db::db_interface::DbOperationsError::InvalidStatement),
+        };
+
         match stmt.execute(params![date_str, self.content]) {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
@@ -169,16 +184,18 @@ impl crate::db::db_interface::DbOperations for Note {
         let id = &conn.last_insert_rowid();
 
         for person in &self.people {
-            let mut stmt = conn
-                .prepare(
-                    "INSERT INTO people_notes (
+            let mut stmt = match conn.prepare(
+                "INSERT INTO people_notes (
                     person_id, 
                     note_id,
                     deleted
                 )
                     VALUES (?1, ?2, FALSE)",
-                )
-                .unwrap();
+            ) {
+                Ok(stmt) => stmt,
+                Err(_) => return Err(crate::db::db_interface::DbOperationsError::InvalidStatement),
+            };
+
             match stmt.execute(params![person.id, id]) {
                 Ok(updated) => {
                     println!("[DEBUG] {} rows were updated", updated);
@@ -194,16 +211,18 @@ impl crate::db::db_interface::DbOperations for Note {
         &self,
         conn: &Connection,
     ) -> Result<&Self, crate::db::db_interface::DbOperationsError> {
-        let mut stmt = conn
-            .prepare(
-                "UPDATE 
+        let mut stmt = match conn.prepare(
+            "UPDATE 
                     notes 
                 SET
                     deleted = TRUE
                 WHERE
                     id = ?1",
-            )
-            .unwrap();
+        ) {
+            Ok(stmt) => stmt,
+            Err(_) => return Err(crate::db::db_interface::DbOperationsError::InvalidStatement),
+        };
+
         match stmt.execute([self.id]) {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
@@ -215,17 +234,19 @@ impl crate::db::db_interface::DbOperations for Note {
     }
 
     fn save(&self, conn: &Connection) -> Result<&Note, crate::db::db_interface::DbOperationsError> {
-        let mut stmt = conn
-            .prepare(
-                "UPDATE
+        let mut stmt = match conn.prepare(
+            "UPDATE
                 notes
             SET
                 date = ?1,
                 content = ?2
             WHERE
                 id = ?3",
-            )
-            .unwrap();
+        ) {
+            Ok(stmt) => stmt,
+            Err(_) => return Err(crate::db::db_interface::DbOperationsError::InvalidStatement),
+        };
+
         match stmt.execute(params![self.date.to_string(), self.content, self.id]) {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
@@ -234,28 +255,46 @@ impl crate::db::db_interface::DbOperations for Note {
         }
 
         for person in self.people.iter() {
-            let mut stmt = conn
-                .prepare(
-                    "SELECT 
+            let mut stmt = match conn.prepare(
+                "SELECT 
                         id
                     FROM
                         people_notes
                     WHERE
                         note_id = ?1 
                         AND person_id = ?2",
-                )
-                .unwrap();
+            ) {
+                Ok(stmt) => stmt,
+                Err(_) => return Err(crate::db::db_interface::DbOperationsError::InvalidStatement),
+            };
+
             let mut rows = stmt.query(params![self.id, person.id]).unwrap();
             let mut results: Vec<u32> = Vec::new();
-            while let Some(row) = rows.next().unwrap() {
-                results.push(row.get(0).unwrap());
+            loop {
+                match rows.next() {
+                    Ok(row) => match row {
+                        Some(row) => match row.get(0) {
+                            Ok(row) => results.push(row),
+                            Err(_) => return Err(DbOperationsError::RecordError),
+                        },
+                        None => break,
+                    },
+                    Err(_) => return Err(DbOperationsError::RecordError),
+                }
             }
 
             if results.len() > 0 {
                 for id in results {
-                    let mut stmt = conn
-                        .prepare("UPDATE people_notes SET deleted = 1 WHERE id = ?1")
-                        .unwrap();
+                    let mut stmt =
+                        match conn.prepare("UPDATE people_notes SET deleted = 1 WHERE id = ?1") {
+                            Ok(stmt) => stmt,
+                            Err(_) => {
+                                return Err(
+                                    crate::db::db_interface::DbOperationsError::InvalidStatement,
+                                )
+                            }
+                        };
+
                     match stmt.execute(params![id]) {
                         Ok(updated) => {
                             println!("[DEBUG] {} rows were updated", updated);
@@ -267,15 +306,16 @@ impl crate::db::db_interface::DbOperations for Note {
                 }
             }
 
-            let mut stmt = conn
-                .prepare(
-                    "INSERT INTO people_notes (
+            let mut stmt = match conn.prepare(
+                "INSERT INTO people_notes (
                         person_id,
                         note_id,
                         deleted
                     ) VALUES (?1, ?2, FALSE)",
-                )
-                .unwrap();
+            ) {
+                Ok(stmt) => stmt,
+                Err(_) => return Err(crate::db::db_interface::DbOperationsError::InvalidStatement),
+            };
             match stmt.execute(params![person.id, self.id]) {
                 Ok(updated) => {
                     println!("[DEBUG] {} rows were updated", updated);
@@ -292,11 +332,17 @@ impl crate::db::db_interface::DbOperations for Note {
             Ok(stmt) => stmt,
             Err(_) => return Err(DbOperationsError::GenericError),
         };
-        let mut rows = stmt.query(params![id]).unwrap();
+        let mut rows = match stmt.query(params![id]) {
+            Ok(rows) => rows,
+            Err(_) => return Err(DbOperationsError::QueryError),
+        };
         match rows.next() {
             Ok(row) => match row {
                 Some(row) => {
-                    let note_id = row.get(0).unwrap();
+                    let note_id = match row.get(0) {
+                        Ok(note_id) => note_id,
+                        Err(_) => return Err(DbOperationsError::RecordError),
+                    };
                     let people = match crate::db::db_helpers::get_people_by_note(&conn, note_id) {
                         Ok(people) => people,
                         Err(e) => panic!("{:#?}", e),

@@ -11,6 +11,7 @@ use rusqlite::Connection;
 pub enum EventError {
     DbError(DbOperationsError),
     EntityError(String),
+    DateError,
 }
 
 pub enum EventType {
@@ -32,7 +33,10 @@ impl Event {
         let mut events: Vec<Event> = vec![];
         let today = chrono::Local::now().naive_local();
         let today_str = format!("{}", today.format("%Y-%m-%d"));
-        let date_limit = today.checked_add_days(chrono::Days::new(days)).unwrap();
+        let date_limit = match today.checked_add_days(chrono::Days::new(days)) {
+            Some(date) => date,
+            None => return Err(EventError::DateError),
+        };
         let date_limit_str = format!("{}", date_limit.format("%Y-%m-%d"));
 
         let mut stmt = match conn.prepare(
