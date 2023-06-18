@@ -55,11 +55,15 @@ impl Person {
         }
     }
 
-    pub fn get_by_name(conn: &Connection, name: &str) -> Option<Person> {
-        let mut stmt = conn
-            .prepare("SELECT * FROM people WHERE name = ?1 COLLATE NOCASE")
-            .expect("Invalid SQL statement");
-        let mut rows = stmt.query(params![name]).unwrap();
+    pub fn get_by_name(conn: &Connection, name: &str) -> Result<Option<Person>, DbOperationsError> {
+        let mut stmt = match conn.prepare("SELECT * FROM people WHERE name = ?1 COLLATE NOCASE") {
+            Ok(stmt) => stmt,
+            Err(e) => return Err(DbOperationsError::InvalidStatement),
+        };
+        let mut rows = match stmt.query(params![name]) {
+            Ok(rows) => rows,
+            Err(e) => return Err(DbOperationsError::QueryError),
+        };
         match rows.next() {
             Ok(row) => match row {
                 Some(row) => {
@@ -83,7 +87,7 @@ impl Person {
                             Ok(activities) => activities,
                             Err(e) => panic!("{:#?}", e),
                         };
-                    Some(Person {
+                    Ok(Some(Person {
                         id: person_id,
                         name: row.get(1).unwrap(),
                         birthday: Some(
@@ -97,17 +101,20 @@ impl Person {
                         activities: activities,
                         reminders: reminders,
                         notes: notes,
-                    })
+                    }))
                 }
-                None => return None,
+                None => return Ok(None),
             },
-            Err(_) => return None,
+            Err(e) => return Err(DbOperationsError::RecordError),
         }
     }
 
-    pub fn get_by_names(conn: &Connection, names: Vec<String>) -> Vec<Person> {
+    pub fn get_by_names(
+        conn: &Connection,
+        names: Vec<String>,
+    ) -> Result<Vec<Person>, DbOperationsError> {
         if names.is_empty() {
-            return vec![];
+            return Ok(vec![]);
         }
 
         let vars = crate::helpers::repeat_vars(names.len());
@@ -117,81 +124,94 @@ impl Person {
         );
 
         let mut people = vec![];
-        let mut stmt = conn.prepare(&sql).expect("Invalid SQL statement");
-        let rows: _ = stmt
-            .query_map(params_from_iter(names.iter()), |row| {
-                Ok(Person::new(
-                    row.get(0).unwrap(),
-                    row.get(1).unwrap(),
-                    Some(
-                        crate::helpers::parse_from_str_ymd(
-                            String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
-                        )
-                        .unwrap_or_default(),
-                    ),
-                    vec![],
-                ))
-            })
-            .unwrap();
+        let mut stmt = match conn.prepare(&sql) {
+            Ok(stmt) => stmt,
+            Err(e) => return Err(DbOperationsError::InvalidStatement),
+        };
+        let rows: _ = match stmt.query_map(params_from_iter(names.iter()), |row| {
+            Ok(Person::new(
+                row.get(0).unwrap(),
+                row.get(1).unwrap(),
+                Some(
+                    crate::helpers::parse_from_str_ymd(
+                        String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
+                    )
+                    .unwrap_or_default(),
+                ),
+                vec![],
+            ))
+        }) {
+            Ok(rows) => rows,
+            Err(e) => return Err(DbOperationsError::QueryError),
+        };
 
         for person in rows.into_iter() {
-            people.push(person.unwrap());
+            let person = match person {
+                Ok(person) => person,
+                Err(e) => return Err(DbOperationsError::RecordError),
+            };
+            people.push(person);
         }
 
-        people
+        Ok(people)
     }
 
-    pub fn get_all(conn: &Connection) -> Vec<Person> {
-        let mut stmt = conn
-            .prepare("SELECT * FROM people")
-            .expect("Invalid SQL statement");
+    pub fn get_all(conn: &Connection) -> Result<Vec<Person>, DbOperationsError> {
+        let mut stmt = match conn.prepare("SELECT * FROM people") {
+            Ok(stmt) => stmt,
+            Err(e) => return Err(DbOperationsError::InvalidStatement),
+        };
 
-        let rows = stmt
-            .query_map([], |row| {
-                let person_id = row.get(0).unwrap();
-                let notes = match crate::db::db_helpers::get_notes_by_person(&conn, person_id) {
-                    Ok(notes) => notes,
+        let rows = match stmt.query_map([], |row| {
+            let person_id = row.get(0).unwrap();
+            let notes = match crate::db::db_helpers::get_notes_by_person(&conn, person_id) {
+                Ok(notes) => notes,
+                Err(e) => panic!("{:#?}", e),
+            };
+            let reminders = match crate::db::db_helpers::get_reminders_by_person(&conn, person_id) {
+                Ok(reminders) => reminders,
+                Err(e) => panic!("{:#?}", e),
+            };
+            let contact_info =
+                match crate::db::db_helpers::get_contact_info_by_person(&conn, person_id) {
+                    Ok(contact_info) => contact_info,
                     Err(e) => panic!("{:#?}", e),
                 };
-                let reminders =
-                    match crate::db::db_helpers::get_reminders_by_person(&conn, person_id) {
-                        Ok(reminders) => reminders,
-                        Err(e) => panic!("{:#?}", e),
-                    };
-                let contact_info =
-                    match crate::db::db_helpers::get_contact_info_by_person(&conn, person_id) {
-                        Ok(contact_info) => contact_info,
-                        Err(e) => panic!("{:#?}", e),
-                    };
-                let activities =
-                    match crate::db::db_helpers::get_activities_by_person(&conn, person_id) {
-                        Ok(activities) => activities,
-                        Err(e) => panic!("{:#?}", e),
-                    };
-                Ok(Person {
-                    id: person_id,
-                    name: row.get(1).unwrap(),
-                    birthday: Some(
-                        crate::helpers::parse_from_str_ymd(
-                            String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
-                        )
-                        .unwrap_or_default(),
-                    ),
-                    contact_info: contact_info,
-                    activities: activities,
-                    reminders: reminders,
-                    notes: notes,
-                })
+            let activities = match crate::db::db_helpers::get_activities_by_person(&conn, person_id)
+            {
+                Ok(activities) => activities,
+                Err(e) => panic!("{:#?}", e),
+            };
+            Ok(Person {
+                id: person_id,
+                name: row.get(1).unwrap(),
+                birthday: Some(
+                    crate::helpers::parse_from_str_ymd(
+                        String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
+                    )
+                    .unwrap_or_default(),
+                ),
+                contact_info: contact_info,
+                activities: activities,
+                reminders: reminders,
+                notes: notes,
             })
-            .unwrap();
+        }) {
+            Ok(rows) => rows,
+            Err(e) => return Err(DbOperationsError::QueryError),
+        };
 
         let mut people = Vec::new();
 
         for person in rows.into_iter() {
-            people.push(person.unwrap());
+            let person = match person {
+                Ok(person) => person,
+                Err(e) => return Err(DbOperationsError::RecordError),
+            };
+            people.push(person);
         }
 
-        people
+        Ok(people)
     }
 
     // TODO might be a good idea to edit activities, reminders and notes vectors
@@ -308,14 +328,28 @@ impl crate::db::db_interface::DbOperations for Person {
         &self,
         conn: &Connection,
     ) -> Result<&Person, crate::db::db_interface::DbOperationsError> {
-        let mut error = false;
-        let mut stmt = conn
-            .prepare("SELECT id FROM people WHERE name = ?")
-            .unwrap();
-        let mut rows = stmt.query(params![self.name]).unwrap();
+        let mut error: DbOperationsError;
+        let mut stmt = match conn.prepare("SELECT id FROM people WHERE name = ?") {
+            Ok(stmt) => stmt,
+            Err(e) => return Err(crate::db::db_interface::DbOperationsError::QueryError),
+        };
+
+        let mut rows = match stmt.query(params![self.name]) {
+            Ok(rows) => rows,
+            Err(e) => return Err(crate::db::db_interface::DbOperationsError::QueryError),
+        };
         let mut ids: Vec<u32> = Vec::new();
-        while let Some(row) = rows.next().unwrap() {
-            ids.push(row.get(0).unwrap());
+        loop {
+            match rows.next() {
+                Ok(row) => match row {
+                    Some(row) => match row.get(0) {
+                        Ok(row) => ids.push(row),
+                        Err(_) => return Err(DbOperationsError::RecordError),
+                    },
+                    None => break,
+                },
+                Err(_) => return Err(DbOperationsError::RecordError),
+            }
         }
 
         if ids.len() > 0 {
@@ -328,18 +362,22 @@ impl crate::db::db_interface::DbOperations for Person {
             None => "".to_string(),
         };
 
-        let mut stmt = conn
+        let mut stmt = match conn
             .prepare("INSERT INTO people (name, birthday, deleted) VALUES (?1, ?2, FALSE)")
-            .unwrap();
+        {
+            Ok(stmt) => stmt,
+            Err(e) => return Err(crate::db::db_interface::DbOperationsError::InvalidStatement),
+        };
+
         match stmt.execute(params![self.name, birthday_str]) {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
             }
-            Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
+            Err(_) => return Err(crate::db::db_interface::DbOperationsError::QueryError),
         }
         let id = conn.last_insert_rowid();
 
-        self.contact_info.iter().for_each(|contact_info| {
+        let res = self.contact_info.iter().try_for_each(|contact_info| {
             let (ci_type, ci_value): (String, &str) = match &contact_info.contact_info_type {
                 ContactInfoType::Phone(value) => (
                     ContactInfoType::Phone(value.clone()).as_ref().to_owned(),
@@ -355,39 +393,53 @@ impl crate::db::db_interface::DbOperations for Person {
                 ),
             };
 
-            // TODO error handling
-            let mut stmt = conn
-                .prepare("SELECT id FROM contact_info_types WHERE type = ?")
-                .unwrap();
-            let mut rows = stmt.query(params![ci_type]).unwrap();
+            let mut stmt = match conn.prepare("SELECT id FROM contact_info_types WHERE type = ?") {
+                Ok(stmt) => stmt,
+                Err(e) => return Err(DbOperationsError::InvalidStatement),
+            };
+            let mut rows = match stmt.query(params![ci_type]) {
+                Ok(rows) => rows,
+                Err(_) => return Err(crate::db::db_interface::DbOperationsError::QueryError),
+            };
             let mut types: Vec<u32> = Vec::new();
-            while let Some(row) = rows.next().unwrap() {
-                types.push(row.get(0).unwrap());
+            loop {
+                match rows.next() {
+                    Ok(row) => match row {
+                        Some(row) => match row.get(0) {
+                            Ok(row) => types.push(row),
+                            Err(_) => return Err(DbOperationsError::RecordError),
+                        },
+                        None => break,
+                    },
+                    Err(_) => return Err(DbOperationsError::RecordError),
+                }
             }
 
-            let mut stmt = conn
-                .prepare(
-                    "INSERT INTO contact_info (
+            let mut stmt = match conn.prepare(
+                "INSERT INTO contact_info (
                     person_id, 
                     contact_info_type_id, 
                     contact_info_details,
                     deleted
                 )
                     VALUES (?1, ?2, ?3, FALSE)",
-                )
-                .unwrap();
+            ) {
+                Ok(stmt) => stmt,
+                Err(e) => return Err(crate::db::db_interface::DbOperationsError::InvalidStatement),
+            };
+
             match stmt.execute(params![id, types[0], ci_value]) {
-                Ok(updated) => {
-                    println!("[DEBUG] {} rows were updated", updated);
-                }
+                Ok(updated) => println!("[DEBUG] {} rows were updated", updated),
                 // FIXME extract this to a separate function to leverage FromIterator Results
-                Err(_) => error = true,
+                Err(_) => return Err(DbOperationsError::QueryError),
             }
+            Ok(())
         });
 
-        if error {
-            return Err(crate::db::db_interface::DbOperationsError::GenericError);
+        if res.is_err() {
+            return Err(res.unwrap_err());
         }
+
         Ok(self)
     }
 
@@ -395,21 +447,22 @@ impl crate::db::db_interface::DbOperations for Person {
         &self,
         conn: &Connection,
     ) -> Result<&Person, crate::db::db_interface::DbOperationsError> {
-        let mut stmt = conn
-            .prepare(
-                "UPDATE 
+        let mut stmt = match conn.prepare(
+            "UPDATE 
                     people 
                 SET
                     deleted = TRUE
                 WHERE
                     id = ?1",
-            )
-            .unwrap();
+        ) {
+            Ok(stmt) => stmt,
+            Err(e) => return Err(crate::db::db_interface::DbOperationsError::InvalidStatement),
+        };
         match stmt.execute([self.id]) {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
             }
-            Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
+            Err(_) => return Err(crate::db::db_interface::DbOperationsError::QueryError),
         }
 
         Ok(self)
@@ -424,22 +477,23 @@ impl crate::db::db_interface::DbOperations for Person {
             None => "".to_string(),
         };
 
-        let mut stmt = conn
-            .prepare(
-                "UPDATE
+        let mut stmt = match conn.prepare(
+            "UPDATE
                 people
             SET
                 name = ?1,
                 birthday = ?2
             WHERE
                 id = ?3",
-            )
-            .unwrap();
+        ) {
+            Ok(stmt) => stmt,
+            Err(e) => return Err(crate::db::db_interface::DbOperationsError::InvalidStatement),
+        };
         match stmt.execute(params![self.name, birthday_str, self.id]) {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
             }
-            Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
+            Err(_) => return Err(crate::db::db_interface::DbOperationsError::QueryError),
         }
 
         if self.contact_info.len() > 0 {
@@ -458,28 +512,57 @@ impl crate::db::db_interface::DbOperations for Person {
                         value.as_ref(),
                     ),
                 };
-                // TODO error handling
-                let mut stmt = conn
+                let mut stmt = match conn
                     .prepare("SELECT id FROM contact_info_types WHERE type = ?")
-                    .unwrap();
-                let mut rows = stmt.query(params![ci_type]).unwrap();
+                {
+                    Ok(stmt) => stmt,
+                    Err(e) => {
+                        return Err(crate::db::db_interface::DbOperationsError::InvalidStatement)
+                    }
+                };
+
+                let mut rows = match stmt.query(params![ci_type]) {
+                    Ok(rows) => rows,
+                    Err(e) => return Err(crate::db::db_interface::DbOperationsError::QueryError),
+                };
                 let mut types: Vec<u32> = Vec::new();
-                while let Some(row) = rows.next().unwrap() {
-                    types.push(row.get(0).unwrap());
+                loop {
+                    match rows.next() {
+                        Ok(row) => match row {
+                            Some(row) => match row.get(0) {
+                                Ok(row) => types.push(row),
+                                Err(_) => return Err(DbOperationsError::RecordError),
+                            },
+                            None => break,
+                        },
+                        Err(_) => return Err(DbOperationsError::RecordError),
+                    }
                 }
 
-                let mut stmt = conn
-                    .prepare("SELECT id FROM contact_info WHERE person_id = ?1 AND contact_info_type_id = ?2")
-                    .unwrap();
-                let mut rows = stmt.query(params![self.id, types[0]]).unwrap();
+                let mut stmt = match conn.prepare("SELECT id FROM contact_info WHERE person_id = ?1 AND contact_info_type_id = ?2") {
+                    Ok(stmt) => stmt,
+                    Err(e) => return Err(crate::db::db_interface::DbOperationsError::InvalidStatement),
+                };
+                let mut rows = match stmt.query(params![self.id, types[0]]) {
+                    Ok(rows) => rows,
+                    Err(e) => return Err(crate::db::db_interface::DbOperationsError::QueryError),
+                };
                 let mut ci_ids: Vec<u32> = Vec::new();
-                while let Some(row) = rows.next().unwrap() {
-                    ci_ids.push(row.get(0).unwrap());
+                loop {
+                    match rows.next() {
+                        Ok(row) => match row {
+                            Some(row) => match row.get(0) {
+                                Ok(row) => ci_ids.push(row),
+                                Err(_) => return Err(DbOperationsError::RecordError),
+                            },
+                            None => break,
+                        },
+                        Err(_) => return Err(DbOperationsError::RecordError),
+                    }
                 }
 
-                let mut stmt = conn
-                    .prepare(
-                        "UPDATE
+                let mut stmt = match conn.prepare(
+                    "UPDATE
                     contact_info 
                 SET
                     person_id = ?1,
@@ -487,13 +570,17 @@ impl crate::db::db_interface::DbOperations for Person {
                     contact_info_details = ?3
                 WHERE
                     id = ?4",
-                    )
-                    .unwrap();
+                ) {
+                    Ok(stmt) => stmt,
+                    Err(e) => {
+                        return Err(crate::db::db_interface::DbOperationsError::InvalidStatement)
+                    }
+                };
                 match stmt.execute(params![self.id, types[0], ci_value, ci_ids[0]]) {
                     Ok(updated) => {
                         println!("[DEBUG] {} rows were updated", updated);
                     }
-                    Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
+                    Err(_) => return Err(crate::db::db_interface::DbOperationsError::QueryError),
                 }
             }
         }
@@ -504,9 +591,12 @@ impl crate::db::db_interface::DbOperations for Person {
     fn get_by_id(conn: &Connection, id: u64) -> Result<Option<Entities>, DbOperationsError> {
         let mut stmt = match conn.prepare("SELECT * FROM people WHERE id = ?1") {
             Ok(stmt) => stmt,
-            Err(_) => return Err(DbOperationsError::GenericError),
+            Err(_) => return Err(DbOperationsError::InvalidStatement),
         };
-        let mut rows = stmt.query(params![id]).unwrap();
+        let mut rows = match stmt.query(params![id]) {
+            Ok(rows) => rows,
+            Err(_) => return Err(DbOperationsError::QueryError),
+        };
         match rows.next() {
             Ok(row) => match row {
                 Some(row) => {
@@ -548,7 +638,7 @@ impl crate::db::db_interface::DbOperations for Person {
                 }
                 None => return Ok(None),
             },
-            Err(_) => return Err(DbOperationsError::GenericError),
+            Err(_) => return Err(DbOperationsError::RecordError),
         }
     }
 }
@@ -631,21 +721,34 @@ pub enum ContactInfoType {
 }
 
 impl ContactInfoType {
-    pub fn get_by_id(conn: &Connection, id: u64) -> Option<ContactInfoType> {
-        let mut stmt = conn
-            .prepare("SELECT type FROM contact_info_types WHERE id = ?")
-            .unwrap();
-        let mut rows = stmt.query(params![id]).unwrap();
+    pub fn get_by_id(
+        conn: &Connection,
+        id: u64,
+    ) -> Result<Option<ContactInfoType>, DbOperationsError> {
+        let mut stmt = match conn.prepare("SELECT type FROM contact_info_types WHERE id = ?") {
+            Ok(stmt) => stmt,
+            Err(_) => return Err(DbOperationsError::InvalidStatement),
+        };
+
+        let mut rows = match stmt.query(params![id]) {
+            Ok(rows) => rows,
+            Err(_) => return Err(DbOperationsError::QueryError),
+        };
 
         match rows.next() {
             Ok(row) => match row {
-                Some(row) => Some(
-                    ContactInfoType::from_str(row.get::<usize, String>(0).unwrap().as_str())
-                        .unwrap(),
-                ),
-                None => None,
+                Some(row) => {
+                    let ci = match ContactInfoType::from_str(
+                        row.get::<usize, String>(0).unwrap().as_str(),
+                    ) {
+                        Ok(ci) => ci,
+                        Err(_) => return Err(DbOperationsError::RecordError),
+                    };
+                    Ok(Some(ci))
+                }
+                None => Ok(None),
             },
-            Err(_) => None,
+            Err(_) => return Err(DbOperationsError::RecordError),
         }
     }
 }

@@ -326,7 +326,15 @@ pub fn activity(
         }
     };
 
-    let people = Person::get_by_names(&conn, activity_vars.people);
+    let people = match Person::get_by_names(&conn, activity_vars.people) {
+        Ok(people) => people,
+        Err(_) => {
+            return EntitySnafu {
+                entity: String::from("Person"),
+            }
+            .fail()
+        }
+    };
 
     let activity = Activity::new(
         0,
@@ -504,7 +512,15 @@ pub fn reminder(
         }
     };
 
-    let people = Person::get_by_names(&conn, people);
+    let people = match Person::get_by_names(&conn, people) {
+        Ok(people) => people,
+        Err(_) => {
+            return EntitySnafu {
+                entity: String::from("people"),
+            }
+            .fail()
+        }
+    };
 
     let reminder = Reminder::new(
         0,
@@ -560,7 +576,15 @@ pub fn note(
         };
         date_string = d;
         content_string = c;
-        people_vec = Person::get_by_names(&conn, p);
+        people_vec = match Person::get_by_names(&conn, p) {
+            Ok(people) => people,
+            Err(_) => {
+                return EntitySnafu {
+                    entity: String::from("people"),
+                }
+                .fail()
+            }
+        };
     }
 
     let date = match prm::helpers::parse_from_str_ymd(date_string.as_str()) {

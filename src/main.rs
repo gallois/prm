@@ -298,9 +298,15 @@ fn main() {
         Commands::Show(show) => match show.entity {
             ShowEntity::Person { name } => {
                 let person = match Person::get_by_name(&conn, &name) {
-                    Some(person) => person,
-                    None => {
-                        eprintln!("Person not found");
+                    Ok(person) => match person {
+                        Some(person) => person,
+                        None => {
+                            eprintln!("Person not found");
+                            exit(exitcode::DATAERR);
+                        }
+                    },
+                    Err(e) => {
+                        eprintln!("Error while fecthing person: {:#?}", e);
                         exit(exitcode::DATAERR);
                     }
                 };
@@ -396,9 +402,15 @@ fn main() {
         Commands::Remove(remove) => match remove.entity {
             RemoveEntity::Person { name } => {
                 let person = match Person::get_by_name(&conn, &name) {
-                    Some(person) => person,
-                    None => {
-                        eprintln!("Person not found");
+                    Ok(person) => match person {
+                        Some(person) => person,
+                        None => {
+                            eprintln!("Person not found");
+                            exit(exitcode::DATAERR);
+                        }
+                    },
+                    Err(e) => {
+                        eprintln!("Error while fecthing person: {:#?}", e);
                         exit(exitcode::DATAERR);
                     }
                 };
@@ -483,7 +495,7 @@ fn main() {
             ListEntity::People {} => {
                 let people = Person::get_all(&conn);
                 for person in people {
-                    println!("{}", person);
+                    println!("{:#?}", person);
                 }
             }
             ListEntity::Activities {} => {

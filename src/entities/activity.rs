@@ -33,6 +33,8 @@ pub enum ActivityError {
     // FIXME this is a duplication of what we have in `CliError` (src/cli/add.rs)
     #[snafu(display("Invalid date: {}", date))]
     DateParseError { date: String },
+    #[snafu(display("Invalid record: {}", record))]
+    RecordParseError { record: String },
 }
 
 impl Activity {
@@ -217,7 +219,17 @@ impl Activity {
         }
 
         let people = Person::get_by_names(&conn, people);
-        self.people = people;
+        self.people = match people {
+            Ok(people) => people,
+            Err(e) => {
+                return {
+                    RecordParseSnafu {
+                        record: "people".to_string(),
+                    }
+                    .fail()
+                }
+            }
+        };
 
         Ok(self)
     }

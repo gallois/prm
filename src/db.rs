@@ -211,9 +211,12 @@ pub mod db_helpers {
                     .unwrap();
             let contact_info_details: String = row.get(3).unwrap();
             let contact_info = match contact_info_type {
-                ContactInfoType::Phone(_) => ContactInfoType::Phone(contact_info_details),
-                ContactInfoType::WhatsApp(_) => ContactInfoType::WhatsApp(contact_info_details),
-                ContactInfoType::Email(_) => ContactInfoType::Email(contact_info_details),
+                Some(ContactInfoType::Phone(_)) => ContactInfoType::Phone(contact_info_details),
+                Some(ContactInfoType::WhatsApp(_)) => {
+                    ContactInfoType::WhatsApp(contact_info_details)
+                }
+                Some(ContactInfoType::Email(_)) => ContactInfoType::Email(contact_info_details),
+                None => panic!("Unknown contact info type {:#?}", contact_info_type),
             };
 
             Ok(crate::entities::person::ContactInfo::new(

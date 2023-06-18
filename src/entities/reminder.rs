@@ -18,6 +18,8 @@ pub enum EntityError {
     DateParseError { date: String },
     #[snafu(display("Invalid recurring type: {}", recurring_type))]
     RecurringTypeParseError { recurring_type: String },
+    #[snafu(display("Invalid record: {}", record))]
+    RecordParseError { record: String },
 }
 
 pub static REMINDER_TEMPLATE: &str = "Name: {name}
@@ -189,7 +191,15 @@ impl Reminder {
             self.recurring = recurring_type;
         }
 
-        let people = Person::get_by_names(&conn, people);
+        let people = match Person::get_by_names(&conn, people) {
+            Ok(people) => people,
+            Err(_) => {
+                return RecordParseSnafu {
+                    record: "people".to_string(),
+                }
+                .fail()
+            }
+        };
         self.people = people;
 
         Ok(self)

@@ -26,6 +26,8 @@ pub enum NoteError {
     // FIXME this is a duplication of what we have in `CliError` (src/cli/add.rs)
     #[snafu(display("Invalid date: {}", date))]
     DateParseError { date: String },
+    #[snafu(display("Invalid record: {}", record))]
+    RecordParseError { record: String },
 }
 
 impl Note {
@@ -38,11 +40,17 @@ impl Note {
         }
     }
 
-    pub fn get_by_person(conn: &Connection, person: String) -> Vec<Note> {
+    pub fn get_by_person(
+        conn: &Connection,
+        person: String,
+    ) -> Result<Vec<Note>, DbOperationsError> {
         let person = Person::get_by_name(&conn, &person);
         match person {
-            Some(person) => person.notes,
-            None => vec![],
+            Ok(person) => match person {
+                Some(person) => Ok(person.notes),
+                None => Ok(vec![]),
+            },
+            Err(e) => return Err(e),
         }
     }
 
@@ -120,7 +128,15 @@ impl Note {
             self.content = content;
         }
 
-        self.people = Person::get_by_names(&conn, people);
+        self.people = match Person::get_by_names(&conn, people) {
+            Ok(people) => people,
+            Err(_) => {
+                return RecordParseSnafu {
+                    record: "people".to_string(),
+                }
+                .fail()
+            }
+        };
 
         Ok(self)
     }
@@ -268,7 +284,10 @@ impl crate::db::db_interface::DbOperations for Note {
                 Err(_) => return Err(crate::db::db_interface::DbOperationsError::InvalidStatement),
             };
 
-            let mut rows = stmt.query(params![self.id, person.id]).unwrap();
+            let mut rows = match stmt.query(params![self.id, person.id]) {
+                Ok(rows) => rows,
+                Err(_) => return Err(crate::db::db_interface::DbOperationsError::QueryError),
+            };
             let mut results: Vec<u32> = Vec::new();
             loop {
                 match rows.next() {
