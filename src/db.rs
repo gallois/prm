@@ -157,6 +157,16 @@ pub mod db_helpers {
         };
 
         let rows = match stmt.query_map(params_from_iter(reminder_ids.iter()), |row| {
+            let recurring_type = match crate::entities::reminder::RecurringType::get_by_id(
+                &conn,
+                row.get(4).unwrap(),
+            ) {
+                Ok(recurring_type) => match recurring_type {
+                    Some(recurring_type) => recurring_type,
+                    None => panic!("Recurring Type cannot be None"),
+                },
+                Err(e) => panic!("Error while fetching recurring type: {:#?}", e),
+            };
             Ok(crate::entities::reminder::Reminder::new(
                 row.get(0).unwrap(),
                 row.get(1).unwrap(),
@@ -165,8 +175,7 @@ pub mod db_helpers {
                 )
                 .unwrap_or_default(),
                 row.get(3).unwrap(),
-                crate::entities::reminder::RecurringType::get_by_id(&conn, row.get(4).unwrap())
-                    .unwrap(),
+                recurring_type,
                 vec![],
             ))
         }) {

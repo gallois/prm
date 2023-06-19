@@ -58,11 +58,19 @@ impl Reminder {
     }
 
     // TODO remove duplication between different entities
-    pub fn get_by_name(conn: &Connection, name: &str) -> Option<Reminder> {
-        let mut stmt = conn
-            .prepare("SELECT * FROM reminders WHERE name = ?1 COLLATE NOCASE")
-            .expect("Invalid SQL statement");
-        let mut rows = stmt.query(params![name]).unwrap();
+    pub fn get_by_name(
+        conn: &Connection,
+        name: &str,
+    ) -> Result<Option<Reminder>, DbOperationsError> {
+        let mut stmt = match conn.prepare("SELECT * FROM reminders WHERE name = ?1 COLLATE NOCASE")
+        {
+            Ok(stmt) => stmt,
+            Err(_) => return Err(DbOperationsError::InvalidStatement),
+        };
+        let mut rows = match stmt.query(params![name]) {
+            Ok(rows) => rows,
+            Err(_) => return Err(DbOperationsError::QueryError),
+        };
         match rows.next() {
             Ok(row) => match row {
                 Some(row) => {
@@ -72,7 +80,15 @@ impl Reminder {
                         Ok(people) => people,
                         Err(e) => panic!("{:#?}", e),
                     };
-                    Some(Reminder {
+                    let recurring_type = match RecurringType::get_by_id(&conn, row.get(4).unwrap())
+                    {
+                        Ok(recurring_type) => match recurring_type {
+                            Some(recurring_type) => recurring_type,
+                            None => return Err(DbOperationsError::RecordError),
+                        },
+                        Err(_) => return Err(DbOperationsError::RecordError),
+                    };
+                    Ok(Some(Reminder {
                         id: reminder_id,
                         name: row.get(1).unwrap(),
                         date: crate::helpers::parse_from_str_ymd(
@@ -80,17 +96,20 @@ impl Reminder {
                         )
                         .unwrap_or_default(),
                         description: row.get(3).unwrap(),
-                        recurring: RecurringType::get_by_id(&conn, row.get(4).unwrap()).unwrap(),
+                        recurring: recurring_type,
                         people: people,
-                    })
+                    }))
                 }
-                None => return None,
+                None => return Ok(None),
             },
-            Err(_) => return None,
+            Err(_) => return Err(DbOperationsError::RecordError),
         }
     }
 
-    pub fn get_all(conn: &Connection, include_past: bool) -> Vec<Reminder> {
+    pub fn get_all(
+        conn: &Connection,
+        include_past: bool,
+    ) -> Result<Vec<Reminder>, DbOperationsError> {
         let sql: String;
         let base_sql = "SELECT * FROM reminders";
         if include_past {
@@ -99,35 +118,50 @@ impl Reminder {
             sql = format!("{} WHERE date > DATE()", base_sql);
         }
 
-        let mut stmt = conn.prepare(&sql).expect("Invalid SQL statement");
-        let rows = stmt
-            .query_map([], |row| {
-                let reminder_id = row.get(0).unwrap();
-                let people = match crate::db_helpers::get_people_by_reminder(&conn, reminder_id) {
-                    Ok(people) => people,
-                    Err(e) => panic!("{:#?}", e),
-                };
-                Ok(Reminder {
-                    id: reminder_id,
-                    name: row.get(1).unwrap(),
-                    date: crate::helpers::parse_from_str_ymd(
-                        String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
-                    )
-                    .unwrap_or_default(),
-                    description: row.get(3).unwrap(),
-                    recurring: RecurringType::get_by_id(&conn, row.get(4).unwrap()).unwrap(),
-                    people: people,
-                })
+        let mut stmt = match conn.prepare(&sql) {
+            Ok(stmt) => stmt,
+            Err(_) => return Err(DbOperationsError::InvalidStatement),
+        };
+        let rows = match stmt.query_map([], |row| {
+            let reminder_id = row.get(0).unwrap();
+            let people = match crate::db_helpers::get_people_by_reminder(&conn, reminder_id) {
+                Ok(people) => people,
+                Err(e) => panic!("{:#?}", e),
+            };
+            let recurring_type = match RecurringType::get_by_id(&conn, row.get(4).unwrap()) {
+                Ok(recurring_type) => match recurring_type {
+                    Some(recurring_type) => recurring_type,
+                    None => panic!("Recurring Type cannot be None"),
+                },
+                Err(e) => panic!("Error while fetching recurring type: {:#?}", e),
+            };
+            Ok(Reminder {
+                id: reminder_id,
+                name: row.get(1).unwrap(),
+                date: crate::helpers::parse_from_str_ymd(
+                    String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
+                )
+                .unwrap_or_default(),
+                description: row.get(3).unwrap(),
+                recurring: recurring_type,
+                people: people,
             })
-            .unwrap();
+        }) {
+            Ok(rows) => rows,
+            Err(_) => return Err(DbOperationsError::QueryError),
+        };
 
         let mut reminders = Vec::new();
 
         for reminder in rows.into_iter() {
-            reminders.push(reminder.unwrap());
+            let reminder = match reminder {
+                Ok(reminder) => reminder,
+                Err(_) => return Err(DbOperationsError::RecordError),
+            };
+            reminders.push(reminder);
         }
 
-        reminders
+        Ok(reminders)
     }
 
     pub fn update(
@@ -158,7 +192,15 @@ impl Reminder {
                     }
                 },
             }
-            self.date = date_obj.unwrap();
+            self.date = match date_obj {
+                Some(date) => date,
+                None => {
+                    return DateParseSnafu {
+                        date: date.to_string(),
+                    }
+                    .fail()
+                }
+            }
         }
 
         // TODO we need a way to unset description
@@ -260,21 +302,22 @@ impl Reminder {
 }
 
 impl crate::db::db_interface::DbOperations for Reminder {
-    fn add(
-        &self,
-        conn: &Connection,
-    ) -> Result<&Reminder, crate::db::db_interface::DbOperationsError> {
-        let mut stmt = conn
-            .prepare("SELECT id FROM reminders WHERE name = ?")
-            .unwrap();
-        let mut rows = stmt.query(params![self.name]).unwrap();
+    fn add(&self, conn: &Connection) -> Result<&Reminder, DbOperationsError> {
+        let mut stmt = match conn.prepare("SELECT id FROM reminders WHERE name = ?") {
+            Ok(stmt) => stmt,
+            Err(_) => return Err(DbOperationsError::InvalidStatement),
+        };
+        let mut rows = match stmt.query(params![self.name]) {
+            Ok(rows) => rows,
+            Err(_) => return Err(DbOperationsError::QueryError),
+        };
         let mut ids: Vec<u32> = Vec::new();
         while let Some(row) = rows.next().unwrap() {
             ids.push(row.get(0).unwrap());
         }
 
         if ids.len() > 0 {
-            return Err(crate::db::db_interface::DbOperationsError::DuplicateEntry);
+            return Err(DbOperationsError::DuplicateEntry);
         }
 
         let recurring_str = &self.recurring.as_ref();
@@ -282,99 +325,102 @@ impl crate::db::db_interface::DbOperations for Reminder {
         let date_str = self.date.to_string();
 
         // TODO error handling
-        let mut stmt = conn
-            .prepare("SELECT id FROM recurring_types WHERE type = ?")
-            .unwrap();
-        let mut rows = stmt.query(params![recurring_str]).unwrap();
+        let mut stmt = match conn.prepare("SELECT id FROM recurring_types WHERE type = ?") {
+            Ok(stmt) => stmt,
+            Err(_) => return Err(DbOperationsError::InvalidStatement),
+        };
+        let mut rows = match stmt.query(params![recurring_str]) {
+            Ok(rows) => rows,
+            Err(_) => return Err(DbOperationsError::QueryError),
+        };
         let mut types: Vec<u32> = Vec::new();
         while let Some(row) = rows.next().unwrap() {
             types.push(row.get(0).unwrap());
         }
 
-        let mut stmt = conn
-            .prepare(
-                "INSERT INTO 
+        let mut stmt = match conn.prepare(
+            "INSERT INTO 
                 reminders (name, date, recurring, description, deleted)
                 VALUES (?1, ?2, ?3, ?4, FALSE)
             ",
-            )
-            .unwrap();
+        ) {
+            Ok(stmt) => stmt,
+            Err(_) => return Err(DbOperationsError::InvalidStatement),
+        };
         match stmt.execute(params![self.name, date_str, types[0], self.description]) {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
             }
-            Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
+            Err(_) => return Err(DbOperationsError::QueryError),
         }
 
         let id = conn.last_insert_rowid();
 
         for person in &self.people {
-            let mut stmt = conn
-                .prepare(
-                    "INSERT INTO people_reminders (
+            let mut stmt = match conn.prepare(
+                "INSERT INTO people_reminders (
                     person_id, 
                     reminder_id,
                     deleted
                 )
                     VALUES (?1, ?2, FALSE)",
-                )
-                .unwrap();
+            ) {
+                Ok(stmt) => stmt,
+                Err(_) => return Err(DbOperationsError::InvalidStatement),
+            };
             match stmt.execute(params![person.id, id]) {
                 Ok(updated) => {
                     println!("[DEBUG] {} rows were updated", updated);
                 }
-                Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
+                Err(_) => return Err(DbOperationsError::QueryError),
             }
         }
 
         Ok(self)
     }
 
-    fn remove(
-        &self,
-        conn: &Connection,
-    ) -> Result<&Self, crate::db::db_interface::DbOperationsError> {
-        let mut stmt = conn
-            .prepare(
-                "UPDATE 
+    fn remove(&self, conn: &Connection) -> Result<&Self, DbOperationsError> {
+        let mut stmt = match conn.prepare(
+            "UPDATE 
                     reminders 
                 SET
                     deleted = TRUE
                 WHERE
                     id = ?1",
-            )
-            .unwrap();
+        ) {
+            Ok(stmt) => stmt,
+            Err(_) => return Err(DbOperationsError::InvalidStatement),
+        };
         match stmt.execute([self.id]) {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
             }
-            Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
+            Err(_) => return Err(DbOperationsError::QueryError),
         }
 
         Ok(self)
     }
 
-    fn save(
-        &self,
-        conn: &Connection,
-    ) -> Result<&Reminder, crate::db::db_interface::DbOperationsError> {
+    fn save(&self, conn: &Connection) -> Result<&Reminder, DbOperationsError> {
         let recurring_str = &self.recurring.as_ref();
 
         let date_str = self.date.to_string();
 
-        // TODO error handling
-        let mut stmt = conn
-            .prepare("SELECT id FROM recurring_types WHERE type = ?")
-            .unwrap();
-        let mut rows = stmt.query(params![recurring_str]).unwrap();
+        let mut stmt = match conn.prepare("SELECT id FROM recurring_types WHERE type = ?") {
+            Ok(stmt) => stmt,
+            Err(_) => return Err(DbOperationsError::InvalidStatement),
+        };
+        let mut rows = match stmt.query(params![recurring_str]) {
+            Ok(rows) => rows,
+            Err(_) => return Err(DbOperationsError::QueryError),
+        };
         let mut types: Vec<u32> = Vec::new();
         while let Some(row) = rows.next().unwrap() {
             types.push(row.get(0).unwrap());
         }
 
-        let mut stmt = conn
-            .prepare(
-                "UPDATE
+        let mut stmt = match conn.prepare(
+            "UPDATE
                 reminders 
             SET
                 name = ?1,
@@ -384,8 +430,10 @@ impl crate::db::db_interface::DbOperations for Reminder {
             WHERE
                 id = ?5
             ",
-            )
-            .unwrap();
+        ) {
+            Ok(stmt) => stmt,
+            Err(_) => return Err(DbOperationsError::InvalidStatement),
+        };
         match stmt.execute(params![
             self.name,
             date_str,
@@ -396,7 +444,7 @@ impl crate::db::db_interface::DbOperations for Reminder {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
             }
-            Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
+            Err(_) => return Err(DbOperationsError::QueryError),
         }
 
         // TODO allow for changing people
@@ -406,9 +454,12 @@ impl crate::db::db_interface::DbOperations for Reminder {
     fn get_by_id(conn: &Connection, id: u64) -> Result<Option<Entities>, DbOperationsError> {
         let mut stmt = match conn.prepare("SELECT * FROM reminders WHERE id = ?1") {
             Ok(stmt) => stmt,
-            Err(_) => return Err(DbOperationsError::GenericError),
+            Err(_) => return Err(DbOperationsError::InvalidStatement),
         };
-        let mut rows = stmt.query(params![id]).unwrap();
+        let mut rows = match stmt.query(params![id]) {
+            Ok(rows) => rows,
+            Err(_) => return Err(DbOperationsError::QueryError),
+        };
         match rows.next() {
             Ok(row) => match row {
                 Some(row) => {
@@ -418,6 +469,14 @@ impl crate::db::db_interface::DbOperations for Reminder {
                         Ok(people) => people,
                         Err(e) => panic!("{:#?}", e),
                     };
+                    let recurring_type = match RecurringType::get_by_id(&conn, row.get(4).unwrap())
+                    {
+                        Ok(recurring_type) => match recurring_type {
+                            Some(recurring_type) => recurring_type,
+                            None => return Err(DbOperationsError::RecordError),
+                        },
+                        Err(_) => return Err(DbOperationsError::RecordError),
+                    };
                     Ok(Some(Entities::Reminder(Reminder {
                         id: reminder_id,
                         name: row.get(1).unwrap(),
@@ -426,13 +485,13 @@ impl crate::db::db_interface::DbOperations for Reminder {
                         )
                         .unwrap_or_default(),
                         description: row.get(3).unwrap(),
-                        recurring: RecurringType::get_by_id(&conn, row.get(4).unwrap()).unwrap(),
+                        recurring: recurring_type,
                         people: people,
                     })))
                 }
                 None => return Ok(None),
             },
-            Err(_) => return Err(DbOperationsError::GenericError),
+            Err(_) => return Err(DbOperationsError::RecordError),
         }
     }
 }
@@ -475,20 +534,27 @@ pub enum RecurringType {
 }
 
 impl RecurringType {
-    pub fn get_by_id(conn: &Connection, id: u64) -> Option<RecurringType> {
-        let mut stmt = conn
-            .prepare("SELECT type FROM recurring_types WHERE id = ?")
-            .unwrap();
-        let mut rows = stmt.query(params![id]).unwrap();
+    pub fn get_by_id(
+        conn: &Connection,
+        id: u64,
+    ) -> Result<Option<RecurringType>, DbOperationsError> {
+        let mut stmt = match conn.prepare("SELECT type FROM recurring_types WHERE id = ?") {
+            Ok(stmt) => stmt,
+            Err(_) => return Err(DbOperationsError::InvalidStatement),
+        };
+        let mut rows = match stmt.query(params![id]) {
+            Ok(rows) => rows,
+            Err(_) => return Err(DbOperationsError::QueryError),
+        };
 
         match rows.next() {
             Ok(row) => match row {
-                Some(row) => Some(
+                Some(row) => Ok(Some(
                     RecurringType::from_str(row.get::<usize, String>(0).unwrap().as_str()).unwrap(),
-                ),
-                None => None,
+                )),
+                None => Ok(None),
             },
-            Err(_) => None,
+            Err(_) => return Err(DbOperationsError::RecordError),
         }
     }
 }

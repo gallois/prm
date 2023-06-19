@@ -120,6 +120,13 @@ impl Event {
                 Ok(people) => people,
                 Err(e) => panic!("{:#?}", e),
             };
+            let recurring_type = match RecurringType::get_by_id(&conn, row.get(4).unwrap()) {
+                Ok(recurring_type) => match recurring_type {
+                    Some(recurring_type) => recurring_type,
+                    None => panic!("Recurring Type cannot be None"),
+                },
+                Err(e) => panic!("Error while fetching recurring type: {:#?}", e),
+            };
             Ok(Reminder {
                 id: reminder_id,
                 name: row.get(1).unwrap(),
@@ -128,7 +135,7 @@ impl Event {
                 )
                 .unwrap_or_default(),
                 description: row.get(3).unwrap(),
-                recurring: RecurringType::get_by_id(&conn, row.get(4).unwrap()).unwrap(),
+                recurring: recurring_type,
                 people: people,
             })
         }) {

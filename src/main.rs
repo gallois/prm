@@ -331,9 +331,15 @@ fn main() {
             }
             ShowEntity::Reminder { name } => {
                 let reminder = match Reminder::get_by_name(&conn, &name) {
-                    Some(reminder) => reminder,
-                    None => {
-                        eprintln!("Reminder not found");
+                    Ok(reminder) => match reminder {
+                        Some(reminder) => reminder,
+                        None => {
+                            eprintln!("Reminder not found");
+                            exit(exitcode::DATAERR);
+                        }
+                    },
+                    Err(e) => {
+                        eprintln!("Error fetching reminder: {:#?}", e);
                         exit(exitcode::DATAERR);
                     }
                 };
@@ -448,9 +454,15 @@ fn main() {
             }
             RemoveEntity::Reminder { name } => {
                 let reminder = match Reminder::get_by_name(&conn, &name) {
-                    Some(reminder) => reminder,
-                    None => {
-                        eprintln!("Reminder not found");
+                    Ok(reminder) => match reminder {
+                        Some(reminder) => reminder,
+                        None => {
+                            eprintln!("Reminder not found");
+                            exit(exitcode::DATAERR);
+                        }
+                    },
+                    Err(e) => {
+                        eprintln!("Error fetching reminder: {:#?}", e);
                         exit(exitcode::DATAERR);
                     }
                 };
@@ -505,7 +517,7 @@ fn main() {
             ListEntity::Reminders { include_past } => {
                 let reminders = Reminder::get_all(&conn, include_past);
                 for reminder in reminders {
-                    println!("{}", reminder);
+                    println!("{:#?}", reminder);
                 }
             }
             ListEntity::Notes {} => {

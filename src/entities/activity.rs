@@ -221,7 +221,7 @@ impl Activity {
         let people = Person::get_by_names(&conn, people);
         self.people = match people {
             Ok(people) => people,
-            Err(e) => {
+            Err(_) => {
                 return {
                     RecordParseSnafu {
                         record: "people".to_string(),
