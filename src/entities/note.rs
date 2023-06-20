@@ -55,9 +55,10 @@ impl Note {
     }
 
     pub fn get_all(conn: &Connection) -> Result<Vec<Note>, DbOperationsError> {
-        let mut stmt = conn
-            .prepare("SELECT * FROM notes")
-            .expect("Invalid SQL statement");
+        let mut stmt = match conn.prepare("SELECT * FROM notes") {
+            Ok(stmt) => stmt,
+            Err(_) => return Err(DbOperationsError::InvalidStatement),
+        };
 
         let rows = match stmt.query_map([], |row| {
             let note_id = row.get(0).unwrap();

@@ -352,9 +352,8 @@ pub mod db_helpers {
         conn: &Connection,
         reminder_id: u64,
     ) -> Result<Vec<crate::entities::person::Person>, DbOperationsError> {
-        let mut stmt = conn
-            .prepare(
-                "SELECT
+        let mut stmt = match conn.prepare(
+            "SELECT
                         person_id
                     FROM
                         people_reminders
@@ -362,8 +361,10 @@ pub mod db_helpers {
                         reminder_id = ?
                         AND deleted = FALSE
             ",
-            )
-            .expect("Invalid SQL statement");
+        ) {
+            Ok(stmt) => stmt,
+            Err(_) => return Err(DbOperationsError::InvalidStatement),
+        };
 
         let mut rows = match stmt.query(params![reminder_id]) {
             Ok(rows) => rows,
@@ -455,9 +456,8 @@ pub mod db_helpers {
         activity_id: u64,
         recurse: bool,
     ) -> Result<Vec<crate::entities::person::Person>, DbOperationsError> {
-        let mut stmt = conn
-            .prepare(
-                "SELECT
+        let mut stmt = match conn.prepare(
+            "SELECT
                         person_id
                     FROM
                         people_activities
@@ -465,8 +465,10 @@ pub mod db_helpers {
                         activity_id = ?
                         AND deleted = FALSE
             ",
-            )
-            .expect("Invalid SQL statement");
+        ) {
+            Ok(stmt) => stmt,
+            Err(_) => return Err(DbOperationsError::InvalidStatement),
+        };
 
         let mut rows = match stmt.query(params![activity_id]) {
             Ok(rows) => rows,
@@ -495,7 +497,10 @@ pub mod db_helpers {
             "SELECT * FROM people WHERE id IN ({}) AND deleted = FALSE",
             vars
         );
-        let mut stmt = conn.prepare(&sql).expect("Invalid SQL statement");
+        let mut stmt = match conn.prepare(&sql) {
+            Ok(stmt) => stmt,
+            Err(_) => return Err(DbOperationsError::InvalidStatement),
+        };
 
         let rows = match stmt.query_map(params_from_iter(people_ids.iter()), |row| {
             let person_id = row.get(0).unwrap();
