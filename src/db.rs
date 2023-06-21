@@ -7,7 +7,7 @@ pub mod db_interface {
     pub enum DbOperationsError {
         DuplicateEntry,
         GenericError,
-        InvalidStatement,
+        InvalidStatement { sqlite_error: rusqlite::Error },
         QueryError,
         RecordError,
     }
@@ -28,6 +28,7 @@ pub mod db_helpers {
     use crate::db::{params, params_from_iter, Connection};
     use crate::db_interface::DbOperationsError;
     use crate::entities::person::ContactInfoType;
+    use crate::entities::reminder::RecurringType;
 
     pub fn get_notes_by_person(
         conn: &Connection,
@@ -44,7 +45,7 @@ pub mod db_helpers {
         ",
         ) {
             Ok(stmt) => stmt,
-            Err(_) => return Err(DbOperationsError::InvalidStatement),
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
 
         let mut rows = match stmt.query(params![person_id]) {
@@ -76,17 +77,17 @@ pub mod db_helpers {
         );
         let mut stmt = match conn.prepare(&sql) {
             Ok(stmt) => stmt,
-            Err(_) => return Err(DbOperationsError::InvalidStatement),
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
 
         let rows = match stmt.query_map(params_from_iter(note_ids.iter()), |row| {
             Ok(crate::entities::note::Note::new(
-                row.get(0).unwrap(),
+                row.get(0)?,
                 crate::helpers::parse_from_str_ymd(
                     String::from(row.get::<usize, String>(1).unwrap_or_default()).as_str(),
                 )
                 .unwrap_or_default(),
-                row.get(2).unwrap(),
+                row.get(2)?,
                 vec![],
             ))
         }) {
@@ -121,7 +122,7 @@ pub mod db_helpers {
         ",
         ) {
             Ok(stmt) => stmt,
-            Err(_) => return Err(DbOperationsError::InvalidStatement),
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
 
         let mut rows = match stmt.query(params![person_id]) {
@@ -153,28 +154,31 @@ pub mod db_helpers {
         );
         let mut stmt = match conn.prepare(&sql) {
             Ok(stmt) => stmt,
-            Err(_) => return Err(DbOperationsError::InvalidStatement),
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
 
         let rows = match stmt.query_map(params_from_iter(reminder_ids.iter()), |row| {
-            let recurring_type = match crate::entities::reminder::RecurringType::get_by_id(
-                &conn,
-                row.get(4).unwrap(),
-            ) {
+            let recurring_type = match RecurringType::get_by_id(&conn, row.get(4)?) {
                 Ok(recurring_type) => match recurring_type {
                     Some(recurring_type) => recurring_type,
                     None => panic!("Recurring Type cannot be None"),
                 },
-                Err(e) => panic!("Error while fetching recurring type: {:#?}", e),
+                Err(e) => {
+                    let sqlite_error = match e {
+                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                        other => panic!("Unexpected error type: {:#?}", other),
+                    };
+                    return Err(sqlite_error);
+                }
             };
             Ok(crate::entities::reminder::Reminder::new(
-                row.get(0).unwrap(),
-                row.get(1).unwrap(),
+                row.get(0)?,
+                row.get(1)?,
                 crate::helpers::parse_from_str_ymd(
                     String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
                 )
                 .unwrap_or_default(),
-                row.get(3).unwrap(),
+                row.get(3)?,
                 recurring_type,
                 vec![],
             ))
@@ -210,27 +214,35 @@ pub mod db_helpers {
             ",
         ) {
             Ok(stmt) => stmt,
-            Err(_) => return Err(DbOperationsError::InvalidStatement),
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
 
         let mut contact_info_vec: Vec<crate::entities::person::ContactInfo> = vec![];
         let rows = match stmt.query_map(params![person_id], |row| {
-            let contact_info_type =
-                crate::entities::person::ContactInfoType::get_by_id(&conn, row.get(2).unwrap())
-                    .unwrap();
-            let contact_info_details: String = row.get(3).unwrap();
-            let contact_info = match contact_info_type {
-                Some(ContactInfoType::Phone(_)) => ContactInfoType::Phone(contact_info_details),
-                Some(ContactInfoType::WhatsApp(_)) => {
-                    ContactInfoType::WhatsApp(contact_info_details)
+            let contact_info_type = match ContactInfoType::get_by_id(&conn, row.get(2)?) {
+                Ok(contact_info_type) => match contact_info_type {
+                    Some(contact_info_type) => contact_info_type,
+                    None => panic!("Contact Info Type cannot be None"),
+                },
+                Err(e) => {
+                    let sqlite_error = match e {
+                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                        other => panic!("Unexpected error type: {:#?}", other),
+                    };
+                    return Err(sqlite_error);
                 }
-                Some(ContactInfoType::Email(_)) => ContactInfoType::Email(contact_info_details),
-                None => panic!("Unknown contact info type {:#?}", contact_info_type),
+            };
+
+            let contact_info_details: String = row.get(3)?;
+            let contact_info = match contact_info_type {
+                ContactInfoType::Phone(_) => ContactInfoType::Phone(contact_info_details),
+                ContactInfoType::WhatsApp(_) => ContactInfoType::WhatsApp(contact_info_details),
+                ContactInfoType::Email(_) => ContactInfoType::Email(contact_info_details),
             };
 
             Ok(crate::entities::person::ContactInfo::new(
-                row.get(0).unwrap(),
-                row.get(1).unwrap(),
+                row.get(0)?,
+                row.get(1)?,
                 contact_info,
             ))
         }) {
@@ -264,7 +276,7 @@ pub mod db_helpers {
             ",
         ) {
             Ok(stmt) => stmt,
-            Err(_) => return Err(DbOperationsError::InvalidStatement),
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
 
         let mut rows = match stmt.query(params![person_id]) {
@@ -296,38 +308,45 @@ pub mod db_helpers {
         );
         let mut stmt = match conn.prepare(&sql) {
             Ok(stmt) => stmt,
-            Err(_) => return Err(DbOperationsError::InvalidStatement),
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
 
         let rows = match stmt.query_map(params_from_iter(activity_ids.iter()), |row| {
-            let activity_id = match row.get(0) {
-                Ok(activity_id) => activity_id,
-                Err(e) => panic!("{:#?}", e),
-            };
+            let activity_id = row.get(0)?;
             let people = match crate::db_helpers::get_people_by_activity(&conn, activity_id, false)
             {
                 Ok(people) => people,
-                Err(e) => panic!("{:#?}", e),
+                Err(e) => {
+                    let sqlite_error = match e {
+                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                        other => panic!("Unexpected error type: {:#?}", other),
+                    };
+                    return Err(sqlite_error);
+                }
             };
-            let activity_type = match crate::entities::activity::ActivityType::get_by_id(
-                &conn,
-                row.get(2).unwrap(),
-            ) {
-                Ok(activity_type) => match activity_type {
-                    Some(activity_type) => activity_type,
-                    None => panic!("Activity type cannot be None"),
-                },
-                Err(e) => panic!("{:#?}", e),
-            };
+            let activity_type =
+                match crate::entities::activity::ActivityType::get_by_id(&conn, row.get(2)?) {
+                    Ok(activity_type) => match activity_type {
+                        Some(activity_type) => activity_type,
+                        None => panic!("Activity type cannot be None"),
+                    },
+                    Err(e) => {
+                        let sqlite_error = match e {
+                            DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                            other => panic!("Unexpected error type: {:#?}", other),
+                        };
+                        return Err(sqlite_error);
+                    }
+                };
             Ok(crate::entities::activity::Activity::new(
                 activity_id,
-                row.get(1).unwrap(),
+                row.get(1)?,
                 activity_type,
                 crate::helpers::parse_from_str_ymd(
                     String::from(row.get::<usize, String>(3).unwrap_or_default()).as_str(),
                 )
                 .unwrap_or_default(),
-                row.get(4).unwrap(),
+                row.get(4)?,
                 people,
             ))
         }) {
@@ -363,7 +382,7 @@ pub mod db_helpers {
             ",
         ) {
             Ok(stmt) => stmt,
-            Err(_) => return Err(DbOperationsError::InvalidStatement),
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
 
         let mut rows = match stmt.query(params![reminder_id]) {
@@ -395,33 +414,57 @@ pub mod db_helpers {
         );
         let mut stmt = match conn.prepare(&sql) {
             Ok(stmt) => stmt,
-            Err(_) => return Err(DbOperationsError::InvalidStatement),
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
 
         let rows = match stmt.query_map(params_from_iter(people_ids.iter()), |row| {
-            let person_id = row.get(0).unwrap();
+            let person_id = row.get(0)?;
             // TODO handle this properly
             let notes = match crate::db::db_helpers::get_notes_by_person(&conn, person_id) {
                 Ok(notes) => notes,
-                Err(e) => panic!("{:#?}", e),
+                Err(e) => {
+                    let sqlite_error = match e {
+                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                        other => panic!("Unexpected error type: {:#?}", other),
+                    };
+                    return Err(sqlite_error);
+                }
             };
             let reminders = match crate::db::db_helpers::get_reminders_by_person(&conn, person_id) {
                 Ok(reminders) => reminders,
-                Err(e) => panic!("{:#?}", e),
+                Err(e) => {
+                    let sqlite_error = match e {
+                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                        other => panic!("Unexpected error type: {:#?}", other),
+                    };
+                    return Err(sqlite_error);
+                }
             };
             let contact_info =
                 match crate::db::db_helpers::get_contact_info_by_person(&conn, person_id) {
                     Ok(contact_info) => contact_info,
-                    Err(e) => panic!("{:#?}", e),
+                    Err(e) => {
+                        let sqlite_error = match e {
+                            DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                            other => panic!("Unexpected error type: {:#?}", other),
+                        };
+                        return Err(sqlite_error);
+                    }
                 };
             let activities = match crate::db::db_helpers::get_activities_by_person(&conn, person_id)
             {
                 Ok(activities) => activities,
-                Err(e) => panic!("{:#?}", e),
+                Err(e) => {
+                    let sqlite_error = match e {
+                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                        other => panic!("Unexpected error type: {:#?}", other),
+                    };
+                    return Err(sqlite_error);
+                }
             };
             Ok(crate::entities::person::Person {
                 id: person_id,
-                name: row.get(1).unwrap(),
+                name: row.get(1)?,
                 birthday: Some(
                     crate::helpers::parse_from_str_ymd(
                         String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
@@ -467,7 +510,7 @@ pub mod db_helpers {
             ",
         ) {
             Ok(stmt) => stmt,
-            Err(_) => return Err(DbOperationsError::InvalidStatement),
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
 
         let mut rows = match stmt.query(params![activity_id]) {
@@ -499,33 +542,56 @@ pub mod db_helpers {
         );
         let mut stmt = match conn.prepare(&sql) {
             Ok(stmt) => stmt,
-            Err(_) => return Err(DbOperationsError::InvalidStatement),
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
 
         let rows = match stmt.query_map(params_from_iter(people_ids.iter()), |row| {
-            let person_id = row.get(0).unwrap();
-            // TODO handle this properly
+            let person_id = row.get(0)?;
             let notes = match crate::db::db_helpers::get_notes_by_person(&conn, person_id) {
                 Ok(notes) => notes,
-                Err(e) => panic!("{:#?}", e),
+                Err(e) => {
+                    let sqlite_error = match e {
+                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                        other => panic!("Unexpected error type: {:#?}", other),
+                    };
+                    return Err(sqlite_error);
+                }
             };
             let reminders = match crate::db::db_helpers::get_reminders_by_person(&conn, person_id) {
                 Ok(reminders) => reminders,
-                Err(e) => panic!("{:#?}", e),
+                Err(e) => {
+                    let sqlite_error = match e {
+                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                        other => panic!("Unexpected error type: {:#?}", other),
+                    };
+                    return Err(sqlite_error);
+                }
             };
             let contact_info =
                 match crate::db::db_helpers::get_contact_info_by_person(&conn, person_id) {
                     Ok(contact_info) => contact_info,
-                    Err(e) => panic!("{:#?}", e),
+                    Err(e) => {
+                        let sqlite_error = match e {
+                            DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                            other => panic!("Unexpected error type: {:#?}", other),
+                        };
+                        return Err(sqlite_error);
+                    }
                 };
             let activities = match crate::db::db_helpers::get_activities_by_person(&conn, person_id)
             {
                 Ok(activities) => activities,
-                Err(e) => panic!("{:#?}", e),
+                Err(e) => {
+                    let sqlite_error = match e {
+                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                        other => panic!("Unexpected error type: {:#?}", other),
+                    };
+                    return Err(sqlite_error);
+                }
             };
             Ok(crate::entities::person::Person {
                 id: person_id,
-                name: row.get(1).unwrap(),
+                name: row.get(1)?,
                 birthday: Some(
                     crate::helpers::parse_from_str_ymd(
                         String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
@@ -569,7 +635,7 @@ pub mod db_helpers {
                     ",
         ) {
             Ok(stmt) => stmt,
-            Err(_) => return Err(DbOperationsError::InvalidStatement),
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
 
         let mut rows = match stmt.query(params![note_id]) {
@@ -601,33 +667,57 @@ pub mod db_helpers {
         );
         let mut stmt = match conn.prepare(&sql) {
             Ok(stmt) => stmt,
-            Err(_) => return Err(DbOperationsError::InvalidStatement),
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
 
         let rows = match stmt.query_map(params_from_iter(people_ids.iter()), |row| {
-            let person_id = row.get(0).unwrap();
-            // TODO handle this properly
+            let person_id = row.get(0)?;
             let notes = match crate::db::db_helpers::get_notes_by_person(&conn, person_id) {
                 Ok(notes) => notes,
                 Err(e) => panic!("{:#?}", e),
+                Err(e) => {
+                    let sqlite_error = match e {
+                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                        other => panic!("Unexpected error type: {:#?}", other),
+                    };
+                    return Err(sqlite_error);
+                }
             };
             let reminders = match crate::db::db_helpers::get_reminders_by_person(&conn, person_id) {
                 Ok(reminders) => reminders,
-                Err(e) => panic!("{:#?}", e),
+                Err(e) => {
+                    let sqlite_error = match e {
+                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                        other => panic!("Unexpected error type: {:#?}", other),
+                    };
+                    return Err(sqlite_error);
+                }
             };
             let contact_info =
                 match crate::db::db_helpers::get_contact_info_by_person(&conn, person_id) {
                     Ok(contact_info) => contact_info,
-                    Err(e) => panic!("{:#?}", e),
+                    Err(e) => {
+                        let sqlite_error = match e {
+                            DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                            other => panic!("Unexpected error type: {:#?}", other),
+                        };
+                        return Err(sqlite_error);
+                    }
                 };
             let activities = match crate::db::db_helpers::get_activities_by_person(&conn, person_id)
             {
                 Ok(activities) => activities,
-                Err(e) => panic!("{:#?}", e),
+                Err(e) => {
+                    let sqlite_error = match e {
+                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                        other => panic!("Unexpected error type: {:#?}", other),
+                    };
+                    return Err(sqlite_error);
+                }
             };
             Ok(crate::entities::person::Person {
                 id: person_id,
-                name: row.get(1).unwrap(),
+                name: row.get(1)?,
                 birthday: Some(
                     crate::helpers::parse_from_str_ymd(
                         String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
@@ -730,7 +820,7 @@ pub mod db_helpers {
         for query in sql_create_statements {
             let mut stmt = match conn.prepare(query) {
                 Ok(stmt) => stmt,
-                Err(_) => return Err(DbOperationsError::InvalidStatement),
+                Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
             };
             match stmt.execute(params![]) {
                 // TODO Improve message
@@ -769,7 +859,7 @@ pub mod db_helpers {
         for query in sql_populate_statements {
             let mut stmt = match conn.prepare(query) {
                 Ok(stmt) => stmt,
-                Err(_) => return Err(DbOperationsError::InvalidStatement),
+                Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
             };
             match stmt.execute(params![]) {
                 // TODO Improve message

@@ -65,7 +65,7 @@ impl Reminder {
         let mut stmt = match conn.prepare("SELECT * FROM reminders WHERE name = ?1 COLLATE NOCASE")
         {
             Ok(stmt) => stmt,
-            Err(_) => return Err(DbOperationsError::InvalidStatement),
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
         let mut rows = match stmt.query(params![name]) {
             Ok(rows) => rows,
@@ -120,7 +120,7 @@ impl Reminder {
 
         let mut stmt = match conn.prepare(&sql) {
             Ok(stmt) => stmt,
-            Err(_) => return Err(DbOperationsError::InvalidStatement),
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
         let rows = match stmt.query_map([], |row| {
             let reminder_id = row.get(0).unwrap();
@@ -305,7 +305,7 @@ impl crate::db::db_interface::DbOperations for Reminder {
     fn add(&self, conn: &Connection) -> Result<&Reminder, DbOperationsError> {
         let mut stmt = match conn.prepare("SELECT id FROM reminders WHERE name = ?") {
             Ok(stmt) => stmt,
-            Err(_) => return Err(DbOperationsError::InvalidStatement),
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
         let mut rows = match stmt.query(params![self.name]) {
             Ok(rows) => rows,
@@ -327,7 +327,7 @@ impl crate::db::db_interface::DbOperations for Reminder {
         // TODO error handling
         let mut stmt = match conn.prepare("SELECT id FROM recurring_types WHERE type = ?") {
             Ok(stmt) => stmt,
-            Err(_) => return Err(DbOperationsError::InvalidStatement),
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
         let mut rows = match stmt.query(params![recurring_str]) {
             Ok(rows) => rows,
@@ -345,7 +345,7 @@ impl crate::db::db_interface::DbOperations for Reminder {
             ",
         ) {
             Ok(stmt) => stmt,
-            Err(_) => return Err(DbOperationsError::InvalidStatement),
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
         match stmt.execute(params![self.name, date_str, types[0], self.description]) {
             Ok(updated) => {
@@ -366,7 +366,7 @@ impl crate::db::db_interface::DbOperations for Reminder {
                     VALUES (?1, ?2, FALSE)",
             ) {
                 Ok(stmt) => stmt,
-                Err(_) => return Err(DbOperationsError::InvalidStatement),
+                Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
             };
             match stmt.execute(params![person.id, id]) {
                 Ok(updated) => {
@@ -389,7 +389,7 @@ impl crate::db::db_interface::DbOperations for Reminder {
                     id = ?1",
         ) {
             Ok(stmt) => stmt,
-            Err(_) => return Err(DbOperationsError::InvalidStatement),
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
         match stmt.execute([self.id]) {
             Ok(updated) => {
@@ -408,7 +408,7 @@ impl crate::db::db_interface::DbOperations for Reminder {
 
         let mut stmt = match conn.prepare("SELECT id FROM recurring_types WHERE type = ?") {
             Ok(stmt) => stmt,
-            Err(_) => return Err(DbOperationsError::InvalidStatement),
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
         let mut rows = match stmt.query(params![recurring_str]) {
             Ok(rows) => rows,
@@ -432,7 +432,7 @@ impl crate::db::db_interface::DbOperations for Reminder {
             ",
         ) {
             Ok(stmt) => stmt,
-            Err(_) => return Err(DbOperationsError::InvalidStatement),
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
         match stmt.execute(params![
             self.name,
@@ -454,7 +454,7 @@ impl crate::db::db_interface::DbOperations for Reminder {
     fn get_by_id(conn: &Connection, id: u64) -> Result<Option<Entities>, DbOperationsError> {
         let mut stmt = match conn.prepare("SELECT * FROM reminders WHERE id = ?1") {
             Ok(stmt) => stmt,
-            Err(_) => return Err(DbOperationsError::InvalidStatement),
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
         let mut rows = match stmt.query(params![id]) {
             Ok(rows) => rows,
@@ -540,7 +540,7 @@ impl RecurringType {
     ) -> Result<Option<RecurringType>, DbOperationsError> {
         let mut stmt = match conn.prepare("SELECT type FROM recurring_types WHERE id = ?") {
             Ok(stmt) => stmt,
-            Err(_) => return Err(DbOperationsError::InvalidStatement),
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
         let mut rows = match stmt.query(params![id]) {
             Ok(rows) => rows,

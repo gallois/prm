@@ -52,8 +52,10 @@ impl Event {
                 ",
         ) {
             Ok(stmt) => stmt,
-            Err(_) => {
-                return Err(EventError::DbError(DbOperationsError::InvalidStatement));
+            Err(e) => {
+                return Err(EventError::DbError(DbOperationsError::InvalidStatement {
+                    sqlite_error: e,
+                }));
             }
         };
 
@@ -112,7 +114,11 @@ impl Event {
         // TODO handle periodic events
         let mut stmt = match conn.prepare("SELECT * FROM reminders WHERE date BETWEEN ?1 AND ?2") {
             Ok(stmt) => stmt,
-            Err(_) => return Err(EventError::DbError(DbOperationsError::InvalidStatement)),
+            Err(e) => {
+                return Err(EventError::DbError(DbOperationsError::InvalidStatement {
+                    sqlite_error: e,
+                }))
+            }
         };
         let rows = match stmt.query_map(params![today_str, date_limit_str], |row| {
             let reminder_id = row.get(0).unwrap();

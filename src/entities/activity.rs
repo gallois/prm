@@ -562,7 +562,7 @@ impl ActivityType {
     ) -> Result<Option<ActivityType>, DbOperationsError> {
         let mut stmt = match conn.prepare("SELECT type FROM activity_types WHERE id = ?") {
             Ok(stmt) => stmt,
-            Err(_) => return Err(DbOperationsError::InvalidStatement),
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
 
         let mut rows = match stmt.query(params![id]) {

@@ -57,7 +57,7 @@ impl Note {
     pub fn get_all(conn: &Connection) -> Result<Vec<Note>, DbOperationsError> {
         let mut stmt = match conn.prepare("SELECT * FROM notes") {
             Ok(stmt) => stmt,
-            Err(_) => return Err(DbOperationsError::InvalidStatement),
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
 
         let rows = match stmt.query_map([], |row| {
@@ -178,7 +178,7 @@ impl Note {
 }
 
 impl crate::db::db_interface::DbOperations for Note {
-    fn add(&self, conn: &Connection) -> Result<&Note, crate::db::db_interface::DbOperationsError> {
+    fn add(&self, conn: &Connection) -> Result<&Note, DbOperationsError> {
         let date_str = self.date.to_string();
 
         let mut stmt = match conn.prepare(
@@ -188,7 +188,7 @@ impl crate::db::db_interface::DbOperations for Note {
             ",
         ) {
             Ok(stmt) => stmt,
-            Err(_) => return Err(crate::db::db_interface::DbOperationsError::InvalidStatement),
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
 
         match stmt.execute(params![date_str, self.content]) {
@@ -210,7 +210,7 @@ impl crate::db::db_interface::DbOperations for Note {
                     VALUES (?1, ?2, FALSE)",
             ) {
                 Ok(stmt) => stmt,
-                Err(_) => return Err(crate::db::db_interface::DbOperationsError::InvalidStatement),
+                Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
             };
 
             match stmt.execute(params![person.id, id]) {
@@ -224,10 +224,7 @@ impl crate::db::db_interface::DbOperations for Note {
         Ok(self)
     }
 
-    fn remove(
-        &self,
-        conn: &Connection,
-    ) -> Result<&Self, crate::db::db_interface::DbOperationsError> {
+    fn remove(&self, conn: &Connection) -> Result<&Self, DbOperationsError> {
         let mut stmt = match conn.prepare(
             "UPDATE 
                     notes 
@@ -237,7 +234,7 @@ impl crate::db::db_interface::DbOperations for Note {
                     id = ?1",
         ) {
             Ok(stmt) => stmt,
-            Err(_) => return Err(crate::db::db_interface::DbOperationsError::InvalidStatement),
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
 
         match stmt.execute([self.id]) {
@@ -250,7 +247,7 @@ impl crate::db::db_interface::DbOperations for Note {
         Ok(self)
     }
 
-    fn save(&self, conn: &Connection) -> Result<&Note, crate::db::db_interface::DbOperationsError> {
+    fn save(&self, conn: &Connection) -> Result<&Note, DbOperationsError> {
         let mut stmt = match conn.prepare(
             "UPDATE
                 notes
@@ -261,7 +258,7 @@ impl crate::db::db_interface::DbOperations for Note {
                 id = ?3",
         ) {
             Ok(stmt) => stmt,
-            Err(_) => return Err(crate::db::db_interface::DbOperationsError::InvalidStatement),
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
 
         match stmt.execute(params![self.date.to_string(), self.content, self.id]) {
@@ -282,7 +279,7 @@ impl crate::db::db_interface::DbOperations for Note {
                         AND person_id = ?2",
             ) {
                 Ok(stmt) => stmt,
-                Err(_) => return Err(crate::db::db_interface::DbOperationsError::InvalidStatement),
+                Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
             };
 
             let mut rows = match stmt.query(params![self.id, person.id]) {
@@ -308,10 +305,8 @@ impl crate::db::db_interface::DbOperations for Note {
                     let mut stmt =
                         match conn.prepare("UPDATE people_notes SET deleted = 1 WHERE id = ?1") {
                             Ok(stmt) => stmt,
-                            Err(_) => {
-                                return Err(
-                                    crate::db::db_interface::DbOperationsError::InvalidStatement,
-                                )
+                            Err(e) => {
+                                return Err(DbOperationsError::InvalidStatement { sqlite_error: e })
                             }
                         };
 
@@ -334,7 +329,7 @@ impl crate::db::db_interface::DbOperations for Note {
                     ) VALUES (?1, ?2, FALSE)",
             ) {
                 Ok(stmt) => stmt,
-                Err(_) => return Err(crate::db::db_interface::DbOperationsError::InvalidStatement),
+                Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
             };
             match stmt.execute(params![person.id, self.id]) {
                 Ok(updated) => {

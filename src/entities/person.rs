@@ -58,7 +58,7 @@ impl Person {
     pub fn get_by_name(conn: &Connection, name: &str) -> Result<Option<Person>, DbOperationsError> {
         let mut stmt = match conn.prepare("SELECT * FROM people WHERE name = ?1 COLLATE NOCASE") {
             Ok(stmt) => stmt,
-            Err(_) => return Err(DbOperationsError::InvalidStatement),
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
         let mut rows = match stmt.query(params![name]) {
             Ok(rows) => rows,
@@ -126,7 +126,7 @@ impl Person {
         let mut people = vec![];
         let mut stmt = match conn.prepare(&sql) {
             Ok(stmt) => stmt,
-            Err(_) => return Err(DbOperationsError::InvalidStatement),
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
         let rows: _ = match stmt.query_map(params_from_iter(names.iter()), |row| {
             Ok(Person::new(
@@ -159,7 +159,7 @@ impl Person {
     pub fn get_all(conn: &Connection) -> Result<Vec<Person>, DbOperationsError> {
         let mut stmt = match conn.prepare("SELECT * FROM people") {
             Ok(stmt) => stmt,
-            Err(_) => return Err(DbOperationsError::InvalidStatement),
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
 
         let rows = match stmt.query_map([], |row| {
@@ -362,7 +362,7 @@ impl crate::db::db_interface::DbOperations for Person {
             .prepare("INSERT INTO people (name, birthday, deleted) VALUES (?1, ?2, FALSE)")
         {
             Ok(stmt) => stmt,
-            Err(_) => return Err(DbOperationsError::InvalidStatement),
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
 
         match stmt.execute(params![self.name, birthday_str]) {
@@ -391,7 +391,7 @@ impl crate::db::db_interface::DbOperations for Person {
 
             let mut stmt = match conn.prepare("SELECT id FROM contact_info_types WHERE type = ?") {
                 Ok(stmt) => stmt,
-                Err(_) => return Err(DbOperationsError::InvalidStatement),
+                Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
             };
             let mut rows = match stmt.query(params![ci_type]) {
                 Ok(rows) => rows,
@@ -421,7 +421,7 @@ impl crate::db::db_interface::DbOperations for Person {
                     VALUES (?1, ?2, ?3, FALSE)",
             ) {
                 Ok(stmt) => stmt,
-                Err(_) => return Err(DbOperationsError::InvalidStatement),
+                Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
             };
 
             match stmt.execute(params![id, types[0], ci_value]) {
@@ -452,7 +452,7 @@ impl crate::db::db_interface::DbOperations for Person {
                     id = ?1",
         ) {
             Ok(stmt) => stmt,
-            Err(_) => return Err(DbOperationsError::InvalidStatement),
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
         match stmt.execute([self.id]) {
             Ok(updated) => {
@@ -483,7 +483,7 @@ impl crate::db::db_interface::DbOperations for Person {
                 id = ?3",
         ) {
             Ok(stmt) => stmt,
-            Err(_) => return Err(DbOperationsError::InvalidStatement),
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
         match stmt.execute(params![self.name, birthday_str, self.id]) {
             Ok(updated) => {
@@ -508,11 +508,12 @@ impl crate::db::db_interface::DbOperations for Person {
                         value.as_ref(),
                     ),
                 };
-                let mut stmt =
-                    match conn.prepare("SELECT id FROM contact_info_types WHERE type = ?") {
-                        Ok(stmt) => stmt,
-                        Err(_) => return Err(DbOperationsError::InvalidStatement),
-                    };
+                let mut stmt = match conn
+                    .prepare("SELECT id FROM contact_info_types WHERE type = ?")
+                {
+                    Ok(stmt) => stmt,
+                    Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
+                };
 
                 let mut rows = match stmt.query(params![ci_type]) {
                     Ok(rows) => rows,
@@ -534,7 +535,7 @@ impl crate::db::db_interface::DbOperations for Person {
 
                 let mut stmt = match conn.prepare("SELECT id FROM contact_info WHERE person_id = ?1 AND contact_info_type_id = ?2") {
                     Ok(stmt) => stmt,
-                    Err(_) => return Err(DbOperationsError::InvalidStatement),
+                    Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
                 };
                 let mut rows = match stmt.query(params![self.id, types[0]]) {
                     Ok(rows) => rows,
@@ -565,7 +566,7 @@ impl crate::db::db_interface::DbOperations for Person {
                     id = ?4",
                 ) {
                     Ok(stmt) => stmt,
-                    Err(_) => return Err(DbOperationsError::InvalidStatement),
+                    Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
                 };
                 match stmt.execute(params![self.id, types[0], ci_value, ci_ids[0]]) {
                     Ok(updated) => {
@@ -582,7 +583,7 @@ impl crate::db::db_interface::DbOperations for Person {
     fn get_by_id(conn: &Connection, id: u64) -> Result<Option<Entities>, DbOperationsError> {
         let mut stmt = match conn.prepare("SELECT * FROM people WHERE id = ?1") {
             Ok(stmt) => stmt,
-            Err(_) => return Err(DbOperationsError::InvalidStatement),
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
         let mut rows = match stmt.query(params![id]) {
             Ok(rows) => rows,
@@ -718,7 +719,7 @@ impl ContactInfoType {
     ) -> Result<Option<ContactInfoType>, DbOperationsError> {
         let mut stmt = match conn.prepare("SELECT type FROM contact_info_types WHERE id = ?") {
             Ok(stmt) => stmt,
-            Err(_) => return Err(DbOperationsError::InvalidStatement),
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
 
         let mut rows = match stmt.query(params![id]) {
