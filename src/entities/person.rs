@@ -105,7 +105,12 @@ impl Person {
                 }
                 None => return Ok(None),
             },
-            Err(_) => return Err(DbOperationsError::RecordError),
+            Err(e) => {
+                return Err(DbOperationsError::RecordError {
+                    sqlite_error: Some(e),
+                    strum_error: None,
+                })
+            }
         }
     }
 
@@ -148,7 +153,12 @@ impl Person {
         for person in rows.into_iter() {
             let person = match person {
                 Ok(person) => person,
-                Err(_) => return Err(DbOperationsError::RecordError),
+                Err(e) => {
+                    return Err(DbOperationsError::RecordError {
+                        sqlite_error: Some(e),
+                        strum_error: None,
+                    })
+                }
             };
             people.push(person);
         }
@@ -206,7 +216,12 @@ impl Person {
         for person in rows.into_iter() {
             let person = match person {
                 Ok(person) => person,
-                Err(_) => return Err(DbOperationsError::RecordError),
+                Err(e) => {
+                    return Err(DbOperationsError::RecordError {
+                        sqlite_error: Some(e),
+                        strum_error: None,
+                    })
+                }
             };
             people.push(person);
         }
@@ -340,11 +355,21 @@ impl crate::db::db_interface::DbOperations for Person {
                 Ok(row) => match row {
                     Some(row) => match row.get(0) {
                         Ok(row) => ids.push(row),
-                        Err(_) => return Err(DbOperationsError::RecordError),
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
                     },
                     None => break,
                 },
-                Err(_) => return Err(DbOperationsError::RecordError),
+                Err(e) => {
+                    return Err(DbOperationsError::RecordError {
+                        sqlite_error: Some(e),
+                        strum_error: None,
+                    })
+                }
             }
         }
 
@@ -403,11 +428,21 @@ impl crate::db::db_interface::DbOperations for Person {
                     Ok(row) => match row {
                         Some(row) => match row.get(0) {
                             Ok(row) => types.push(row),
-                            Err(_) => return Err(DbOperationsError::RecordError),
+                            Err(e) => {
+                                return Err(DbOperationsError::RecordError {
+                                    sqlite_error: Some(e),
+                                    strum_error: None,
+                                })
+                            }
                         },
                         None => break,
                     },
-                    Err(_) => return Err(DbOperationsError::RecordError),
+                    Err(e) => {
+                        return Err(DbOperationsError::RecordError {
+                            sqlite_error: Some(e),
+                            strum_error: None,
+                        })
+                    }
                 }
             }
 
@@ -525,11 +560,21 @@ impl crate::db::db_interface::DbOperations for Person {
                         Ok(row) => match row {
                             Some(row) => match row.get(0) {
                                 Ok(row) => types.push(row),
-                                Err(_) => return Err(DbOperationsError::RecordError),
+                                Err(e) => {
+                                    return Err(DbOperationsError::RecordError {
+                                        sqlite_error: Some(e),
+                                        strum_error: None,
+                                    })
+                                }
                             },
                             None => break,
                         },
-                        Err(_) => return Err(DbOperationsError::RecordError),
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
                     }
                 }
 
@@ -547,11 +592,21 @@ impl crate::db::db_interface::DbOperations for Person {
                         Ok(row) => match row {
                             Some(row) => match row.get(0) {
                                 Ok(row) => ci_ids.push(row),
-                                Err(_) => return Err(DbOperationsError::RecordError),
+                                Err(e) => {
+                                    return Err(DbOperationsError::RecordError {
+                                        sqlite_error: Some(e),
+                                        strum_error: None,
+                                    })
+                                }
                             },
                             None => break,
                         },
-                        Err(_) => return Err(DbOperationsError::RecordError),
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
                     }
                 }
 
@@ -630,7 +685,12 @@ impl crate::db::db_interface::DbOperations for Person {
                 }
                 None => return Ok(None),
             },
-            Err(_) => return Err(DbOperationsError::RecordError),
+            Err(e) => {
+                return Err(DbOperationsError::RecordError {
+                    sqlite_error: Some(e),
+                    strum_error: None,
+                })
+            }
         }
     }
 }
@@ -734,13 +794,23 @@ impl ContactInfoType {
                         row.get::<usize, String>(0).unwrap().as_str(),
                     ) {
                         Ok(ci) => ci,
-                        Err(_) => return Err(DbOperationsError::RecordError),
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: None,
+                                strum_error: Some(e),
+                            })
+                        }
                     };
                     Ok(Some(ci))
                 }
                 None => Ok(None),
             },
-            Err(_) => return Err(DbOperationsError::RecordError),
+            Err(e) => {
+                return Err(DbOperationsError::RecordError {
+                    sqlite_error: Some(e),
+                    strum_error: None,
+                })
+            }
         }
     }
 }

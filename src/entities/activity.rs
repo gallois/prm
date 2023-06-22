@@ -63,7 +63,7 @@ impl Activity {
         let mut stmt = match conn.prepare("SELECT * FROM activities WHERE name = ?1 COLLATE NOCASE")
         {
             Ok(stmt) => stmt,
-            Err(_) => return Err(DbOperationsError::GenericError),
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
         let mut rows = match stmt.query(params![name]) {
             Ok(rows) => rows,
@@ -72,7 +72,15 @@ impl Activity {
         match rows.next() {
             Ok(row) => match row {
                 Some(row) => {
-                    let activity_id = row.get(0).unwrap();
+                    let activity_id = match row.get(0) {
+                        Ok(activity_id) => activity_id,
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
+                    };
                     let people = match crate::db::db_helpers::get_people_by_activity(
                         &conn,
                         activity_id,
@@ -147,7 +155,12 @@ impl Activity {
         for activity in rows.into_iter() {
             let activity = match activity {
                 Ok(activity) => activity,
-                Err(_) => return Err(DbOperationsError::RecordError),
+                Err(e) => {
+                    return Err(DbOperationsError::RecordError {
+                        sqlite_error: Some(e),
+                        strum_error: None,
+                    })
+                }
             };
             activities.push(activity);
         }
@@ -306,11 +319,21 @@ impl DbOperations for Activity {
                 Ok(row) => match row {
                     Some(row) => match row.get(0) {
                         Ok(row) => types.push(row),
-                        Err(_) => return Err(DbOperationsError::RecordError),
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
                     },
                     None => break,
                 },
-                Err(_) => return Err(DbOperationsError::RecordError),
+                Err(e) => {
+                    return Err(DbOperationsError::RecordError {
+                        sqlite_error: Some(e),
+                        strum_error: None,
+                    })
+                }
             }
         }
 
@@ -395,11 +418,21 @@ impl DbOperations for Activity {
                 Ok(row) => match row {
                     Some(row) => match row.get(0) {
                         Ok(row) => types.push(row),
-                        Err(_) => return Err(DbOperationsError::RecordError),
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
                     },
                     None => break,
                 },
-                Err(_) => return Err(DbOperationsError::RecordError),
+                Err(e) => {
+                    return Err(DbOperationsError::RecordError {
+                        sqlite_error: Some(e),
+                        strum_error: None,
+                    })
+                }
             }
         }
 
@@ -453,11 +486,21 @@ impl DbOperations for Activity {
                     Ok(row) => match row {
                         Some(row) => match row.get(0) {
                             Ok(row) => results.push(row),
-                            Err(_) => return Err(DbOperationsError::RecordError),
+                            Err(e) => {
+                                return Err(DbOperationsError::RecordError {
+                                    sqlite_error: Some(e),
+                                    strum_error: None,
+                                })
+                            }
                         },
                         None => break,
                     },
-                    Err(_) => return Err(DbOperationsError::RecordError),
+                    Err(e) => {
+                        return Err(DbOperationsError::RecordError {
+                            sqlite_error: Some(e),
+                            strum_error: None,
+                        })
+                    }
                 }
             }
 
@@ -577,13 +620,23 @@ impl ActivityType {
                         match ActivityType::from_str(row.get::<usize, String>(0).unwrap().as_str())
                         {
                             Ok(activity_type) => activity_type,
-                            Err(_) => return Err(DbOperationsError::RecordError),
+                            Err(e) => {
+                                return Err(DbOperationsError::RecordError {
+                                    sqlite_error: None,
+                                    strum_error: Some(e),
+                                })
+                            }
                         };
                     Ok(Some(activity_type))
                 }
                 None => Ok(None),
             },
-            Err(_) => return Err(DbOperationsError::RecordError),
+            Err(e) => {
+                return Err(DbOperationsError::RecordError {
+                    sqlite_error: Some(e),
+                    strum_error: None,
+                })
+            }
         }
     }
 }

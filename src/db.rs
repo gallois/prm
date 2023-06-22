@@ -7,9 +7,14 @@ pub mod db_interface {
     pub enum DbOperationsError {
         DuplicateEntry,
         GenericError,
-        InvalidStatement { sqlite_error: rusqlite::Error },
+        InvalidStatement {
+            sqlite_error: rusqlite::Error,
+        },
         QueryError,
-        RecordError,
+        RecordError {
+            sqlite_error: Option<rusqlite::Error>,
+            strum_error: Option<strum::ParseError>,
+        },
     }
 
     pub trait DbOperations {
@@ -58,11 +63,21 @@ pub mod db_helpers {
                 Ok(row) => match row {
                     Some(row) => match row.get(0) {
                         Ok(row) => note_ids.push(row),
-                        Err(_) => return Err(DbOperationsError::RecordError),
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
                     },
                     None => break,
                 },
-                Err(_) => return Err(DbOperationsError::RecordError),
+                Err(e) => {
+                    return Err(DbOperationsError::RecordError {
+                        sqlite_error: Some(e),
+                        strum_error: None,
+                    })
+                }
             }
         }
 
@@ -99,7 +114,12 @@ pub mod db_helpers {
         for note in rows {
             let note = match note {
                 Ok(note) => note,
-                Err(_) => return Err(DbOperationsError::RecordError),
+                Err(e) => {
+                    return Err(DbOperationsError::RecordError {
+                        sqlite_error: Some(e),
+                        strum_error: None,
+                    })
+                }
             };
             notes.push(note);
         }
@@ -135,11 +155,21 @@ pub mod db_helpers {
                 Ok(row) => match row {
                     Some(row) => match row.get(0) {
                         Ok(row) => reminder_ids.push(row),
-                        Err(_) => return Err(DbOperationsError::RecordError),
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
                     },
                     None => break,
                 },
-                Err(_) => return Err(DbOperationsError::RecordError),
+                Err(e) => {
+                    return Err(DbOperationsError::RecordError {
+                        sqlite_error: Some(e),
+                        strum_error: None,
+                    })
+                }
             }
         }
 
@@ -191,7 +221,12 @@ pub mod db_helpers {
         for reminder in rows {
             let reminder = match reminder {
                 Ok(reminder) => reminder,
-                Err(_) => return Err(DbOperationsError::RecordError),
+                Err(e) => {
+                    return Err(DbOperationsError::RecordError {
+                        sqlite_error: Some(e),
+                        strum_error: None,
+                    })
+                }
             };
             reminders.push(reminder);
         }
@@ -253,7 +288,12 @@ pub mod db_helpers {
         for contact_info in rows {
             let contact_info = match contact_info {
                 Ok(contact_info) => contact_info,
-                Err(_) => return Err(DbOperationsError::RecordError),
+                Err(e) => {
+                    return Err(DbOperationsError::RecordError {
+                        sqlite_error: Some(e),
+                        strum_error: None,
+                    })
+                }
             };
             contact_info_vec.push(contact_info);
         }
@@ -289,11 +329,21 @@ pub mod db_helpers {
                 Ok(row) => match row {
                     Some(row) => match row.get(0) {
                         Ok(row) => activity_ids.push(row),
-                        Err(_) => return Err(DbOperationsError::RecordError),
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
                     },
                     None => break,
                 },
-                Err(_) => return Err(DbOperationsError::RecordError),
+                Err(e) => {
+                    return Err(DbOperationsError::RecordError {
+                        sqlite_error: Some(e),
+                        strum_error: None,
+                    })
+                }
             }
         }
 
@@ -358,7 +408,12 @@ pub mod db_helpers {
         for activity in rows {
             let activity = match activity {
                 Ok(activity) => activity,
-                Err(_) => return Err(DbOperationsError::RecordError),
+                Err(e) => {
+                    return Err(DbOperationsError::RecordError {
+                        sqlite_error: Some(e),
+                        strum_error: None,
+                    })
+                }
             };
             activities.push(activity);
         }
@@ -395,11 +450,21 @@ pub mod db_helpers {
                 Ok(row) => match row {
                     Some(row) => match row.get(0) {
                         Ok(row) => people_ids.push(row),
-                        Err(_) => return Err(DbOperationsError::RecordError),
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
                     },
                     None => break,
                 },
-                Err(_) => return Err(DbOperationsError::RecordError),
+                Err(e) => {
+                    return Err(DbOperationsError::RecordError {
+                        sqlite_error: Some(e),
+                        strum_error: None,
+                    })
+                }
             }
         }
 
@@ -485,7 +550,12 @@ pub mod db_helpers {
         for activity in rows {
             let activity = match activity {
                 Ok(activity) => activity,
-                Err(_) => return Err(DbOperationsError::RecordError),
+                Err(e) => {
+                    return Err(DbOperationsError::RecordError {
+                        sqlite_error: Some(e),
+                        strum_error: None,
+                    })
+                }
             };
             activities.push(activity);
         }
@@ -523,11 +593,21 @@ pub mod db_helpers {
                 Ok(row) => match row {
                     Some(row) => match row.get(0) {
                         Ok(row) => people_ids.push(row),
-                        Err(_) => return Err(DbOperationsError::RecordError),
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
                     },
                     None => break,
                 },
-                Err(_) => return Err(DbOperationsError::RecordError),
+                Err(e) => {
+                    return Err(DbOperationsError::RecordError {
+                        sqlite_error: Some(e),
+                        strum_error: None,
+                    })
+                }
             }
         }
 
@@ -612,7 +692,12 @@ pub mod db_helpers {
         for person in rows {
             let person = match person {
                 Ok(person) => person,
-                Err(_) => return Err(DbOperationsError::RecordError),
+                Err(e) => {
+                    return Err(DbOperationsError::RecordError {
+                        sqlite_error: Some(e),
+                        strum_error: None,
+                    })
+                }
             };
             people.push(person);
         }
@@ -648,11 +733,21 @@ pub mod db_helpers {
                 Ok(row) => match row {
                     Some(row) => match row.get(0) {
                         Ok(row) => people_ids.push(row),
-                        Err(_) => return Err(DbOperationsError::RecordError),
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
                     },
                     None => break,
                 },
-                Err(_) => return Err(DbOperationsError::RecordError),
+                Err(e) => {
+                    return Err(DbOperationsError::RecordError {
+                        sqlite_error: Some(e),
+                        strum_error: None,
+                    })
+                }
             }
         }
 
@@ -738,7 +833,12 @@ pub mod db_helpers {
         for note in rows {
             let note = match note {
                 Ok(note) => note,
-                Err(_) => return Err(DbOperationsError::RecordError),
+                Err(e) => {
+                    return Err(DbOperationsError::RecordError {
+                        sqlite_error: Some(e),
+                        strum_error: None,
+                    })
+                }
             };
             notes.push(note);
         }

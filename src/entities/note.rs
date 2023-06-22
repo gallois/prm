@@ -85,7 +85,12 @@ impl Note {
         for note in rows.into_iter() {
             let note = match note {
                 Ok(note) => note,
-                Err(_) => return Err(DbOperationsError::RecordError),
+                Err(e) => {
+                    return Err(DbOperationsError::RecordError {
+                        sqlite_error: Some(e),
+                        strum_error: None,
+                    })
+                }
             };
             notes.push(note);
         }
@@ -292,11 +297,21 @@ impl crate::db::db_interface::DbOperations for Note {
                     Ok(row) => match row {
                         Some(row) => match row.get(0) {
                             Ok(row) => results.push(row),
-                            Err(_) => return Err(DbOperationsError::RecordError),
+                            Err(e) => {
+                                return Err(DbOperationsError::RecordError {
+                                    sqlite_error: Some(e),
+                                    strum_error: None,
+                                })
+                            }
                         },
                         None => break,
                     },
-                    Err(_) => return Err(DbOperationsError::RecordError),
+                    Err(e) => {
+                        return Err(DbOperationsError::RecordError {
+                            sqlite_error: Some(e),
+                            strum_error: None,
+                        })
+                    }
                 }
             }
 
@@ -356,7 +371,12 @@ impl crate::db::db_interface::DbOperations for Note {
                 Some(row) => {
                     let note_id = match row.get(0) {
                         Ok(note_id) => note_id,
-                        Err(_) => return Err(DbOperationsError::RecordError),
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
                     };
                     let people = match crate::db::db_helpers::get_people_by_note(&conn, note_id) {
                         Ok(people) => people,

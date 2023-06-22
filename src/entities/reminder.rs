@@ -84,9 +84,19 @@ impl Reminder {
                     {
                         Ok(recurring_type) => match recurring_type {
                             Some(recurring_type) => recurring_type,
-                            None => return Err(DbOperationsError::RecordError),
+                            None => {
+                                return Err(DbOperationsError::RecordError {
+                                    sqlite_error: None,
+                                    strum_error: None,
+                                })
+                            }
                         },
-                        Err(_) => return Err(DbOperationsError::RecordError),
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: None,
+                                strum_error: None,
+                            })
+                        }
                     };
                     Ok(Some(Reminder {
                         id: reminder_id,
@@ -102,7 +112,12 @@ impl Reminder {
                 }
                 None => return Ok(None),
             },
-            Err(_) => return Err(DbOperationsError::RecordError),
+            Err(e) => {
+                return Err(DbOperationsError::RecordError {
+                    sqlite_error: Some(e),
+                    strum_error: None,
+                })
+            }
         }
     }
 
@@ -156,7 +171,12 @@ impl Reminder {
         for reminder in rows.into_iter() {
             let reminder = match reminder {
                 Ok(reminder) => reminder,
-                Err(_) => return Err(DbOperationsError::RecordError),
+                Err(e) => {
+                    return Err(DbOperationsError::RecordError {
+                        sqlite_error: Some(e),
+                        strum_error: None,
+                    })
+                }
             };
             reminders.push(reminder);
         }
@@ -473,9 +493,19 @@ impl crate::db::db_interface::DbOperations for Reminder {
                     {
                         Ok(recurring_type) => match recurring_type {
                             Some(recurring_type) => recurring_type,
-                            None => return Err(DbOperationsError::RecordError),
+                            None => {
+                                return Err(DbOperationsError::RecordError {
+                                    sqlite_error: None,
+                                    strum_error: None,
+                                })
+                            }
                         },
-                        Err(_) => return Err(DbOperationsError::RecordError),
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: None,
+                                strum_error: None,
+                            })
+                        }
                     };
                     Ok(Some(Entities::Reminder(Reminder {
                         id: reminder_id,
@@ -491,7 +521,12 @@ impl crate::db::db_interface::DbOperations for Reminder {
                 }
                 None => return Ok(None),
             },
-            Err(_) => return Err(DbOperationsError::RecordError),
+            Err(e) => {
+                return Err(DbOperationsError::RecordError {
+                    sqlite_error: Some(e),
+                    strum_error: None,
+                })
+            }
         }
     }
 }
@@ -554,7 +589,12 @@ impl RecurringType {
                 )),
                 None => Ok(None),
             },
-            Err(_) => return Err(DbOperationsError::RecordError),
+            Err(e) => {
+                return Err(DbOperationsError::RecordError {
+                    sqlite_error: Some(e),
+                    strum_error: None,
+                })
+            }
         }
     }
 }
