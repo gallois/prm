@@ -81,6 +81,33 @@ impl Activity {
                             })
                         }
                     };
+                    let name: String = match row.get(1) {
+                        Ok(name) => name,
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
+                    };
+                    let activity_type_id: u64 = match row.get(2) {
+                        Ok(activity_type_id) => activity_type_id,
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
+                    };
+                    let content: String = match row.get(4) {
+                        Ok(content) => content,
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
+                    };
                     let people = match crate::db::db_helpers::get_people_by_activity(
                         &conn,
                         activity_id,
@@ -89,7 +116,7 @@ impl Activity {
                         Ok(people) => people,
                         Err(e) => panic!("{:#?}", e),
                     };
-                    let activity_type = match ActivityType::get_by_id(&conn, row.get(2).unwrap()) {
+                    let activity_type = match ActivityType::get_by_id(&conn, activity_type_id) {
                         Ok(activity_type) => match activity_type {
                             Some(activity_type) => activity_type,
                             None => panic!("Activity type cannot be None"),
@@ -98,13 +125,13 @@ impl Activity {
                     };
                     Ok(Some(Activity {
                         id: activity_id,
-                        name: row.get(1).unwrap(),
+                        name: name,
                         activity_type,
                         date: crate::helpers::parse_from_str_ymd(
                             String::from(row.get::<usize, String>(3).unwrap_or_default()).as_str(),
                         )
                         .unwrap_or_default(),
-                        content: row.get(4).unwrap(),
+                        content: content,
                         people: people,
                     }))
                 }
@@ -121,13 +148,13 @@ impl Activity {
         };
 
         let rows = match stmt.query_map([], |row| {
-            let activity_id = row.get(0).unwrap();
+            let activity_id = row.get(0)?;
             let people =
                 match crate::db::db_helpers::get_people_by_activity(&conn, activity_id, true) {
                     Ok(people) => people,
                     Err(e) => panic!("{:#?}", e),
                 };
-            let activity_type = match ActivityType::get_by_id(&conn, row.get(2).unwrap()) {
+            let activity_type = match ActivityType::get_by_id(&conn, row.get(2)?) {
                 Ok(activity_type) => match activity_type {
                     Some(activity_type) => activity_type,
                     None => panic!("Activity type cannot be None"),
@@ -136,13 +163,13 @@ impl Activity {
             };
             Ok(Activity {
                 id: activity_id,
-                name: row.get(1).unwrap(),
+                name: row.get(1)?,
                 activity_type,
                 date: crate::helpers::parse_from_str_ymd(
                     String::from(row.get::<usize, String>(3).unwrap_or_default()).as_str(),
                 )
                 .unwrap_or_default(),
-                content: row.get(4).unwrap(),
+                content: row.get(4)?,
                 people: people,
             })
         }) {
@@ -556,7 +583,42 @@ impl DbOperations for Activity {
         match rows.next() {
             Ok(row) => match row {
                 Some(row) => {
-                    let activity_id = row.get(0).unwrap();
+                    let activity_id = match row.get(0) {
+                        Ok(row) => row,
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
+                    };
+                    let name: String = match row.get(1) {
+                        Ok(row) => row,
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
+                    };
+                    let activity_type_id = match row.get(2) {
+                        Ok(row) => row,
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
+                    };
+                    let content: String = match row.get(3) {
+                        Ok(row) => row,
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
+                    };
                     let people = match crate::db::db_helpers::get_people_by_activity(
                         &conn,
                         activity_id,
@@ -565,7 +627,7 @@ impl DbOperations for Activity {
                         Ok(people) => people,
                         Err(e) => panic!("{:#?}", e),
                     };
-                    let activity_type = match ActivityType::get_by_id(&conn, row.get(2).unwrap()) {
+                    let activity_type = match ActivityType::get_by_id(&conn, activity_type_id) {
                         Ok(activity_type) => match activity_type {
                             Some(activity_type) => activity_type,
                             None => panic!("Activity type cannot be None"),
@@ -574,14 +636,14 @@ impl DbOperations for Activity {
                     };
                     Ok(Some(Entities::Activity(Activity {
                         id: activity_id,
-                        name: row.get(1).unwrap(),
+                        name,
                         activity_type,
                         date: crate::helpers::parse_from_str_ymd(
                             String::from(row.get::<usize, String>(3).unwrap_or_default()).as_str(),
                         )
                         .unwrap_or_default(),
-                        content: row.get(4).unwrap(),
-                        people: people,
+                        content,
+                        people,
                     })))
                 }
                 None => return Ok(None),
@@ -616,17 +678,24 @@ impl ActivityType {
         match rows.next() {
             Ok(row) => match row {
                 Some(row) => {
-                    let activity_type =
-                        match ActivityType::from_str(row.get::<usize, String>(0).unwrap().as_str())
-                        {
-                            Ok(activity_type) => activity_type,
-                            Err(e) => {
-                                return Err(DbOperationsError::RecordError {
-                                    sqlite_error: None,
-                                    strum_error: Some(e),
-                                })
-                            }
-                        };
+                    let type_str = match row.get::<usize, String>(0) {
+                        Ok(type_str) => type_str,
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
+                    };
+                    let activity_type = match ActivityType::from_str(type_str.as_str()) {
+                        Ok(activity_type) => activity_type,
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: None,
+                                strum_error: Some(e),
+                            })
+                        }
+                    };
                     Ok(Some(activity_type))
                 }
                 None => Ok(None),
