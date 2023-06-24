@@ -60,28 +60,52 @@ impl Event {
         };
 
         let rows = match stmt.query_map(params![days], |row| {
-            let person_id = row.get(0).unwrap();
+            let person_id = row.get(0)?;
             let notes = match crate::db::db_helpers::get_notes_by_person(&conn, person_id) {
                 Ok(notes) => notes,
-                Err(e) => panic!("{:#?}", e),
+                Err(e) => {
+                    let sqlite_error = match e {
+                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                        other => panic!("Unexpected error type: {:#?}", other),
+                    };
+                    return Err(sqlite_error);
+                }
             };
             let reminders = match crate::db::db_helpers::get_reminders_by_person(&conn, person_id) {
                 Ok(reminders) => reminders,
-                Err(e) => panic!("{:#?}", e),
+                Err(e) => {
+                    let sqlite_error = match e {
+                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                        other => panic!("Unexpected error type: {:#?}", other),
+                    };
+                    return Err(sqlite_error);
+                }
             };
             let contact_info =
                 match crate::db::db_helpers::get_contact_info_by_person(&conn, person_id) {
                     Ok(contact_info) => contact_info,
-                    Err(e) => panic!("{:#?}", e),
+                    Err(e) => {
+                        let sqlite_error = match e {
+                            DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                            other => panic!("Unexpected error type: {:#?}", other),
+                        };
+                        return Err(sqlite_error);
+                    }
                 };
             let activities = match crate::db::db_helpers::get_activities_by_person(&conn, person_id)
             {
                 Ok(activities) => activities,
-                Err(e) => panic!("{:#?}", e),
+                Err(e) => {
+                    let sqlite_error = match e {
+                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                        other => panic!("Unexpected error type: {:#?}", other),
+                    };
+                    return Err(sqlite_error);
+                }
             };
             Ok(Person {
                 id: person_id,
-                name: row.get(1).unwrap(),
+                name: row.get(1)?,
                 birthday: Some(
                     crate::helpers::parse_from_str_ymd(
                         String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
@@ -121,26 +145,38 @@ impl Event {
             }
         };
         let rows = match stmt.query_map(params![today_str, date_limit_str], |row| {
-            let reminder_id = row.get(0).unwrap();
+            let reminder_id = row.get(0)?;
             let people = match crate::db_helpers::get_people_by_reminder(&conn, reminder_id) {
                 Ok(people) => people,
-                Err(e) => panic!("{:#?}", e),
+                Err(e) => {
+                    let sqlite_error = match e {
+                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                        other => panic!("Unexpected error type: {:#?}", other),
+                    };
+                    return Err(sqlite_error);
+                }
             };
-            let recurring_type = match RecurringType::get_by_id(&conn, row.get(4).unwrap()) {
+            let recurring_type = match RecurringType::get_by_id(&conn, row.get(4)?) {
                 Ok(recurring_type) => match recurring_type {
                     Some(recurring_type) => recurring_type,
                     None => panic!("Recurring Type cannot be None"),
                 },
-                Err(e) => panic!("Error while fetching recurring type: {:#?}", e),
+                Err(e) => {
+                    let sqlite_error = match e {
+                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                        other => panic!("Unexpected error type: {:#?}", other),
+                    };
+                    return Err(sqlite_error);
+                }
             };
             Ok(Reminder {
                 id: reminder_id,
-                name: row.get(1).unwrap(),
+                name: row.get(1)?,
                 date: crate::helpers::parse_from_str_ymd(
                     String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
                 )
                 .unwrap_or_default(),
-                description: row.get(3).unwrap(),
+                description: row.get(3)?,
                 recurring: recurring_type,
                 people: people,
             })
