@@ -61,7 +61,7 @@ impl Note {
         };
 
         let rows = match stmt.query_map([], |row| {
-            let note_id = row.get(0).unwrap();
+            let note_id = row.get(0)?;
             let people = match crate::db::db_helpers::get_people_by_note(&conn, note_id) {
                 Ok(people) => people,
                 Err(e) => panic!("{:#?}", e),
@@ -72,8 +72,8 @@ impl Note {
                     String::from(row.get::<usize, String>(1).unwrap_or_default()).as_str(),
                 )
                 .unwrap_or_default(),
-                content: row.get(2).unwrap(),
-                people: people,
+                content: row.get(2)?,
+                people,
             })
         }) {
             Ok(rows) => rows,
@@ -200,7 +200,7 @@ impl crate::db::db_interface::DbOperations for Note {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
             }
-            Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
+            Err(_) => return Err(crate::db::db_interface::DbOperationsError::QueryError),
         }
 
         let id = &conn.last_insert_rowid();
@@ -222,7 +222,7 @@ impl crate::db::db_interface::DbOperations for Note {
                 Ok(updated) => {
                     println!("[DEBUG] {} rows were updated", updated);
                 }
-                Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
+                Err(_) => return Err(crate::db::db_interface::DbOperationsError::QueryError),
             }
         }
 
@@ -246,7 +246,7 @@ impl crate::db::db_interface::DbOperations for Note {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
             }
-            Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
+            Err(_) => return Err(crate::db::db_interface::DbOperationsError::QueryError),
         }
 
         Ok(self)
@@ -270,7 +270,7 @@ impl crate::db::db_interface::DbOperations for Note {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
             }
-            Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
+            Err(_) => return Err(crate::db::db_interface::DbOperationsError::QueryError),
         }
 
         for person in self.people.iter() {
@@ -330,7 +330,7 @@ impl crate::db::db_interface::DbOperations for Note {
                             println!("[DEBUG] {} rows were updated", updated);
                         }
                         Err(_) => {
-                            return Err(crate::db::db_interface::DbOperationsError::GenericError)
+                            return Err(crate::db::db_interface::DbOperationsError::QueryError)
                         }
                     }
                 }
@@ -350,7 +350,7 @@ impl crate::db::db_interface::DbOperations for Note {
                 Ok(updated) => {
                     println!("[DEBUG] {} rows were updated", updated);
                 }
-                Err(_) => return Err(crate::db::db_interface::DbOperationsError::GenericError),
+                Err(_) => return Err(crate::db::db_interface::DbOperationsError::QueryError),
             }
         }
 
@@ -360,7 +360,7 @@ impl crate::db::db_interface::DbOperations for Note {
     fn get_by_id(conn: &Connection, id: u64) -> Result<Option<Entities>, DbOperationsError> {
         let mut stmt = match conn.prepare("SELECT * FROM notes WHERE id = ?1") {
             Ok(stmt) => stmt,
-            Err(_) => return Err(DbOperationsError::GenericError),
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
         let mut rows = match stmt.query(params![id]) {
             Ok(rows) => rows,
@@ -378,9 +378,15 @@ impl crate::db::db_interface::DbOperations for Note {
                             })
                         }
                     };
-                    let people = match crate::db::db_helpers::get_people_by_note(&conn, note_id) {
-                        Ok(people) => people,
-                        Err(e) => panic!("{:#?}", e),
+                    let people = crate::db::db_helpers::get_people_by_note(&conn, note_id)?;
+                    let content = match row.get(2) {
+                        Ok(content) => content,
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
                     };
                     Ok(Some(Entities::Note(Note {
                         id: note_id,
@@ -388,13 +394,18 @@ impl crate::db::db_interface::DbOperations for Note {
                             String::from(row.get::<usize, String>(1).unwrap_or_default()).as_str(),
                         )
                         .unwrap_or_default(),
-                        content: row.get(2).unwrap(),
-                        people: people,
+                        content,
+                        people,
                     })))
                 }
                 None => return Ok(None),
             },
-            Err(_) => return Err(DbOperationsError::GenericError),
+            Err(e) => {
+                return Err(DbOperationsError::RecordError {
+                    sqlite_error: Some(e),
+                    strum_error: None,
+                })
+            }
         }
     }
 }
