@@ -67,29 +67,35 @@ impl Person {
         match rows.next() {
             Ok(row) => match row {
                 Some(row) => {
-                    let person_id = row.get(0).unwrap();
-                    let notes = match crate::db::db_helpers::get_notes_by_person(&conn, person_id) {
-                        Ok(notes) => notes,
-                        Err(e) => panic!("{:#?}", e),
+                    let person_id = match row.get(0) {
+                        Ok(person_id) => person_id,
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
                     };
+                    let name = match row.get(1) {
+                        Ok(name) => name,
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
+                    };
+                    let notes = crate::db::db_helpers::get_notes_by_person(&conn, person_id)?;
                     let reminders =
-                        match crate::db::db_helpers::get_reminders_by_person(&conn, person_id) {
-                            Ok(reminders) => reminders,
-                            Err(e) => panic!("{:#?}", e),
-                        };
+                        crate::db::db_helpers::get_reminders_by_person(&conn, person_id)?;
                     let contact_info =
-                        match crate::db::db_helpers::get_contact_info_by_person(&conn, person_id) {
-                            Ok(contact_info) => contact_info,
-                            Err(e) => panic!("{:#?}", e),
-                        };
+                        crate::db::db_helpers::get_contact_info_by_person(&conn, person_id)?;
                     let activities =
-                        match crate::db::db_helpers::get_activities_by_person(&conn, person_id) {
-                            Ok(activities) => activities,
-                            Err(e) => panic!("{:#?}", e),
-                        };
+                        crate::db::db_helpers::get_activities_by_person(&conn, person_id)?;
+
                     Ok(Some(Person {
                         id: person_id,
-                        name: row.get(1).unwrap(),
+                        name: name,
                         birthday: Some(
                             crate::helpers::parse_from_str_ymd(
                                 String::from(row.get::<usize, String>(2).unwrap_or_default())
@@ -135,8 +141,8 @@ impl Person {
         };
         let rows: _ = match stmt.query_map(params_from_iter(names.iter()), |row| {
             Ok(Person::new(
-                row.get(0).unwrap(),
-                row.get(1).unwrap(),
+                row.get(0)?,
+                row.get(1)?,
                 Some(
                     crate::helpers::parse_from_str_ymd(
                         String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
@@ -173,7 +179,7 @@ impl Person {
         };
 
         let rows = match stmt.query_map([], |row| {
-            let person_id = row.get(0).unwrap();
+            let person_id = row.get(0)?;
             let notes = match crate::db::db_helpers::get_notes_by_person(&conn, person_id) {
                 Ok(notes) => notes,
                 Err(e) => panic!("{:#?}", e),
@@ -194,7 +200,7 @@ impl Person {
             };
             Ok(Person {
                 id: person_id,
-                name: row.get(1).unwrap(),
+                name: row.get(1)?,
                 birthday: Some(
                     crate::helpers::parse_from_str_ymd(
                         String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
@@ -647,7 +653,24 @@ impl crate::db::db_interface::DbOperations for Person {
         match rows.next() {
             Ok(row) => match row {
                 Some(row) => {
-                    let person_id = row.get(0).unwrap();
+                    let person_id = match row.get(0) {
+                        Ok(person_id) => person_id,
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
+                    };
+                    let name = match row.get(1) {
+                        Ok(name) => name,
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
+                    };
                     let notes = match crate::db::db_helpers::get_notes_by_person(&conn, person_id) {
                         Ok(notes) => notes,
                         Err(e) => panic!("{:#?}", e),
@@ -669,7 +692,7 @@ impl crate::db::db_interface::DbOperations for Person {
                         };
                     Ok(Some(Entities::Person(Person {
                         id: person_id,
-                        name: row.get(1).unwrap(),
+                        name,
                         birthday: Some(
                             crate::helpers::parse_from_str_ymd(
                                 String::from(row.get::<usize, String>(2).unwrap_or_default())
@@ -790,9 +813,16 @@ impl ContactInfoType {
         match rows.next() {
             Ok(row) => match row {
                 Some(row) => {
-                    let ci = match ContactInfoType::from_str(
-                        row.get::<usize, String>(0).unwrap().as_str(),
-                    ) {
+                    let ci_type_id = match row.get::<usize, String>(0) {
+                        Ok(ci_type_id) => ci_type_id,
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
+                    };
+                    let ci = match ContactInfoType::from_str(&ci_type_id.as_str()) {
                         Ok(ci) => ci,
                         Err(e) => {
                             return Err(DbOperationsError::RecordError {
