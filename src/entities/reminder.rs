@@ -74,14 +74,44 @@ impl Reminder {
         match rows.next() {
             Ok(row) => match row {
                 Some(row) => {
-                    let reminder_id = row.get(0).unwrap();
-                    let people = match crate::db_helpers::get_people_by_reminder(&conn, reminder_id)
-                    {
-                        Ok(people) => people,
-                        Err(e) => panic!("{:#?}", e),
+                    let reminder_id = match row.get(0) {
+                        Ok(reminder_id) => reminder_id,
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
                     };
-                    let recurring_type = match RecurringType::get_by_id(&conn, row.get(4).unwrap())
-                    {
+                    let name: String = match row.get(1) {
+                        Ok(name) => name,
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
+                    };
+                    let description: Option<String> = match row.get(3) {
+                        Ok(description) => description,
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
+                    };
+                    let recurring_type_id = match row.get(4) {
+                        Ok(recurring_type_id) => recurring_type_id,
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
+                    };
+                    let people = crate::db_helpers::get_people_by_reminder(&conn, reminder_id)?;
+                    let recurring_type = match RecurringType::get_by_id(&conn, recurring_type_id) {
                         Ok(recurring_type) => match recurring_type {
                             Some(recurring_type) => recurring_type,
                             None => {
@@ -91,21 +121,16 @@ impl Reminder {
                                 })
                             }
                         },
-                        Err(e) => {
-                            return Err(DbOperationsError::RecordError {
-                                sqlite_error: None,
-                                strum_error: None,
-                            })
-                        }
+                        Err(e) => return Err(e),
                     };
                     Ok(Some(Reminder {
                         id: reminder_id,
-                        name: row.get(1).unwrap(),
+                        name,
                         date: crate::helpers::parse_from_str_ymd(
                             String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
                         )
                         .unwrap_or_default(),
-                        description: row.get(3).unwrap(),
+                        description,
                         recurring: recurring_type,
                         people: people,
                     }))
@@ -138,12 +163,13 @@ impl Reminder {
             Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
         let rows = match stmt.query_map([], |row| {
-            let reminder_id = row.get(0).unwrap();
+            let reminder_id = row.get(0)?;
             let people = match crate::db_helpers::get_people_by_reminder(&conn, reminder_id) {
                 Ok(people) => people,
                 Err(e) => panic!("{:#?}", e),
             };
-            let recurring_type = match RecurringType::get_by_id(&conn, row.get(4).unwrap()) {
+            let recurring_type_id: u64 = row.get(4)?;
+            let recurring_type = match RecurringType::get_by_id(&conn, recurring_type_id) {
                 Ok(recurring_type) => match recurring_type {
                     Some(recurring_type) => recurring_type,
                     None => panic!("Recurring Type cannot be None"),
@@ -152,12 +178,12 @@ impl Reminder {
             };
             Ok(Reminder {
                 id: reminder_id,
-                name: row.get(1).unwrap(),
+                name: row.get(1)?,
                 date: crate::helpers::parse_from_str_ymd(
                     String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
                 )
                 .unwrap_or_default(),
-                description: row.get(3).unwrap(),
+                description: row.get(3)?,
                 recurring: recurring_type,
                 people: people,
             })
@@ -332,8 +358,27 @@ impl crate::db::db_interface::DbOperations for Reminder {
             Err(_) => return Err(DbOperationsError::QueryError),
         };
         let mut ids: Vec<u32> = Vec::new();
-        while let Some(row) = rows.next().unwrap() {
-            ids.push(row.get(0).unwrap());
+        loop {
+            match rows.next() {
+                Ok(row) => match row {
+                    Some(row) => match row.get(0) {
+                        Ok(row) => ids.push(row),
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
+                    },
+                    None => break,
+                },
+                Err(e) => {
+                    return Err(DbOperationsError::RecordError {
+                        sqlite_error: Some(e),
+                        strum_error: None,
+                    })
+                }
+            }
         }
 
         if ids.len() > 0 {
@@ -354,8 +399,27 @@ impl crate::db::db_interface::DbOperations for Reminder {
             Err(_) => return Err(DbOperationsError::QueryError),
         };
         let mut types: Vec<u32> = Vec::new();
-        while let Some(row) = rows.next().unwrap() {
-            types.push(row.get(0).unwrap());
+        loop {
+            match rows.next() {
+                Ok(row) => match row {
+                    Some(row) => match row.get(0) {
+                        Ok(row) => types.push(row),
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
+                    },
+                    None => break,
+                },
+                Err(e) => {
+                    return Err(DbOperationsError::RecordError {
+                        sqlite_error: Some(e),
+                        strum_error: None,
+                    })
+                }
+            }
         }
 
         let mut stmt = match conn.prepare(
@@ -435,8 +499,27 @@ impl crate::db::db_interface::DbOperations for Reminder {
             Err(_) => return Err(DbOperationsError::QueryError),
         };
         let mut types: Vec<u32> = Vec::new();
-        while let Some(row) = rows.next().unwrap() {
-            types.push(row.get(0).unwrap());
+        loop {
+            match rows.next() {
+                Ok(row) => match row {
+                    Some(row) => match row.get(0) {
+                        Ok(row) => types.push(row),
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
+                    },
+                    None => break,
+                },
+                Err(e) => {
+                    return Err(DbOperationsError::RecordError {
+                        sqlite_error: Some(e),
+                        strum_error: None,
+                    })
+                }
+            }
         }
 
         let mut stmt = match conn.prepare(
@@ -483,14 +566,48 @@ impl crate::db::db_interface::DbOperations for Reminder {
         match rows.next() {
             Ok(row) => match row {
                 Some(row) => {
-                    let reminder_id = row.get(0).unwrap();
+                    let reminder_id = match row.get(0) {
+                        Ok(reminder_id) => reminder_id,
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
+                    };
+                    let name: String = match row.get(1) {
+                        Ok(name) => name,
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
+                    };
                     let people = match crate::db_helpers::get_people_by_reminder(&conn, reminder_id)
                     {
                         Ok(people) => people,
                         Err(e) => panic!("{:#?}", e),
                     };
-                    let recurring_type = match RecurringType::get_by_id(&conn, row.get(4).unwrap())
-                    {
+                    let description: Option<String> = match row.get(4) {
+                        Ok(description) => description,
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
+                    };
+                    let recurring_type_id = match row.get(4) {
+                        Ok(recurring_type_id) => recurring_type_id,
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
+                    };
+                    let recurring_type = match RecurringType::get_by_id(&conn, recurring_type_id) {
                         Ok(recurring_type) => match recurring_type {
                             Some(recurring_type) => recurring_type,
                             None => {
@@ -500,21 +617,16 @@ impl crate::db::db_interface::DbOperations for Reminder {
                                 })
                             }
                         },
-                        Err(e) => {
-                            return Err(DbOperationsError::RecordError {
-                                sqlite_error: None,
-                                strum_error: None,
-                            })
-                        }
+                        Err(e) => return Err(e),
                     };
                     Ok(Some(Entities::Reminder(Reminder {
                         id: reminder_id,
-                        name: row.get(1).unwrap(),
+                        name,
                         date: crate::helpers::parse_from_str_ymd(
                             String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
                         )
                         .unwrap_or_default(),
-                        description: row.get(3).unwrap(),
+                        description,
                         recurring: recurring_type,
                         people: people,
                     })))
@@ -584,9 +696,28 @@ impl RecurringType {
 
         match rows.next() {
             Ok(row) => match row {
-                Some(row) => Ok(Some(
-                    RecurringType::from_str(row.get::<usize, String>(0).unwrap().as_str()).unwrap(),
-                )),
+                Some(row) => {
+                    let recurring_type_str = match row.get::<usize, String>(0) {
+                        Ok(recurring_type_str) => recurring_type_str,
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
+                    };
+                    let recurring_type = match RecurringType::from_str(recurring_type_str.as_str())
+                    {
+                        Ok(recurring_type) => recurring_type,
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: None,
+                                strum_error: Some(e),
+                            })
+                        }
+                    };
+                    Ok(Some(recurring_type))
+                }
                 None => Ok(None),
             },
             Err(e) => {
