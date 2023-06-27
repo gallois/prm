@@ -58,7 +58,12 @@ pub fn person(
                 if name.is_some() {
                     name_placeholder = match name {
                         Some(name) => name,
-                        None => panic!("Name shouldn't be None!"),
+                        None => {
+                            return Err(CliError::MissingFieldError {
+                                entity: "person".to_string(),
+                                field: "name".to_string(),
+                            })
+                        }
                     };
                 } else if !person.name.is_empty() {
                     name_placeholder = person.name.clone();
@@ -69,12 +74,22 @@ pub fn person(
                 if birthday.is_some() {
                     birthday_placeholder = match birthday {
                         Some(birthday) => birthday,
-                        None => panic!("Birthday shouldn't be None!"),
+                        None => {
+                            return Err(CliError::MissingFieldError {
+                                entity: "person".to_string(),
+                                field: "birthday".to_string(),
+                            })
+                        }
                     };
                 } else if !person.birthday.is_none() {
                     birthday_placeholder = match person.birthday {
                         Some(birthday) => birthday.to_string(),
-                        None => panic!("Person's birthday shouldn't be None!"),
+                        None => {
+                            return Err(CliError::MissingFieldError {
+                                entity: "person".to_string(),
+                                field: "birthday".to_string(),
+                            })
+                        }
                     };
                 } else {
                     birthday_placeholder = "".to_string();
@@ -83,7 +98,12 @@ pub fn person(
                 if contact_info.is_some() {
                     contact_info_placeholder = match contact_info {
                         Some(contact_info) => contact_info,
-                        None => panic!("Contact info shouldn't be None!"),
+                        None => {
+                            return Err(CliError::MissingFieldError {
+                                entity: "person".to_string(),
+                                field: "contact info".to_string(),
+                            })
+                        }
                     };
                 } else if !contact_info_field.is_empty() {
                     contact_info_placeholder = contact_info_field;
@@ -211,7 +231,12 @@ pub fn activity(
                 if name.clone().is_some() {
                     name_placeholder = match name.clone() {
                         Some(name) => name,
-                        None => panic!("Name shouldn't be None!"),
+                        None => {
+                            return Err(CliError::MissingFieldError {
+                                entity: "activity".to_string(),
+                                field: "name".to_string(),
+                            })
+                        }
                     };
                 } else if !activity.name.is_empty() {
                     name_placeholder = activity.name.clone();
@@ -222,7 +247,12 @@ pub fn activity(
                 if date.clone().is_some() {
                     date_placeholder = match date.clone() {
                         Some(date) => date,
-                        None => panic!("Date shouldn't be None!"),
+                        None => {
+                            return Err(CliError::MissingFieldError {
+                                entity: "activity".to_string(),
+                                field: "date".to_string(),
+                            })
+                        }
                     };
                 } else if !activity.date.to_string().is_empty() {
                     date_placeholder = activity.date.clone().to_string();
@@ -233,7 +263,12 @@ pub fn activity(
                 if activity_type.clone().is_some() {
                     activity_type_placeholder = match activity_type.clone() {
                         Some(activity_type) => activity_type,
-                        None => panic!("Activity type shouldn't be None!"),
+                        None => {
+                            return Err(CliError::MissingFieldError {
+                                entity: "activity".to_string(),
+                                field: "activity type".to_string(),
+                            })
+                        }
                     };
                 } else if !activity.activity_type.as_ref().is_empty() {
                     activity_type_placeholder =
@@ -245,7 +280,12 @@ pub fn activity(
                 if content.clone().is_some() {
                     content_placeholder = match content.clone() {
                         Some(content) => content,
-                        None => panic!("Content shouldn't be None!"),
+                        None => {
+                            return Err(CliError::MissingFieldError {
+                                entity: "activity".to_string(),
+                                field: "content".to_string(),
+                            })
+                        }
                     };
                 } else if !activity.content.is_empty() {
                     content_placeholder = activity.content.clone();
@@ -311,15 +351,30 @@ pub fn activity(
                 name_string = n;
                 date_string = match d {
                     Some(d) => d,
-                    None => panic!("Date shouldn't be None!"),
+                    None => {
+                        return Err(CliError::MissingFieldError {
+                            entity: "activity".to_string(),
+                            field: "date".to_string(),
+                        })
+                    }
                 };
                 activity_type_string = match t {
                     Some(t) => t,
-                    None => panic!("Activity type shouldn't be None!"),
+                    None => {
+                        return Err(CliError::MissingFieldError {
+                            entity: "activity".to_string(),
+                            field: "activity type".to_string(),
+                        })
+                    }
                 };
                 content_string = match c {
                     Some(c) => c,
-                    None => panic!("Content shouldn't be None!"),
+                    None => {
+                        return Err(CliError::MissingFieldError {
+                            entity: "activity".to_string(),
+                            field: "content".to_string(),
+                        })
+                    }
                 };
                 people = p;
 
@@ -409,7 +464,12 @@ pub fn reminder(
                 if name.clone().is_some() {
                     name_placeholder = match name.clone() {
                         Some(name) => name,
-                        None => panic!("Name shouldn't be None!"),
+                        None => {
+                            return Err(CliError::MissingFieldError {
+                                entity: "reminder".to_string(),
+                                field: "name".to_string(),
+                            })
+                        }
                     }
                 } else if !reminder.name.is_empty() {
                     name_placeholder = reminder.name.clone();
@@ -420,7 +480,12 @@ pub fn reminder(
                 if date.clone().is_some() {
                     date_placeholder = match date.clone() {
                         Some(date) => date,
-                        None => panic!("Date shouldn't be None!"),
+                        None => {
+                            return Err(CliError::MissingFieldError {
+                                entity: "reminder".to_string(),
+                                field: "date".to_string(),
+                            })
+                        }
                     }
                 } else if !reminder.date.to_string().is_empty() {
                     date_placeholder = reminder.date.clone().to_string();
@@ -435,7 +500,12 @@ pub fn reminder(
                 if description.is_some() {
                     description_placeholder = match description.clone() {
                         Some(description) => description,
-                        None => panic!("Description shouldn't be None!"),
+                        None => {
+                            return Err(CliError::MissingFieldError {
+                                entity: "reminder".to_string(),
+                                field: "description".to_string(),
+                            })
+                        }
                     }
                 } else if !reminder_description.is_empty() {
                     description_placeholder = String::from(reminder_description);
@@ -446,7 +516,12 @@ pub fn reminder(
                 if recurring.clone().is_some() {
                     recurring_placeholder = match recurring.clone() {
                         Some(recurring) => recurring,
-                        None => panic!("Recurring shouldn't be None!"),
+                        None => {
+                            return Err(CliError::MissingFieldError {
+                                entity: "reminder".to_string(),
+                                field: "recurring type".to_string(),
+                            })
+                        }
                     };
                 } else if !reminder.recurring.as_ref().is_empty() {
                     recurring_placeholder = reminder.recurring.as_ref().to_string().to_lowercase();
@@ -511,15 +586,30 @@ pub fn reminder(
                 name_string = n;
                 date_string = match da {
                     Some(da) => da,
-                    None => panic!("Date shouldn't be None!"),
+                    None => {
+                        return Err(CliError::MissingFieldError {
+                            entity: "reminder".to_string(),
+                            field: "date".to_string(),
+                        })
+                    }
                 };
                 recurring_type_string = match r {
                     Some(r) => r,
-                    None => panic!("Recurring type shouldn't be None!"),
+                    None => {
+                        return Err(CliError::MissingFieldError {
+                            entity: "reminder".to_string(),
+                            field: "recurring type".to_string(),
+                        })
+                    }
                 };
                 description_string = match de {
                     Some(de) => de,
-                    None => panic!("Description shouldn't be None!"),
+                    None => {
+                        return Err(CliError::MissingFieldError {
+                            entity: "reminder".to_string(),
+                            field: "description".to_string(),
+                        })
+                    }
                 };
                 people = p;
 
@@ -606,7 +696,12 @@ pub fn note(
                 if date.clone().is_some() {
                     date_placeholder = match date.clone() {
                         Some(date) => date,
-                        None => panic!("Date shouldn't be None!"),
+                        None => {
+                            return Err(CliError::MissingFieldError {
+                                entity: "note".to_string(),
+                                field: "date".to_string(),
+                            })
+                        }
                     }
                 } else if !note.date.to_string().is_empty() {
                     date_placeholder = note.date.clone().to_string();
@@ -616,7 +711,12 @@ pub fn note(
                 if content.clone().is_some() {
                     content_placeholder = match content.clone() {
                         Some(content) => content,
-                        None => panic!("Content shouldn't be None!"),
+                        None => {
+                            return Err(CliError::MissingFieldError {
+                                entity: "note".to_string(),
+                                field: "content".to_string(),
+                            })
+                        }
                     }
                 } else if !note.content.is_empty() {
                     content_placeholder = note.content.clone();

@@ -769,7 +769,6 @@ pub mod db_helpers {
             let person_id = row.get(0)?;
             let notes = match crate::db::db_helpers::get_notes_by_person(&conn, person_id) {
                 Ok(notes) => notes,
-                Err(e) => panic!("{:#?}", e),
                 Err(e) => {
                     let sqlite_error = match e {
                         DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
