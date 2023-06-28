@@ -108,20 +108,19 @@ impl Activity {
                             })
                         }
                     };
-                    let people = match crate::db::db_helpers::get_people_by_activity(
-                        &conn,
-                        activity_id,
-                        true,
-                    ) {
-                        Ok(people) => people,
-                        Err(e) => panic!("{:#?}", e),
-                    };
+                    let people =
+                        crate::db::db_helpers::get_people_by_activity(&conn, activity_id, true)?;
                     let activity_type = match ActivityType::get_by_id(&conn, activity_type_id) {
                         Ok(activity_type) => match activity_type {
                             Some(activity_type) => activity_type,
-                            None => panic!("Activity type cannot be None"),
+                            None => {
+                                return Err(DbOperationsError::RecordError {
+                                    sqlite_error: None,
+                                    strum_error: None,
+                                })
+                            }
                         },
-                        Err(e) => panic!("{:#?}", e),
+                        Err(e) => return Err(e),
                     };
                     Ok(Some(Activity {
                         id: activity_id,
@@ -152,14 +151,26 @@ impl Activity {
             let people =
                 match crate::db::db_helpers::get_people_by_activity(&conn, activity_id, true) {
                     Ok(people) => people,
-                    Err(e) => panic!("{:#?}", e),
+                    Err(e) => {
+                        let sqlite_error = match e {
+                            DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                            other => panic!("Unexpected error type: {:#?}", other),
+                        };
+                        return Err(sqlite_error);
+                    }
                 };
             let activity_type = match ActivityType::get_by_id(&conn, row.get(2)?) {
                 Ok(activity_type) => match activity_type {
                     Some(activity_type) => activity_type,
                     None => panic!("Activity type cannot be None"),
                 },
-                Err(e) => panic!("{:#?}", e),
+                Err(e) => {
+                    let sqlite_error = match e {
+                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                        other => panic!("Unexpected error type: {:#?}", other),
+                    };
+                    return Err(sqlite_error);
+                }
             };
             Ok(Activity {
                 id: activity_id,
@@ -619,20 +630,14 @@ impl DbOperations for Activity {
                             })
                         }
                     };
-                    let people = match crate::db::db_helpers::get_people_by_activity(
-                        &conn,
-                        activity_id,
-                        true,
-                    ) {
-                        Ok(people) => people,
-                        Err(e) => panic!("{:#?}", e),
-                    };
+                    let people =
+                        crate::db::db_helpers::get_people_by_activity(&conn, activity_id, true)?;
                     let activity_type = match ActivityType::get_by_id(&conn, activity_type_id) {
                         Ok(activity_type) => match activity_type {
                             Some(activity_type) => activity_type,
                             None => panic!("Activity type cannot be None"),
                         },
-                        Err(e) => panic!("{:#?}", e),
+                        Err(e) => return Err(e),
                     };
                     Ok(Some(Entities::Activity(Activity {
                         id: activity_id,
