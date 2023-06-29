@@ -64,7 +64,13 @@ impl Note {
             let note_id = row.get(0)?;
             let people = match crate::db::db_helpers::get_people_by_note(&conn, note_id) {
                 Ok(people) => people,
-                Err(e) => panic!("{:#?}", e),
+                Err(e) => {
+                    let sqlite_error = match e {
+                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                        other => panic!("Unexpected error type: {:#?}", other),
+                    };
+                    return Err(sqlite_error);
+                }
             };
             Ok(Note {
                 id: note_id,
