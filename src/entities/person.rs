@@ -182,21 +182,45 @@ impl Person {
             let person_id = row.get(0)?;
             let notes = match crate::db::db_helpers::get_notes_by_person(&conn, person_id) {
                 Ok(notes) => notes,
-                Err(e) => panic!("{:#?}", e),
+                Err(e) => {
+                    let sqlite_error = match e {
+                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                        other => panic!("Unexpected error type: {:#?}", other),
+                    };
+                    return Err(sqlite_error);
+                }
             };
             let reminders = match crate::db::db_helpers::get_reminders_by_person(&conn, person_id) {
                 Ok(reminders) => reminders,
-                Err(e) => panic!("{:#?}", e),
+                Err(e) => {
+                    let sqlite_error = match e {
+                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                        other => panic!("Unexpected error type: {:#?}", other),
+                    };
+                    return Err(sqlite_error);
+                }
             };
             let contact_info =
                 match crate::db::db_helpers::get_contact_info_by_person(&conn, person_id) {
                     Ok(contact_info) => contact_info,
-                    Err(e) => panic!("{:#?}", e),
+                    Err(e) => {
+                        let sqlite_error = match e {
+                            DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                            other => panic!("Unexpected error type: {:#?}", other),
+                        };
+                        return Err(sqlite_error);
+                    }
                 };
             let activities = match crate::db::db_helpers::get_activities_by_person(&conn, person_id)
             {
                 Ok(activities) => activities,
-                Err(e) => panic!("{:#?}", e),
+                Err(e) => {
+                    let sqlite_error = match e {
+                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                        other => panic!("Unexpected error type: {:#?}", other),
+                    };
+                    return Err(sqlite_error);
+                }
             };
             Ok(Person {
                 id: person_id,
@@ -671,25 +695,13 @@ impl crate::db::db_interface::DbOperations for Person {
                             })
                         }
                     };
-                    let notes = match crate::db::db_helpers::get_notes_by_person(&conn, person_id) {
-                        Ok(notes) => notes,
-                        Err(e) => panic!("{:#?}", e),
-                    };
+                    let notes = crate::db::db_helpers::get_notes_by_person(&conn, person_id)?;
                     let reminders =
-                        match crate::db::db_helpers::get_reminders_by_person(&conn, person_id) {
-                            Ok(reminders) => reminders,
-                            Err(e) => panic!("{:#?}", e),
-                        };
+                        crate::db::db_helpers::get_reminders_by_person(&conn, person_id)?;
                     let contact_info =
-                        match crate::db::db_helpers::get_contact_info_by_person(&conn, person_id) {
-                            Ok(contact_info) => contact_info,
-                            Err(e) => panic!("{:#?}", e),
-                        };
+                        crate::db::db_helpers::get_contact_info_by_person(&conn, person_id)?;
                     let activities =
-                        match crate::db::db_helpers::get_activities_by_person(&conn, person_id) {
-                            Ok(activities) => activities,
-                            Err(e) => panic!("{:#?}", e),
-                        };
+                        crate::db::db_helpers::get_activities_by_person(&conn, person_id)?;
                     Ok(Some(Entities::Person(Person {
                         id: person_id,
                         name,
