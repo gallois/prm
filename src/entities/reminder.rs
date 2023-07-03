@@ -166,7 +166,13 @@ impl Reminder {
             let reminder_id = row.get(0)?;
             let people = match crate::db_helpers::get_people_by_reminder(&conn, reminder_id) {
                 Ok(people) => people,
-                Err(e) => panic!("{:#?}", e),
+                Err(e) => {
+                    let sqlite_error = match e {
+                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                        other => panic!("Unexpected error type: {:#?}", other),
+                    };
+                    return Err(sqlite_error);
+                }
             };
             let recurring_type_id: u64 = row.get(4)?;
             let recurring_type = match RecurringType::get_by_id(&conn, recurring_type_id) {
@@ -174,7 +180,13 @@ impl Reminder {
                     Some(recurring_type) => recurring_type,
                     None => panic!("Recurring Type cannot be None"),
                 },
-                Err(e) => panic!("Error while fetching recurring type: {:#?}", e),
+                Err(e) => {
+                    let sqlite_error = match e {
+                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                        other => panic!("Unexpected error type: {:#?}", other),
+                    };
+                    return Err(sqlite_error);
+                }
             };
             Ok(Reminder {
                 id: reminder_id,
@@ -584,11 +596,7 @@ impl crate::db::db_interface::DbOperations for Reminder {
                             })
                         }
                     };
-                    let people = match crate::db_helpers::get_people_by_reminder(&conn, reminder_id)
-                    {
-                        Ok(people) => people,
-                        Err(e) => panic!("{:#?}", e),
-                    };
+                    let people = crate::db_helpers::get_people_by_reminder(&conn, reminder_id)?;
                     let description: Option<String> = match row.get(4) {
                         Ok(description) => description,
                         Err(e) => {
