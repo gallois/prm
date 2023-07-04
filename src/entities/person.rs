@@ -272,7 +272,6 @@ impl Person {
         }
         if let Some(birthday) = birthday {
             let birthday_obj: Option<NaiveDate>;
-            // TODO proper error handling and messaging
             match crate::helpers::parse_from_str_ymd(&birthday) {
                 Ok(date) => birthday_obj = Some(date),
                 Err(_) => match crate::helpers::parse_from_str_md(&birthday) {
@@ -313,7 +312,6 @@ impl Person {
                         contact_info_type =
                             Some(ContactInfoType::Email(contact_info_split[1].clone()))
                     }
-                    // TODO proper error handling and messaging
                     _ => {
                         invalid_contact_info.push(
                             vec![contact_info_split[0].clone(), contact_info_split[1].clone()]
@@ -491,7 +489,6 @@ impl crate::db::db_interface::DbOperations for Person {
 
             match stmt.execute(params![id, types[0], ci_value]) {
                 Ok(updated) => println!("[DEBUG] {} rows were updated", updated),
-                // FIXME extract this to a separate function to leverage FromIterator Results
                 Err(_) => return Err(DbOperationsError::QueryError),
             }
             Ok(())

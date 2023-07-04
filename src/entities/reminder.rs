@@ -347,7 +347,6 @@ impl Reminder {
                 let people_str = s.trim_start_matches(people_prefix);
                 people = people_str.split(",").map(|x| x.to_string()).collect();
             }
-            // FIXME
             _ => error = true,
         });
 
@@ -401,7 +400,6 @@ impl crate::db::db_interface::DbOperations for Reminder {
 
         let date_str = self.date.to_string();
 
-        // TODO error handling
         let mut stmt = match conn.prepare("SELECT id FROM recurring_types WHERE type = ?") {
             Ok(stmt) => stmt,
             Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),

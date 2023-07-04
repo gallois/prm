@@ -484,7 +484,6 @@ pub mod db_helpers {
 
         let rows = match stmt.query_map(params_from_iter(people_ids.iter()), |row| {
             let person_id = row.get(0)?;
-            // TODO handle this properly
             let notes = match crate::db::db_helpers::get_notes_by_person(&conn, person_id) {
                 Ok(notes) => notes,
                 Err(e) => {

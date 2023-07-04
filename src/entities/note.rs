@@ -176,7 +176,6 @@ impl Note {
                 let people_str = s.trim_start_matches(people_prefix);
                 people = people_str.split(",").map(|x| x.to_string()).collect();
             }
-            // FIXME
             _ => error = true,
         });
 
