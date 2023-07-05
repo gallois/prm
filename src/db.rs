@@ -15,6 +15,9 @@ pub mod db_interface {
             sqlite_error: Option<rusqlite::Error>,
             strum_error: Option<strum::ParseError>,
         },
+        InitialisationError {
+            action: String,
+        },
     }
 
     pub trait DbOperations {
@@ -921,11 +924,12 @@ pub mod db_helpers {
                 Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
             };
             match stmt.execute(params![]) {
-                // TODO Improve message
                 Ok(_) => println!("Database table created"),
                 Err(error) => {
                     println!("Error creating database tables: {}", error);
-                    return Err(DbOperationsError::GenericError);
+                    return Err(DbOperationsError::InitialisationError {
+                        action: String::from("create"),
+                    });
                 }
             };
         }
@@ -960,11 +964,12 @@ pub mod db_helpers {
                 Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
             };
             match stmt.execute(params![]) {
-                // TODO Improve message
                 Ok(_) => println!("Database table populated"),
                 Err(error) => {
                     println!("Error populating database tables: {}", error);
-                    return Err(DbOperationsError::GenericError);
+                    return Err(DbOperationsError::InitialisationError {
+                        action: String::from("insert"),
+                    });
                 }
             };
         }

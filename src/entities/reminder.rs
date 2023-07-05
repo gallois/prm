@@ -237,7 +237,6 @@ impl Reminder {
 
         if let Some(date) = date {
             let date_obj: Option<NaiveDate>;
-            // TODO proper error handling and messaging
             match crate::helpers::parse_from_str_ymd(&date) {
                 Ok(date) => date_obj = Some(date),
                 Err(_) => match crate::helpers::parse_from_str_md(&date) {
@@ -261,9 +260,10 @@ impl Reminder {
             }
         }
 
-        // TODO we need a way to unset description
         if let Some(description) = description {
             self.description = Some(description);
+        } else {
+            self.description = None;
         }
 
         // TODO remove duplication between here and main.rs
