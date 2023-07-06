@@ -14,7 +14,6 @@ use strfmt::strfmt;
 
 use snafu::prelude::*;
 
-// TODO Add more descriptive error messages
 // TODO Extract some of these errors to a separate module where they can be reused
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub(crate)))]

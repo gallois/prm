@@ -506,7 +506,7 @@ fn main() {
         Commands::List(list) => match list.entity {
             ListEntity::People {} => {
                 let people = Person::get_all(&conn);
-                for person in people {
+                if let Ok(person) = people {
                     println!("{:#?}", person);
                 }
             }
@@ -516,7 +516,7 @@ fn main() {
             }
             ListEntity::Reminders { include_past } => {
                 let reminders = Reminder::get_all(&conn, include_past);
-                for reminder in reminders {
+                if let Ok(reminder) = reminders {
                     println!("{:#?}", reminder);
                 }
             }
