@@ -660,17 +660,20 @@ pub mod db_helpers {
                         return Err(sqlite_error);
                     }
                 };
-            let activities = match crate::db::db_helpers::get_activities_by_person(&conn, person_id)
-            {
-                Ok(activities) => activities,
-                Err(e) => {
-                    let sqlite_error = match e {
-                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
-                        other => panic!("Unexpected error type: {:#?}", other),
-                    };
-                    return Err(sqlite_error);
-                }
-            };
+            let mut activities: Vec<crate::entities::activity::Activity> = vec![];
+            if recurse {
+                activities = match crate::db::db_helpers::get_activities_by_person(&conn, person_id)
+                {
+                    Ok(activities) => activities,
+                    Err(e) => {
+                        let sqlite_error = match e {
+                            DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                            other => panic!("Unexpected error type: {:#?}", other),
+                        };
+                        return Err(sqlite_error);
+                    }
+                };
+            }
             Ok(crate::entities::person::Person {
                 id: person_id,
                 name: row.get(1)?,
@@ -680,10 +683,10 @@ pub mod db_helpers {
                     )
                     .unwrap_or_default(),
                 ),
-                contact_info: contact_info,
-                activities: if recurse { activities } else { vec![] },
-                reminders: reminders,
-                notes: notes,
+                contact_info,
+                activities,
+                reminders,
+                notes,
             })
         }) {
             Ok(rows) => rows,
