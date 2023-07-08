@@ -121,8 +121,10 @@ enum AddEntity {
 enum ShowEntity {
     Person {
         #[arg(short, long)]
-        name: String,
-        // TODO Filter by birthday etc.
+        name: Option<String>,
+        #[arg(short, long)]
+        birthday: Option<String>,
+        // TODO Filters
     },
     Activity {
         #[arg(short, long)]
@@ -296,8 +298,12 @@ fn main() {
             }
         },
         Commands::Show(show) => match show.entity {
-            ShowEntity::Person { name } => {
-                let person = match Person::get_by_name(&conn, &name) {
+            ShowEntity::Person { name, birthday } => {
+                if [name.clone(), birthday.clone()].iter().all(Option::is_none) {
+                    eprintln!("No name or birthday provided");
+                    exit(exitcode::DATAERR);
+                }
+                let person = match Person::get_by_name(&conn, name, birthday) {
                     Ok(person) => match person {
                         Some(person) => person,
                         None => {
@@ -407,7 +413,7 @@ fn main() {
         },
         Commands::Remove(remove) => match remove.entity {
             RemoveEntity::Person { name } => {
-                let person = match Person::get_by_name(&conn, &name) {
+                let person = match Person::get_by_name(&conn, Some(name), None) {
                     Ok(person) => match person {
                         Some(person) => person,
                         None => {

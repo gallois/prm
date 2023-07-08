@@ -55,15 +55,49 @@ impl Person {
         }
     }
 
-    pub fn get_by_name(conn: &Connection, name: &str) -> Result<Option<Person>, DbOperationsError> {
-        let mut stmt = match conn.prepare("SELECT * FROM people WHERE name = ?1 COLLATE NOCASE") {
+    pub fn get_by_name(
+        conn: &Connection,
+        name: Option<String>,
+        birthday: Option<String>,
+    ) -> Result<Option<Person>, DbOperationsError> {
+        let mut query = String::from("SELECT * FROM people WHERE");
+        let mut name_present: bool = false;
+        let mut birthday_present: bool = false;
+        let mut name_some: String = String::from("");
+        let mut birthday_some: String = String::from("");
+        if let Some(name) = name {
+            name_present = true;
+            query = query + " name = ?1";
+            name_some = name;
+        }
+        if let Some(birthday) = birthday {
+            let mut placeholder = "?1";
+            if name_present {
+                query = query + " AND";
+                placeholder = "?2";
+            }
+            birthday_present = true;
+            query = query + " birthday LIKE " + placeholder;
+            birthday_some = "%".to_string() + &birthday;
+        }
+        query = query + " COLLATE NOCASE";
+
+        let mut stmt = match conn.prepare(query.as_str()) {
             Ok(stmt) => stmt,
             Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
-        let mut rows = match stmt.query(params![name]) {
+        let mut query_params = vec![];
+        if name_present {
+            query_params.push(name_some.as_str());
+        }
+        if birthday_present {
+            query_params.push(birthday_some.as_str());
+        }
+        let mut rows = match stmt.query(params_from_iter(query_params)) {
             Ok(rows) => rows,
             Err(_) => return Err(DbOperationsError::QueryError),
         };
+        // TODO allow for returning multiple rows
         match rows.next() {
             Ok(row) => match row {
                 Some(row) => {

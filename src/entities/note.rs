@@ -44,7 +44,7 @@ impl Note {
         conn: &Connection,
         person: String,
     ) -> Result<Vec<Note>, DbOperationsError> {
-        let person = Person::get_by_name(&conn, &person);
+        let person = Person::get_by_name(&conn, Some(person), None);
         match person {
             Ok(person) => match person {
                 Some(person) => Ok(person.notes),
