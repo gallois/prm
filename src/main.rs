@@ -124,12 +124,12 @@ enum ShowEntity {
         name: Option<String>,
         #[arg(short, long)]
         birthday: Option<String>,
-        // TODO Filters
     },
     Activity {
         #[arg(short, long)]
-        name: String,
-        // TODO Filter by people etc.
+        name: Option<String>,
+        #[arg(short, long)]
+        person: Option<String>,
     },
     Reminder {
         #[arg(short, long)]
@@ -318,9 +318,13 @@ fn main() {
                 };
                 println!("got person: {}", person);
             }
-            ShowEntity::Activity { name } => {
+            ShowEntity::Activity { name, person } => {
                 // TODO likely useful to return a vector of activities
-                let activity = match Activity::get_by_name(&conn, &name) {
+                if [name.clone(), person.clone()].iter().all(Option::is_none) {
+                    eprintln!("No name or person provided");
+                    exit(exitcode::DATAERR);
+                }
+                let activity = match Activity::get_by_name(&conn, name, person) {
                     Ok(activity) => match activity {
                         Some(activity) => activity,
                         None => {
