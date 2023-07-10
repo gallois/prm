@@ -324,14 +324,8 @@ fn main() {
                     eprintln!("No name or person provided");
                     exit(exitcode::DATAERR);
                 }
-                let activity = match Activity::get_by_name(&conn, name, person) {
-                    Ok(activity) => match activity {
-                        Some(activity) => activity,
-                        None => {
-                            eprintln!("Activity not found");
-                            exit(exitcode::DATAERR);
-                        }
-                    },
+                let activity = match Activity::get(&conn, name, person) {
+                    Ok(activity) => activity,
                     Err(_) => {
                         eprintln!("Activity not found");
                         exit(exitcode::SOFTWARE);
@@ -440,20 +434,15 @@ fn main() {
                 println!("removed: {}", person);
             }
             RemoveEntity::Activity { name } => {
-                let activity = match Activity::get_by_name(&conn, &name) {
-                    Ok(activity) => match activity {
-                        Some(activity) => activity,
-                        None => {
-                            eprintln!("Activity not found");
-                            exit(exitcode::DATAERR);
-                        }
-                    },
+                let activity = match Activity::get(&conn, Some(name), None) {
+                    Ok(activity) => activity,
                     Err(e) => {
                         eprintln!("Error while fetching activity: {:#?}", e);
                         exit(exitcode::DATAERR);
                     }
                 };
-                match activity.remove(&conn) {
+                // FIXME handle multiple activities with the same name
+                match activity[0].remove(&conn) {
                     Ok(_) => println!("{:#?} removed successfully", activity),
                     Err(_) => {
                         eprintln!("Error while removing {:#?}", activity);

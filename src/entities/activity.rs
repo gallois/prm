@@ -56,7 +56,7 @@ impl Activity {
         }
     }
 
-    pub fn get_by_name(
+    pub fn get(
         conn: &Connection,
         name: Option<String>,
         person: Option<String>,

@@ -55,6 +55,7 @@ impl Person {
         }
     }
 
+    // TODO create a separate function for additional filters
     pub fn get_by_name(
         conn: &Connection,
         name: Option<String>,
