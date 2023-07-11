@@ -434,22 +434,27 @@ fn main() {
                 println!("removed: {}", person);
             }
             RemoveEntity::Activity { name } => {
-                let activity = match Activity::get(&conn, Some(name), None) {
+                // TODO add filter by person
+                let activities = match Activity::get(&conn, Some(name), None) {
                     Ok(activity) => activity,
                     Err(e) => {
                         eprintln!("Error while fetching activity: {:#?}", e);
                         exit(exitcode::DATAERR);
                     }
                 };
-                // FIXME handle multiple activities with the same name
-                match activity[0].remove(&conn) {
-                    Ok(_) => println!("{:#?} removed successfully", activity),
+                // TODO add a way to select between multiple activities to be removed
+                if activities.len() > 1 {
+                    eprintln!("Found multiple activities");
+                    exit(exitcode::DATAERR);
+                }
+                match activities[0].remove(&conn) {
+                    Ok(_) => println!("{:#?} removed successfully", activities),
                     Err(_) => {
-                        eprintln!("Error while removing {:#?}", activity);
+                        eprintln!("Error while removing {:#?}", activities);
                         exit(exitcode::DATAERR);
                     }
                 };
-                println!("removed: {:#?}", activity);
+                println!("removed: {:#?}", activities);
             }
             RemoveEntity::Reminder { name } => {
                 let reminder = match Reminder::get_by_name(&conn, &name) {
