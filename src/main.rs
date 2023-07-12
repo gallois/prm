@@ -216,6 +216,8 @@ enum RemoveEntity {
     Activity {
         #[arg(short, long)]
         name: String,
+        #[arg(short, long)]
+        person: Option<String>,
     },
     Reminder {
         #[arg(short, long)]
@@ -433,9 +435,9 @@ fn main() {
                 };
                 println!("removed: {}", person);
             }
-            RemoveEntity::Activity { name } => {
+            RemoveEntity::Activity { name, person } => {
                 // TODO add filter by person
-                let activities = match Activity::get(&conn, Some(name), None) {
+                let activities = match Activity::get(&conn, Some(name), person) {
                     Ok(activity) => activity,
                     Err(e) => {
                         eprintln!("Error while fetching activity: {:#?}", e);
