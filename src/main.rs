@@ -12,6 +12,7 @@ use prm::entities::person::Person;
 use prm::entities::reminder::Reminder;
 use prm::entities::Entities;
 use rusqlite::Connection;
+use std::io;
 use uuid::Uuid;
 
 use std::process::exit;
@@ -436,7 +437,7 @@ fn main() {
                 println!("removed: {}", person);
             }
             RemoveEntity::Activity { name, person } => {
-                // TODO add filter by person
+                // FIXME filter deleted activities
                 let activities = match Activity::get(&conn, Some(name), person) {
                     Ok(activity) => activity,
                     Err(e) => {
@@ -444,19 +445,29 @@ fn main() {
                         exit(exitcode::DATAERR);
                     }
                 };
-                // TODO add a way to select between multiple activities to be removed
                 if activities.len() > 1 {
-                    eprintln!("Found multiple activities");
-                    exit(exitcode::DATAERR);
-                }
-                match activities[0].remove(&conn) {
-                    Ok(_) => println!("{:#?} removed successfully", activities),
-                    Err(_) => {
-                        eprintln!("Error while removing {:#?}", activities);
-                        exit(exitcode::DATAERR);
+                    println!("Multiple activities found");
+                    // TODO print activities in a more readable fashion
+                    for (i, e) in activities.iter().enumerate() {
+                        println!("[{}]: {:#?}", i, e);
                     }
-                };
-                println!("removed: {:#?}", activities);
+                    println!("Which activity do you want to remove?");
+                    let mut n = String::new();
+                    io::stdin().read_line(&mut n).unwrap();
+                    let n = n.trim().parse::<usize>().expect("Invalid input");
+                    println!("Deleting [{}]: {:#?}", n, activities[n]);
+                    eprintln!("Not implemented");
+                    exit(exitcode::DATAERR);
+                } else {
+                    match activities[0].remove(&conn) {
+                        Ok(_) => println!("{:#?} removed successfully", activities),
+                        Err(_) => {
+                            eprintln!("Error while removing {:#?}", activities);
+                            exit(exitcode::DATAERR);
+                        }
+                    };
+                    println!("removed: {:#?}", activities);
+                }
             }
             RemoveEntity::Reminder { name } => {
                 let reminder = match Reminder::get_by_name(&conn, &name) {
