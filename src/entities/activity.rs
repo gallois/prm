@@ -1,6 +1,6 @@
 use chrono::prelude::*;
 use rusqlite::params;
-use std::{convert::AsRef, str::FromStr};
+use std::{convert::AsRef, fmt, str::FromStr};
 use strum_macros::{AsRefStr, EnumString};
 
 use crate::db_interface::{DbOperations, DbOperationsError};
@@ -378,6 +378,25 @@ impl Activity {
         }
 
         Ok((name, date, activity_type, activity_content, people))
+    }
+}
+
+impl fmt::Display for Activity {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let date = &self.date.to_string();
+        let mut people_str = String::new();
+        let people = self
+            .people
+            .iter()
+            .map(|p| p.name.as_str())
+            .collect::<Vec<&str>>()
+            .join(",");
+        people_str.push_str(format!("{}", people).as_ref());
+        write!(
+            f,
+            "activity id: {}\nname: {}\ndate: {}\npeople: {}\n",
+            &self.id, &self.name, date, people_str
+        )
     }
 }
 

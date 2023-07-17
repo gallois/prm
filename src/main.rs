@@ -13,6 +13,7 @@ use prm::entities::reminder::Reminder;
 use prm::entities::Entities;
 use rusqlite::Connection;
 use std::io;
+use std::io::Write;
 use uuid::Uuid;
 
 use std::process::exit;
@@ -449,9 +450,10 @@ fn main() {
                     println!("Multiple activities found");
                     // TODO print activities in a more readable fashion
                     for (i, e) in activities.iter().enumerate() {
-                        println!("[{}]: {:#?}", i, e);
+                        println!("[{}]\n{}", i, e);
                     }
-                    println!("Which activity do you want to remove?");
+                    print!("Which activity do you want to remove? ");
+                    io::stdout().flush().unwrap();
                     let mut n = String::new();
                     io::stdin().read_line(&mut n).unwrap();
                     let n = n.trim().parse::<usize>().expect("Invalid input");
