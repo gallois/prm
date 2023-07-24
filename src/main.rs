@@ -135,8 +135,9 @@ enum ShowEntity {
     },
     Reminder {
         #[arg(short, long)]
-        name: String,
-        // TODO Filters
+        name: Option<String>,
+        #[arg(short, long)]
+        person: Option<String>,
     },
     Notes {
         #[arg(short, long)]
@@ -323,7 +324,6 @@ fn main() {
                 println!("got person: {}", person);
             }
             ShowEntity::Activity { name, person } => {
-                // TODO likely useful to return a vector of activities
                 if [name.clone(), person.clone()].iter().all(Option::is_none) {
                     eprintln!("No name or person provided");
                     exit(exitcode::DATAERR);
@@ -332,22 +332,20 @@ fn main() {
                     Ok(activity) => activity,
                     Err(_) => {
                         eprintln!("Activity not found");
-                        exit(exitcode::SOFTWARE);
+                        exit(exitcode::DATAERR);
                     }
                 };
                 println!("got activity: {:#?}", activity);
             }
-            ShowEntity::Reminder { name } => {
-                let reminder = match Reminder::get_by_name(&conn, &name) {
-                    Ok(reminder) => match reminder {
-                        Some(reminder) => reminder,
-                        None => {
-                            eprintln!("Reminder not found");
-                            exit(exitcode::DATAERR);
-                        }
-                    },
-                    Err(e) => {
-                        eprintln!("Error fetching reminder: {:#?}", e);
+            ShowEntity::Reminder { name, person } => {
+                if [name.clone(), person.clone()].iter().all(Option::is_none) {
+                    eprintln!("No name or person provided");
+                    exit(exitcode::DATAERR);
+                }
+                let reminder = match Reminder::get(&conn, name, person) {
+                    Ok(reminder) => reminder,
+                    Err(_) => {
+                        eprintln!("Reminder not found");
                         exit(exitcode::DATAERR);
                     }
                 };
