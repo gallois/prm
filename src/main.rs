@@ -330,6 +330,7 @@ fn main() {
                 }
                 let activity = match Activity::get(&conn, name, person) {
                     Ok(activity) => activity,
+                    // FIXME differentiate between error and empty results
                     Err(_) => {
                         eprintln!("Activity not found");
                         exit(exitcode::DATAERR);

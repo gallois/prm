@@ -177,6 +177,178 @@ impl Activity {
             }
             None => (),
         }
+        match person {
+            Some(person) => {
+                let mut stmt = match conn
+                    .prepare("SELECT id FROM people WHERE name = ?1 COLLATE NOCASE")
+                {
+                    Ok(stmt) => stmt,
+                    Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
+                };
+                let mut rows = match stmt.query(params![person]) {
+                    Ok(rows) => rows,
+                    Err(_) => return Err(DbOperationsError::QueryError),
+                };
+                let person_id: u64;
+                // TODO handle more than one person
+                //      one strategy would be just to count the number of returned rows
+                match rows.next() {
+                    Ok(row) => match row {
+                        Some(row) => {
+                            person_id = match row.get(0) {
+                                Ok(person_id) => person_id,
+                                Err(e) => {
+                                    return Err(DbOperationsError::RecordError {
+                                        sqlite_error: Some(e),
+                                        strum_error: None,
+                                    })
+                                }
+                            };
+                            // TODO extract to a separate function
+                            let activity_id: u64;
+                            let mut stmt = match conn.prepare(
+                                "SELECT activity_id FROM people_activities WHERE person_id = ?1 COLLATE NOCASE",
+                            ) {
+                                Ok(stmt) => stmt,
+                                Err(e) => {
+                                    return Err(DbOperationsError::InvalidStatement {
+                                        sqlite_error: e,
+                                    })
+                                }
+                            };
+                            let mut rows = match stmt.query(params![person_id]) {
+                                Ok(rows) => rows,
+                                Err(_) => return Err(DbOperationsError::QueryError),
+                            };
+                            match rows.next() {
+                                Ok(row) => match row {
+                                    Some(row) => {
+                                        activity_id = match row.get(0) {
+                                            Ok(person_id) => person_id,
+                                            Err(e) => {
+                                                return Err(DbOperationsError::RecordError {
+                                                    sqlite_error: Some(e),
+                                                    strum_error: None,
+                                                })
+                                            }
+                                        };
+                                    }
+                                    None => return Ok(activities),
+                                },
+                                Err(e) => {
+                                    return Err(DbOperationsError::RecordError {
+                                        sqlite_error: Some(e),
+                                        strum_error: None,
+                                    })
+                                }
+                            }
+
+                            let mut stmt = match conn
+                                .prepare("SELECT * FROM activities WHERE id = ?1 COLLATE NOCASE")
+                            {
+                                Ok(stmt) => stmt,
+                                Err(e) => {
+                                    return Err(DbOperationsError::InvalidStatement {
+                                        sqlite_error: e,
+                                    })
+                                }
+                            };
+                            let mut rows = match stmt.query(params![activity_id]) {
+                                Ok(rows) => rows,
+                                Err(_) => return Err(DbOperationsError::QueryError),
+                            };
+                            loop {
+                                match rows.next() {
+                                    Ok(row) => match row {
+                                        Some(row) => {
+                                            let activity_id = match row.get(0) {
+                                                Ok(activity_id) => activity_id,
+                                                Err(e) => {
+                                                    return Err(DbOperationsError::RecordError {
+                                                        sqlite_error: Some(e),
+                                                        strum_error: None,
+                                                    })
+                                                }
+                                            };
+                                            let name: String = match row.get(1) {
+                                                Ok(name) => name,
+                                                Err(e) => {
+                                                    return Err(DbOperationsError::RecordError {
+                                                        sqlite_error: Some(e),
+                                                        strum_error: None,
+                                                    })
+                                                }
+                                            };
+                                            let activity_type_id: u64 = match row.get(2) {
+                                                Ok(activity_type_id) => activity_type_id,
+                                                Err(e) => {
+                                                    return Err(DbOperationsError::RecordError {
+                                                        sqlite_error: Some(e),
+                                                        strum_error: None,
+                                                    })
+                                                }
+                                            };
+                                            let content: String = match row.get(4) {
+                                                Ok(content) => content,
+                                                Err(e) => {
+                                                    return Err(DbOperationsError::RecordError {
+                                                        sqlite_error: Some(e),
+                                                        strum_error: None,
+                                                    })
+                                                }
+                                            };
+                                            let people =
+                                                crate::db::db_helpers::get_people_by_activity(
+                                                    &conn,
+                                                    activity_id,
+                                                    true,
+                                                )?;
+                                            let activity_type = match ActivityType::get_by_id(
+                                                &conn,
+                                                activity_type_id,
+                                            ) {
+                                                Ok(activity_type) => match activity_type {
+                                                    Some(activity_type) => activity_type,
+                                                    None => {
+                                                        return Err(
+                                                            DbOperationsError::RecordError {
+                                                                sqlite_error: None,
+                                                                strum_error: None,
+                                                            },
+                                                        )
+                                                    }
+                                                },
+                                                Err(e) => return Err(e),
+                                            };
+                                            activities.push(Activity {
+                                                id: activity_id,
+                                                name: name,
+                                                activity_type,
+                                                date: crate::helpers::parse_from_str_ymd(
+                                                    String::from(
+                                                        row.get::<usize, String>(3)
+                                                            .unwrap_or_default(),
+                                                    )
+                                                    .as_str(),
+                                                )
+                                                .unwrap_or_default(),
+                                                content: content,
+                                                people: people,
+                                            });
+                                        }
+                                        None => return Ok(activities),
+                                    },
+                                    Err(_) => return Err(DbOperationsError::GenericError),
+                                }
+                            }
+                        }
+                        None => (),
+                    },
+                    Err(_) => return Err(DbOperationsError::GenericError),
+                }
+            }
+            None => (),
+        }
         // TODO handle only passing person
         //      the strategy here is probably to change the original
         //      query to ignore filtering by name and applying the same filters
