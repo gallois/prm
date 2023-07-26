@@ -328,15 +328,18 @@ fn main() {
                     eprintln!("No name or person provided");
                     exit(exitcode::DATAERR);
                 }
-                let activity = match Activity::get(&conn, name, person) {
-                    Ok(activity) => activity,
-                    // FIXME differentiate between error and empty results
-                    Err(_) => {
-                        eprintln!("Activity not found");
+                let activities = match Activity::get(&conn, name, person) {
+                    Ok(activities) => activities,
+                    Err(e) => {
+                        eprintln!("Error fetching activities: {:#?}", e);
                         exit(exitcode::DATAERR);
                     }
                 };
-                println!("got activity: {:#?}", activity);
+                if activities.len() == 0 {
+                    println!("No activities found");
+                } else {
+                    println!("got activity: {:#?}", activities);
+                }
             }
             ShowEntity::Reminder { name, person } => {
                 if [name.clone(), person.clone()].iter().all(Option::is_none) {
