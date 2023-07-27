@@ -338,7 +338,9 @@ fn main() {
                 if activities.len() == 0 {
                     println!("No activities found");
                 } else {
-                    println!("got activity: {:#?}", activities);
+                    for activity in activities {
+                        println!("{}", activity);
+                    }
                 }
             }
             ShowEntity::Reminder { name, person } => {
