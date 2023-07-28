@@ -175,10 +175,176 @@ impl Reminder {
             }
             None => (),
         }
-        // TODO handle only passing person
-        //      the strategy here is probably to change the original
-        //      query to ignore filtering by name and applying the same filters
-        //      down the line.
+        match person {
+            Some(person) => {
+                let mut stmt = match conn
+                    .prepare("SELECT id FROM people WHERE name = ?1 COLLATE NOCASE")
+                {
+                    Ok(stmt) => stmt,
+                    Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
+                };
+                let mut rows = match stmt.query(params![person]) {
+                    Ok(rows) => rows,
+                    Err(_) => return Err(DbOperationsError::QueryError),
+                };
+                let person_id: u64;
+                // TODO handle more than one person
+                //      one strategy would be just to count the number of returned rows
+                match rows.next() {
+                    Ok(row) => match row {
+                        Some(row) => {
+                            person_id = match row.get(0) {
+                                Ok(person_id) => person_id,
+                                Err(e) => {
+                                    return Err(DbOperationsError::RecordError {
+                                        sqlite_error: Some(e),
+                                        strum_error: None,
+                                    })
+                                }
+                            };
+                            // TODO extract to a separate function
+                            let reminder_id: u64;
+                            let mut stmt = match conn.prepare(
+                                "SELECT reminder_id FROM people_reminders WHERE person_id = ?1 COLLATE NOCASE",
+                            ) {
+                                Ok(stmt) => stmt,
+                                Err(e) => {
+                                    return Err(DbOperationsError::InvalidStatement {
+                                        sqlite_error: e,
+                                    })
+                                }
+                            };
+                            let mut rows = match stmt.query(params![person_id]) {
+                                Ok(rows) => rows,
+                                Err(_) => return Err(DbOperationsError::QueryError),
+                            };
+                            match rows.next() {
+                                Ok(row) => match row {
+                                    Some(row) => {
+                                        reminder_id = match row.get(0) {
+                                            Ok(person_id) => person_id,
+                                            Err(e) => {
+                                                return Err(DbOperationsError::RecordError {
+                                                    sqlite_error: Some(e),
+                                                    strum_error: None,
+                                                })
+                                            }
+                                        };
+                                    }
+                                    None => return Ok(reminders),
+                                },
+                                Err(e) => {
+                                    return Err(DbOperationsError::RecordError {
+                                        sqlite_error: Some(e),
+                                        strum_error: None,
+                                    })
+                                }
+                            }
+
+                            let mut stmt = match conn
+                                .prepare("SELECT * FROM reminders WHERE id = ?1 COLLATE NOCASE")
+                            {
+                                Ok(stmt) => stmt,
+                                Err(e) => {
+                                    return Err(DbOperationsError::InvalidStatement {
+                                        sqlite_error: e,
+                                    })
+                                }
+                            };
+                            let mut rows = match stmt.query(params![reminder_id]) {
+                                Ok(rows) => rows,
+                                Err(_) => return Err(DbOperationsError::QueryError),
+                            };
+                            loop {
+                                match rows.next() {
+                                    Ok(row) => match row {
+                                        Some(row) => {
+                                            let reminder_id = match row.get(0) {
+                                                Ok(reminder_id) => reminder_id,
+                                                Err(e) => {
+                                                    return Err(DbOperationsError::RecordError {
+                                                        sqlite_error: Some(e),
+                                                        strum_error: None,
+                                                    })
+                                                }
+                                            };
+                                            let name: String = match row.get(1) {
+                                                Ok(name) => name,
+                                                Err(e) => {
+                                                    return Err(DbOperationsError::RecordError {
+                                                        sqlite_error: Some(e),
+                                                        strum_error: None,
+                                                    })
+                                                }
+                                            };
+                                            let description: Option<String> = match row.get(3) {
+                                                Ok(description) => description,
+                                                Err(e) => {
+                                                    return Err(DbOperationsError::RecordError {
+                                                        sqlite_error: Some(e),
+                                                        strum_error: None,
+                                                    })
+                                                }
+                                            };
+                                            let recurring_type_id = match row.get(4) {
+                                                Ok(recurring_type_id) => recurring_type_id,
+                                                Err(e) => {
+                                                    return Err(DbOperationsError::RecordError {
+                                                        sqlite_error: Some(e),
+                                                        strum_error: None,
+                                                    })
+                                                }
+                                            };
+                                            let people = crate::db_helpers::get_people_by_reminder(
+                                                &conn,
+                                                reminder_id,
+                                            )?;
+                                            let recurring_type = match RecurringType::get_by_id(
+                                                &conn,
+                                                recurring_type_id,
+                                            ) {
+                                                Ok(recurring_type) => match recurring_type {
+                                                    Some(recurring_type) => recurring_type,
+                                                    None => {
+                                                        return Err(
+                                                            DbOperationsError::RecordError {
+                                                                sqlite_error: None,
+                                                                strum_error: None,
+                                                            },
+                                                        )
+                                                    }
+                                                },
+                                                Err(e) => return Err(e),
+                                            };
+                                            reminders.push(Reminder {
+                                                id: reminder_id,
+                                                name,
+                                                date: crate::helpers::parse_from_str_ymd(
+                                                    String::from(
+                                                        row.get::<usize, String>(2)
+                                                            .unwrap_or_default(),
+                                                    )
+                                                    .as_str(),
+                                                )
+                                                .unwrap_or_default(),
+                                                description,
+                                                recurring: recurring_type,
+                                                people: people,
+                                            });
+                                        }
+                                        None => return Ok(reminders),
+                                    },
+                                    Err(_) => return Err(DbOperationsError::GenericError),
+                                }
+                            }
+                        }
+                        None => (),
+                    },
+                    Err(_) => return Err(DbOperationsError::GenericError),
+                }
+            }
+            None => (),
+        }
         return Ok(reminders);
     }
 

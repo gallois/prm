@@ -348,14 +348,20 @@ fn main() {
                     eprintln!("No name or person provided");
                     exit(exitcode::DATAERR);
                 }
-                let reminder = match Reminder::get(&conn, name, person) {
+                let reminders = match Reminder::get(&conn, name, person) {
                     Ok(reminder) => reminder,
-                    Err(_) => {
-                        eprintln!("Reminder not found");
+                    Err(e) => {
+                        eprintln!("Error fetching reminders: {:#?}", e);
                         exit(exitcode::DATAERR);
                     }
                 };
-                println!("got reminder: {:#?}", reminder);
+                if reminders.len() == 0 {
+                    println!("No reminders found");
+                } else {
+                    for reminder in reminders {
+                        println!("{}", reminder);
+                    }
+                }
             }
             ShowEntity::Notes { person } => {
                 let note = Note::get_by_person(&conn, person);

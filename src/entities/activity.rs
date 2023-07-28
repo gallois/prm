@@ -349,10 +349,6 @@ impl Activity {
             }
             None => (),
         }
-        // TODO handle only passing person
-        //      the strategy here is probably to change the original
-        //      query to ignore filtering by name and applying the same filters
-        //      down the line.
         return Ok(activities);
     }
 
