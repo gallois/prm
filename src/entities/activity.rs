@@ -1,5 +1,5 @@
 use chrono::prelude::*;
-use rusqlite::params;
+use rusqlite::{params, params_from_iter};
 use std::{convert::AsRef, fmt, str::FromStr};
 use strum_macros::{AsRefStr, EnumString};
 
@@ -202,9 +202,9 @@ impl Activity {
                                 }
                             };
                             // TODO extract to a separate function
-                            let activity_id: u64;
+                            let mut activity_ids: Vec<u8> = vec![];
                             let mut stmt = match conn.prepare(
-                                "SELECT activity_id FROM people_activities WHERE person_id = ?1 COLLATE NOCASE",
+                                "SELECT activity_id FROM people_activities WHERE person_id = ?1 AND deleted = FALSE COLLATE NOCASE",
                             ) {
                                 Ok(stmt) => stmt,
                                 Err(e) => {
@@ -217,32 +217,38 @@ impl Activity {
                                 Ok(rows) => rows,
                                 Err(_) => return Err(DbOperationsError::QueryError),
                             };
-                            match rows.next() {
-                                Ok(row) => match row {
-                                    Some(row) => {
-                                        activity_id = match row.get(0) {
-                                            Ok(person_id) => person_id,
-                                            Err(e) => {
-                                                return Err(DbOperationsError::RecordError {
-                                                    sqlite_error: Some(e),
-                                                    strum_error: None,
-                                                })
-                                            }
-                                        };
+
+                            loop {
+                                match rows.next() {
+                                    Ok(row) => match row {
+                                        Some(row) => {
+                                            match row.get(0) {
+                                                Ok(id) => activity_ids.push(id),
+                                                Err(e) => {
+                                                    return Err(DbOperationsError::RecordError {
+                                                        sqlite_error: Some(e),
+                                                        strum_error: None,
+                                                    })
+                                                }
+                                            };
+                                        }
+                                        None => break,
+                                    },
+                                    Err(e) => {
+                                        return Err(DbOperationsError::RecordError {
+                                            sqlite_error: Some(e),
+                                            strum_error: None,
+                                        })
                                     }
-                                    None => return Ok(activities),
-                                },
-                                Err(e) => {
-                                    return Err(DbOperationsError::RecordError {
-                                        sqlite_error: Some(e),
-                                        strum_error: None,
-                                    })
                                 }
                             }
 
-                            let mut stmt = match conn
-                                .prepare("SELECT * FROM activities WHERE id = ?1 COLLATE NOCASE")
-                            {
+                            let vars = crate::helpers::repeat_vars(activity_ids.len());
+                            let sql = format!(
+                                "SELECT * from activities WHERE id IN ({}) AND deleted = FALSE",
+                                vars
+                            );
+                            let mut stmt = match conn.prepare(&sql) {
                                 Ok(stmt) => stmt,
                                 Err(e) => {
                                     return Err(DbOperationsError::InvalidStatement {
@@ -250,10 +256,12 @@ impl Activity {
                                     })
                                 }
                             };
-                            let mut rows = match stmt.query(params![activity_id]) {
+
+                            let mut rows = match stmt.query(params_from_iter(activity_ids.iter())) {
                                 Ok(rows) => rows,
                                 Err(_) => return Err(DbOperationsError::QueryError),
                             };
+
                             loop {
                                 match rows.next() {
                                     Ok(row) => match row {
@@ -268,7 +276,7 @@ impl Activity {
                                             )?;
                                             activities.push(activity);
                                         }
-                                        None => return Ok(activities),
+                                        None => break,
                                     },
                                     Err(_) => return Err(DbOperationsError::GenericError),
                                 }
