@@ -187,8 +187,6 @@ impl Activity {
                     Err(_) => return Err(DbOperationsError::QueryError),
                 };
                 let person_id: u64;
-                // TODO handle more than one person
-                //      one strategy would be just to count the number of returned rows
                 match rows.next() {
                     Ok(row) => match row {
                         Some(row) => {

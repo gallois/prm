@@ -1,5 +1,5 @@
 use chrono::prelude::*;
-use rusqlite::params;
+use rusqlite::{params, params_from_iter};
 use std::{convert::AsRef, fmt, str::FromStr};
 use strum_macros::{AsRefStr, EnumString};
 
@@ -189,8 +189,6 @@ impl Reminder {
                     Err(_) => return Err(DbOperationsError::QueryError),
                 };
                 let person_id: u64;
-                // TODO handle more than one person
-                //      one strategy would be just to count the number of returned rows
                 match rows.next() {
                     Ok(row) => match row {
                         Some(row) => {
@@ -204,7 +202,7 @@ impl Reminder {
                                 }
                             };
                             // TODO extract to a separate function
-                            let reminder_id: u64;
+                            let mut reminder_ids: Vec<u8> = vec![];
                             let mut stmt = match conn.prepare(
                                 "SELECT reminder_id FROM people_reminders WHERE person_id = ?1 COLLATE NOCASE",
                             ) {
@@ -219,32 +217,38 @@ impl Reminder {
                                 Ok(rows) => rows,
                                 Err(_) => return Err(DbOperationsError::QueryError),
                             };
-                            match rows.next() {
-                                Ok(row) => match row {
-                                    Some(row) => {
-                                        reminder_id = match row.get(0) {
-                                            Ok(person_id) => person_id,
-                                            Err(e) => {
-                                                return Err(DbOperationsError::RecordError {
-                                                    sqlite_error: Some(e),
-                                                    strum_error: None,
-                                                })
-                                            }
-                                        };
+
+                            loop {
+                                match rows.next() {
+                                    Ok(row) => match row {
+                                        Some(row) => {
+                                            match row.get(0) {
+                                                Ok(id) => reminder_ids.push(id),
+                                                Err(e) => {
+                                                    return Err(DbOperationsError::RecordError {
+                                                        sqlite_error: Some(e),
+                                                        strum_error: None,
+                                                    })
+                                                }
+                                            };
+                                        }
+                                        None => break,
+                                    },
+                                    Err(e) => {
+                                        return Err(DbOperationsError::RecordError {
+                                            sqlite_error: Some(e),
+                                            strum_error: None,
+                                        })
                                     }
-                                    None => return Ok(reminders),
-                                },
-                                Err(e) => {
-                                    return Err(DbOperationsError::RecordError {
-                                        sqlite_error: Some(e),
-                                        strum_error: None,
-                                    })
                                 }
                             }
 
-                            let mut stmt = match conn
-                                .prepare("SELECT * FROM reminders WHERE id = ?1 COLLATE NOCASE")
-                            {
+                            let vars = crate::helpers::repeat_vars(reminder_ids.len());
+                            let sql = format!(
+                                "SELECT * from reminders WHERE id IN ({}) AND deleted = FALSE",
+                                vars
+                            );
+                            let mut stmt = match conn.prepare(&sql) {
                                 Ok(stmt) => stmt,
                                 Err(e) => {
                                     return Err(DbOperationsError::InvalidStatement {
@@ -252,10 +256,11 @@ impl Reminder {
                                     })
                                 }
                             };
-                            let mut rows = match stmt.query(params![reminder_id]) {
+                            let mut rows = match stmt.query(params_from_iter(reminder_ids.iter())) {
                                 Ok(rows) => rows,
                                 Err(_) => return Err(DbOperationsError::QueryError),
                             };
+
                             loop {
                                 match rows.next() {
                                     Ok(row) => match row {
@@ -270,7 +275,7 @@ impl Reminder {
                                             )?;
                                             reminders.push(reminder);
                                         }
-                                        None => return Ok(reminders),
+                                        None => break,
                                     },
                                     Err(_) => return Err(DbOperationsError::GenericError),
                                 }
