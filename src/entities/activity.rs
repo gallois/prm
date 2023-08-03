@@ -199,47 +199,7 @@ impl Activity {
                                     })
                                 }
                             };
-                            // TODO extract to a separate function
-                            let mut activity_ids: Vec<u8> = vec![];
-                            let mut stmt = match conn.prepare(
-                                "SELECT activity_id FROM people_activities WHERE person_id = ?1 AND deleted = FALSE COLLATE NOCASE",
-                            ) {
-                                Ok(stmt) => stmt,
-                                Err(e) => {
-                                    return Err(DbOperationsError::InvalidStatement {
-                                        sqlite_error: e,
-                                    })
-                                }
-                            };
-                            let mut rows = match stmt.query(params![person_id]) {
-                                Ok(rows) => rows,
-                                Err(_) => return Err(DbOperationsError::QueryError),
-                            };
-
-                            loop {
-                                match rows.next() {
-                                    Ok(row) => match row {
-                                        Some(row) => {
-                                            match row.get(0) {
-                                                Ok(id) => activity_ids.push(id),
-                                                Err(e) => {
-                                                    return Err(DbOperationsError::RecordError {
-                                                        sqlite_error: Some(e),
-                                                        strum_error: None,
-                                                    })
-                                                }
-                                            };
-                                        }
-                                        None => break,
-                                    },
-                                    Err(e) => {
-                                        return Err(DbOperationsError::RecordError {
-                                            sqlite_error: Some(e),
-                                            strum_error: None,
-                                        })
-                                    }
-                                }
-                            }
+                            let activity_ids = Self::get_ids_by_person_id(conn, person_id)?;
 
                             let vars = crate::helpers::repeat_vars(activity_ids.len());
                             let sql = format!(
@@ -484,6 +444,53 @@ impl Activity {
         }
 
         Ok((name, date, activity_type, activity_content, people))
+    }
+
+    fn get_ids_by_person_id(
+        conn: &Connection,
+        person_id: u64,
+    ) -> Result<Vec<u8>, DbOperationsError> {
+        let mut ids: Vec<u8> = vec![];
+        let mut stmt = match conn.prepare(
+            "SELECT activity_id FROM people_activities WHERE person_id = ?1 AND deleted = FALSE COLLATE NOCASE",
+        ) {
+            Ok(stmt) => stmt,
+            Err(e) => {
+                return Err(DbOperationsError::InvalidStatement {
+                    sqlite_error: e,
+                })
+            }
+        };
+        let mut rows = match stmt.query(params![person_id]) {
+            Ok(rows) => rows,
+            Err(_) => return Err(DbOperationsError::QueryError),
+        };
+
+        loop {
+            match rows.next() {
+                Ok(row) => match row {
+                    Some(row) => {
+                        match row.get(0) {
+                            Ok(id) => ids.push(id),
+                            Err(e) => {
+                                return Err(DbOperationsError::RecordError {
+                                    sqlite_error: Some(e),
+                                    strum_error: None,
+                                })
+                            }
+                        };
+                    }
+                    None => break,
+                },
+                Err(e) => {
+                    return Err(DbOperationsError::RecordError {
+                        sqlite_error: Some(e),
+                        strum_error: None,
+                    })
+                }
+            }
+        }
+        return Ok(ids);
     }
 }
 
