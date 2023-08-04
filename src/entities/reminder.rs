@@ -62,7 +62,7 @@ impl Reminder {
         id: Result<u64, rusqlite::Error>,
         name: Result<String, rusqlite::Error>,
         date: Result<String, rusqlite::Error>,
-        description: Result<String, rusqlite::Error>,
+        description: Result<Option<String>, rusqlite::Error>,
         recurring_type_id: Result<u64, rusqlite::Error>,
     ) -> Result<Reminder, DbOperationsError> {
         let id = match id {
@@ -84,7 +84,10 @@ impl Reminder {
             }
         };
         let description: String = match description {
-            Ok(description) => description,
+            Ok(description) => match description {
+                Some(description) => description,
+                None => "".to_string(),
+            },
             Err(e) => {
                 return Err(DbOperationsError::RecordError {
                     sqlite_error: Some(e),
@@ -201,47 +204,8 @@ impl Reminder {
                                     })
                                 }
                             };
-                            // TODO extract to a separate function
-                            let mut reminder_ids: Vec<u8> = vec![];
-                            let mut stmt = match conn.prepare(
-                                "SELECT reminder_id FROM people_reminders WHERE person_id = ?1 COLLATE NOCASE",
-                            ) {
-                                Ok(stmt) => stmt,
-                                Err(e) => {
-                                    return Err(DbOperationsError::InvalidStatement {
-                                        sqlite_error: e,
-                                    })
-                                }
-                            };
-                            let mut rows = match stmt.query(params![person_id]) {
-                                Ok(rows) => rows,
-                                Err(_) => return Err(DbOperationsError::QueryError),
-                            };
-
-                            loop {
-                                match rows.next() {
-                                    Ok(row) => match row {
-                                        Some(row) => {
-                                            match row.get(0) {
-                                                Ok(id) => reminder_ids.push(id),
-                                                Err(e) => {
-                                                    return Err(DbOperationsError::RecordError {
-                                                        sqlite_error: Some(e),
-                                                        strum_error: None,
-                                                    })
-                                                }
-                                            };
-                                        }
-                                        None => break,
-                                    },
-                                    Err(e) => {
-                                        return Err(DbOperationsError::RecordError {
-                                            sqlite_error: Some(e),
-                                            strum_error: None,
-                                        })
-                                    }
-                                }
-                            }
+                            let reminder_ids: Vec<u8> =
+                                Self::get_ids_by_person_id(conn, person_id)?;
 
                             let vars = crate::helpers::repeat_vars(reminder_ids.len());
                             let sql = format!(
@@ -289,6 +253,50 @@ impl Reminder {
             None => (),
         }
         return Ok(reminders);
+    }
+
+    fn get_ids_by_person_id(
+        conn: &Connection,
+        person_id: u64,
+    ) -> Result<Vec<u8>, DbOperationsError> {
+        let mut ids: Vec<u8> = vec![];
+        let mut stmt = match conn
+            .prepare("SELECT reminder_id FROM people_reminders WHERE person_id = ?1 COLLATE NOCASE")
+        {
+            Ok(stmt) => stmt,
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
+        };
+        let mut rows = match stmt.query(params![person_id]) {
+            Ok(rows) => rows,
+            Err(_) => return Err(DbOperationsError::QueryError),
+        };
+
+        loop {
+            match rows.next() {
+                Ok(row) => match row {
+                    Some(row) => {
+                        match row.get(0) {
+                            Ok(id) => ids.push(id),
+                            Err(e) => {
+                                return Err(DbOperationsError::RecordError {
+                                    sqlite_error: Some(e),
+                                    strum_error: None,
+                                })
+                            }
+                        };
+                    }
+                    None => break,
+                },
+                Err(e) => {
+                    return Err(DbOperationsError::RecordError {
+                        sqlite_error: Some(e),
+                        strum_error: None,
+                    })
+                }
+            }
+        }
+
+        return Ok(ids);
     }
 
     // TODO remove duplication between different entities
