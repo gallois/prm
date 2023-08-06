@@ -171,6 +171,80 @@ impl Activity {
         }
     }
 
+    // TODO perhaps worth moving parts of it to db.rs, like get_activities_by_person?
+    fn get_activities_by_person(
+        conn: &Connection,
+        person: String,
+    ) -> Result<Vec<Activity>, DbOperationsError> {
+        let mut activities: Vec<Activity> = vec![];
+        let mut stmt = match conn.prepare("SELECT id FROM people WHERE name = ?1 COLLATE NOCASE") {
+            Ok(stmt) => stmt,
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
+        };
+        let mut rows = match stmt.query(params![person]) {
+            Ok(rows) => rows,
+            Err(_) => return Err(DbOperationsError::QueryError),
+        };
+        let person_id: u64;
+        match rows.next() {
+            Ok(row) => match row {
+                Some(row) => {
+                    person_id = match row.get(0) {
+                        Ok(person_id) => person_id,
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
+                    };
+                    let activity_ids = Self::get_ids_by_person_id(conn, person_id)?;
+
+                    let vars = crate::helpers::repeat_vars(activity_ids.len());
+                    let sql = format!(
+                        "SELECT * from activities WHERE id IN ({}) AND deleted = FALSE",
+                        vars
+                    );
+                    let mut stmt = match conn.prepare(&sql) {
+                        Ok(stmt) => stmt,
+                        Err(e) => {
+                            return Err(DbOperationsError::InvalidStatement { sqlite_error: e })
+                        }
+                    };
+
+                    let mut rows = match stmt.query(params_from_iter(activity_ids.iter())) {
+                        Ok(rows) => rows,
+                        Err(_) => return Err(DbOperationsError::QueryError),
+                    };
+
+                    loop {
+                        match rows.next() {
+                            Ok(row) => match row {
+                                Some(row) => {
+                                    let activity = Self::build_from_sql(
+                                        conn,
+                                        row.get(0),
+                                        row.get(1),
+                                        row.get(2),
+                                        row.get::<usize, String>(3),
+                                        row.get(4),
+                                    )?;
+                                    activities.push(activity);
+                                }
+                                None => break,
+                            },
+                            Err(_) => return Err(DbOperationsError::GenericError),
+                        }
+                    }
+                }
+                None => (),
+            },
+            Err(_) => return Err(DbOperationsError::GenericError),
+        }
+
+        return Ok(activities);
+    }
+
     pub fn get(
         conn: &Connection,
         name: Option<String>,
@@ -185,74 +259,7 @@ impl Activity {
         }
         match person {
             Some(person) => {
-                let mut stmt = match conn
-                    .prepare("SELECT id FROM people WHERE name = ?1 COLLATE NOCASE")
-                {
-                    Ok(stmt) => stmt,
-                    Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
-                };
-                let mut rows = match stmt.query(params![person]) {
-                    Ok(rows) => rows,
-                    Err(_) => return Err(DbOperationsError::QueryError),
-                };
-                let person_id: u64;
-                match rows.next() {
-                    Ok(row) => match row {
-                        Some(row) => {
-                            person_id = match row.get(0) {
-                                Ok(person_id) => person_id,
-                                Err(e) => {
-                                    return Err(DbOperationsError::RecordError {
-                                        sqlite_error: Some(e),
-                                        strum_error: None,
-                                    })
-                                }
-                            };
-                            let activity_ids = Self::get_ids_by_person_id(conn, person_id)?;
-
-                            let vars = crate::helpers::repeat_vars(activity_ids.len());
-                            let sql = format!(
-                                "SELECT * from activities WHERE id IN ({}) AND deleted = FALSE",
-                                vars
-                            );
-                            let mut stmt = match conn.prepare(&sql) {
-                                Ok(stmt) => stmt,
-                                Err(e) => {
-                                    return Err(DbOperationsError::InvalidStatement {
-                                        sqlite_error: e,
-                                    })
-                                }
-                            };
-
-                            let mut rows = match stmt.query(params_from_iter(activity_ids.iter())) {
-                                Ok(rows) => rows,
-                                Err(_) => return Err(DbOperationsError::QueryError),
-                            };
-
-                            loop {
-                                match rows.next() {
-                                    Ok(row) => match row {
-                                        Some(row) => {
-                                            let activity = Self::build_from_sql(
-                                                conn,
-                                                row.get(0),
-                                                row.get(1),
-                                                row.get(2),
-                                                row.get::<usize, String>(3),
-                                                row.get(4),
-                                            )?;
-                                            activities.push(activity);
-                                        }
-                                        None => break,
-                                    },
-                                    Err(_) => return Err(DbOperationsError::GenericError),
-                                }
-                            }
-                        }
-                        None => (),
-                    },
-                    Err(_) => return Err(DbOperationsError::GenericError),
-                }
+                activities = Self::get_activities_by_person(conn, person.clone())?;
             }
             None => (),
         }
