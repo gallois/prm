@@ -257,6 +257,7 @@ impl Activity {
             }
             None => (),
         }
+        // FIXME this is overriding the previous match if there's both name and person being passed
         match person {
             Some(person) => {
                 activities = Self::get_activities_by_person(conn, person.clone())?;

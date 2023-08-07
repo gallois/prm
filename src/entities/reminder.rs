@@ -130,6 +130,50 @@ impl Reminder {
         })
     }
 
+    fn get_reminders_by_name(
+        conn: &Connection,
+        name: String,
+        person: Option<String>,
+    ) -> Result<Vec<Reminder>, DbOperationsError> {
+        let mut reminders: Vec<Reminder> = vec![];
+        let mut stmt = match conn.prepare("SELECT * FROM reminders WHERE name = ?1 COLLATE NOCASE")
+        {
+            Ok(stmt) => stmt,
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
+        };
+        let mut rows = match stmt.query(params![name]) {
+            Ok(rows) => rows,
+            Err(_) => return Err(DbOperationsError::QueryError),
+        };
+        loop {
+            match rows.next() {
+                Ok(row) => match row {
+                    Some(row) => {
+                        let reminder = Self::build_from_sql(
+                            conn,
+                            row.get(0),
+                            row.get(1),
+                            row.get(2),
+                            row.get(3),
+                            row.get(4),
+                        )?;
+                        if let Some(person) = person.clone() {
+                            let people_name: Vec<String> =
+                                reminder.people.iter().map(|p| p.name.to_owned()).collect();
+                            if people_name.contains(&person) {
+                                reminders.push(reminder);
+                            }
+                        } else {
+                            reminders.push(reminder);
+                        }
+                    }
+                    None => return Ok(reminders),
+                },
+                Err(_) => return Err(DbOperationsError::GenericError),
+            }
+        }
+    }
+
     pub fn get(
         conn: &Connection,
         name: Option<String>,
@@ -139,46 +183,11 @@ impl Reminder {
 
         match name {
             Some(name) => {
-                let mut stmt = match conn
-                    .prepare("SELECT * FROM reminders WHERE name = ?1 COLLATE NOCASE")
-                {
-                    Ok(stmt) => stmt,
-                    Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
-                };
-                let mut rows = match stmt.query(params![name]) {
-                    Ok(rows) => rows,
-                    Err(_) => return Err(DbOperationsError::QueryError),
-                };
-                loop {
-                    match rows.next() {
-                        Ok(row) => match row {
-                            Some(row) => {
-                                let reminder = Self::build_from_sql(
-                                    conn,
-                                    row.get(0),
-                                    row.get(1),
-                                    row.get(2),
-                                    row.get(3),
-                                    row.get(4),
-                                )?;
-                                if let Some(person) = person.clone() {
-                                    let people_name: Vec<String> =
-                                        reminder.people.iter().map(|p| p.name.to_owned()).collect();
-                                    if people_name.contains(&person) {
-                                        reminders.push(reminder);
-                                    }
-                                } else {
-                                    reminders.push(reminder);
-                                }
-                            }
-                            None => return Ok(reminders),
-                        },
-                        Err(_) => return Err(DbOperationsError::GenericError),
-                    }
-                }
+                reminders = Self::get_reminders_by_name(conn, name, person.clone())?;
             }
             None => (),
         }
+        // FIXME this is overriding the previous match if there's both name and person being passed
         match person {
             Some(person) => {
                 let mut stmt = match conn
