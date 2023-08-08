@@ -183,11 +183,12 @@ impl Reminder {
 
         match name {
             Some(name) => {
+                // FIXME this is almost a duplication of get_by_name(conn, name)
                 reminders = Self::get_reminders_by_name(conn, name, person.clone())?;
+                return Ok(reminders);
             }
             None => (),
         }
-        // FIXME this is overriding the previous match if there's both name and person being passed
         match person {
             Some(person) => {
                 let mut stmt = match conn

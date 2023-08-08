@@ -127,7 +127,7 @@ impl Activity {
     }
 
     // TODO perhaps worth moving parts of it to db.rs, like get_activities_by_person?
-    fn get_activities_by_name(
+    fn get_by_name(
         conn: &Connection,
         name: String,
         person: Option<String>,
@@ -172,7 +172,7 @@ impl Activity {
     }
 
     // TODO perhaps worth moving parts of it to db.rs, like get_activities_by_person?
-    fn get_activities_by_person(
+    fn get_by_person(
         conn: &Connection,
         person: String,
     ) -> Result<Vec<Activity>, DbOperationsError> {
@@ -253,14 +253,14 @@ impl Activity {
         let mut activities: Vec<Activity> = vec![];
         match name {
             Some(name) => {
-                activities = Self::get_activities_by_name(conn, name, person.clone())?;
+                activities = Self::get_by_name(conn, name, person.clone())?;
+                return Ok(activities);
             }
             None => (),
         }
-        // FIXME this is overriding the previous match if there's both name and person being passed
         match person {
             Some(person) => {
-                activities = Self::get_activities_by_person(conn, person.clone())?;
+                activities = Self::get_by_person(conn, person.clone())?;
             }
             None => (),
         }
