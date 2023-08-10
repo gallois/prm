@@ -448,7 +448,6 @@ fn main() {
                 println!("removed: {}", person);
             }
             RemoveEntity::Activity { name, person } => {
-                // FIXME filter deleted activities
                 let activities = match Activity::get(&conn, Some(name), person) {
                     Ok(activity) => activity,
                     Err(e) => {

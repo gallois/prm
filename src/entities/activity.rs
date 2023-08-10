@@ -133,7 +133,8 @@ impl Activity {
         person: Option<String>,
     ) -> Result<Vec<Activity>, DbOperationsError> {
         let mut activities: Vec<Activity> = vec![];
-        let mut stmt = match conn.prepare("SELECT * FROM activities WHERE name = ?1 COLLATE NOCASE")
+        let mut stmt = match conn
+            .prepare("SELECT * FROM activities WHERE name = ?1 AND deleted = 0 COLLATE NOCASE")
         {
             Ok(stmt) => stmt,
             Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
