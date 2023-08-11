@@ -61,7 +61,7 @@ impl Person {
         name: Option<String>,
         birthday: Option<String>,
     ) -> Result<Option<Person>, DbOperationsError> {
-        let mut query = String::from("SELECT * FROM people WHERE");
+        let mut query = String::from("SELECT * FROM people WHERE deleted = 0");
         let mut name_present: bool = false;
         let mut birthday_present: bool = false;
         let mut name_some: String = String::from("");
@@ -81,6 +81,7 @@ impl Person {
             query = query + " birthday LIKE " + placeholder;
             birthday_some = "%".to_string() + &birthday;
         }
+        query = query + " AND deleted = 0";
         query = query + " COLLATE NOCASE";
 
         let mut stmt = match conn.prepare(query.as_str()) {
@@ -165,7 +166,7 @@ impl Person {
 
         let vars = crate::helpers::repeat_vars(names.len());
         let sql = format!(
-            "SELECT * FROM people WHERE name IN ({}) COLLATE NOCASE",
+            "SELECT * FROM people WHERE name IN ({}) AND deleted = 0 COLLATE NOCASE",
             vars
         );
 
@@ -208,7 +209,7 @@ impl Person {
     }
 
     pub fn get_all(conn: &Connection) -> Result<Vec<Person>, DbOperationsError> {
-        let mut stmt = match conn.prepare("SELECT * FROM people") {
+        let mut stmt = match conn.prepare("SELECT * FROM people WHERE deleted = 0 COLLATE NOCASE") {
             Ok(stmt) => stmt,
             Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
@@ -403,7 +404,9 @@ impl Person {
 
 impl crate::db::db_interface::DbOperations for Person {
     fn add(&self, conn: &Connection) -> Result<&Person, DbOperationsError> {
-        let mut stmt = match conn.prepare("SELECT id FROM people WHERE name = ?") {
+        let mut stmt = match conn
+            .prepare("SELECT id FROM people WHERE name = ? AND deleted = 0 COLLATE NOCASE")
+        {
             Ok(stmt) => stmt,
             Err(_) => return Err(DbOperationsError::QueryError),
         };
@@ -640,7 +643,7 @@ impl crate::db::db_interface::DbOperations for Person {
                     }
                 }
 
-                let mut stmt = match conn.prepare("SELECT id FROM contact_info WHERE person_id = ?1 AND contact_info_type_id = ?2") {
+                let mut stmt = match conn.prepare("SELECT id FROM contact_info WHERE person_id = ?1 AND contact_info_type_id = ?2 AND deleted = 0") {
                     Ok(stmt) => stmt,
                     Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
                 };
@@ -698,7 +701,7 @@ impl crate::db::db_interface::DbOperations for Person {
     }
 
     fn get_by_id(conn: &Connection, id: u64) -> Result<Option<Entities>, DbOperationsError> {
-        let mut stmt = match conn.prepare("SELECT * FROM people WHERE id = ?1") {
+        let mut stmt = match conn.prepare("SELECT * FROM people WHERE id = ?1 AND deleted = 0") {
             Ok(stmt) => stmt,
             Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
