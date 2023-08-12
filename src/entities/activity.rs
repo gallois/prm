@@ -178,7 +178,9 @@ impl Activity {
         person: String,
     ) -> Result<Vec<Activity>, DbOperationsError> {
         let mut activities: Vec<Activity> = vec![];
-        let mut stmt = match conn.prepare("SELECT id FROM people WHERE name = ?1 COLLATE NOCASE") {
+        let mut stmt = match conn
+            .prepare("SELECT id FROM people WHERE name = ?1 AND deleted = 0 COLLATE NOCASE")
+        {
             Ok(stmt) => stmt,
             Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
@@ -203,7 +205,7 @@ impl Activity {
 
                     let vars = crate::helpers::repeat_vars(activity_ids.len());
                     let sql = format!(
-                        "SELECT * from activities WHERE id IN ({}) AND deleted = FALSE",
+                        "SELECT * from activities WHERE id IN ({}) AND deleted = 0",
                         vars
                     );
                     let mut stmt = match conn.prepare(&sql) {
@@ -269,7 +271,7 @@ impl Activity {
     }
 
     pub fn get_all(conn: &Connection) -> Result<Vec<Activity>, DbOperationsError> {
-        let mut stmt = match conn.prepare("SELECT * FROM activities") {
+        let mut stmt = match conn.prepare("SELECT * FROM activities WHERE deleted = 0") {
             Ok(stmt) => stmt,
             Err(_) => return Err(DbOperationsError::GenericError),
         };
@@ -470,14 +472,10 @@ impl Activity {
     ) -> Result<Vec<u8>, DbOperationsError> {
         let mut ids: Vec<u8> = vec![];
         let mut stmt = match conn.prepare(
-            "SELECT activity_id FROM people_activities WHERE person_id = ?1 AND deleted = FALSE COLLATE NOCASE",
+            "SELECT activity_id FROM people_activities WHERE person_id = ?1 AND deleted = 0",
         ) {
             Ok(stmt) => stmt,
-            Err(e) => {
-                return Err(DbOperationsError::InvalidStatement {
-                    sqlite_error: e,
-                })
-            }
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
         let mut rows = match stmt.query(params![person_id]) {
             Ok(rows) => rows,
@@ -702,7 +700,9 @@ impl DbOperations for Activity {
                         people_activities
                     WHERE
                         activity_id = ?1 
-                        AND person_id = ?2",
+                        AND person_id = ?2
+                    AND
+                        deleted = 0",
             ) {
                 Ok(stmt) => stmt,
                 Err(_) => return Err(DbOperationsError::GenericError),
@@ -776,7 +776,8 @@ impl DbOperations for Activity {
     }
 
     fn get_by_id(conn: &Connection, id: u64) -> Result<Option<Entities>, DbOperationsError> {
-        let mut stmt = match conn.prepare("SELECT * FROM activities WHERE id = ?1") {
+        let mut stmt = match conn.prepare("SELECT * FROM activities WHERE id = ?1 AND deleted = 0")
+        {
             Ok(stmt) => stmt,
             Err(_) => return Err(DbOperationsError::GenericError),
         };
