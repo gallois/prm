@@ -49,6 +49,8 @@ impl Event {
                     WHEN days_remaining >= 0 THEN days_remaining
                     ELSE days_remaining + strftime('%j', strftime('%Y-12-31', 'now'))
                     END
+                AND
+                    deleted = 0
                 ",
         ) {
             Ok(stmt) => stmt,
@@ -136,7 +138,9 @@ impl Event {
         }
 
         // TODO handle periodic events
-        let mut stmt = match conn.prepare("SELECT * FROM reminders WHERE date BETWEEN ?1 AND ?2") {
+        let mut stmt = match conn
+            .prepare("SELECT * FROM reminders WHERE date BETWEEN ?1 AND ?2 AND deleted = 0")
+        {
             Ok(stmt) => stmt,
             Err(e) => {
                 return Err(EventError::DbError(DbOperationsError::InvalidStatement {
