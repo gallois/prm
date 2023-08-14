@@ -136,7 +136,8 @@ impl Reminder {
         person: Option<String>,
     ) -> Result<Vec<Reminder>, DbOperationsError> {
         let mut reminders: Vec<Reminder> = vec![];
-        let mut stmt = match conn.prepare("SELECT * FROM reminders WHERE name = ?1 COLLATE NOCASE")
+        let mut stmt = match conn
+            .prepare("SELECT * FROM reminders WHERE name = ?1 AND deleted = 0 COLLATE NOCASE")
         {
             Ok(stmt) => stmt,
             Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
@@ -179,7 +180,9 @@ impl Reminder {
         person: String,
     ) -> Result<Vec<Reminder>, DbOperationsError> {
         let mut reminders: Vec<Reminder> = vec![];
-        let mut stmt = match conn.prepare("SELECT id FROM people WHERE name = ?1 COLLATE NOCASE") {
+        let mut stmt = match conn
+            .prepare("SELECT id FROM people WHERE name = ?1 AND deleted = 0 COLLATE NOCASE")
+        {
             Ok(stmt) => stmt,
             Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
@@ -204,7 +207,7 @@ impl Reminder {
 
                     let vars = crate::helpers::repeat_vars(reminder_ids.len());
                     let sql = format!(
-                        "SELECT * from reminders WHERE id IN ({}) AND deleted = FALSE",
+                        "SELECT * from reminders WHERE id IN ({}) AND deleted = 0",
                         vars
                     );
                     let mut stmt = match conn.prepare(&sql) {
@@ -276,7 +279,7 @@ impl Reminder {
     ) -> Result<Vec<u8>, DbOperationsError> {
         let mut ids: Vec<u8> = vec![];
         let mut stmt = match conn
-            .prepare("SELECT reminder_id FROM people_reminders WHERE person_id = ?1 COLLATE NOCASE")
+            .prepare("SELECT reminder_id FROM people_reminders WHERE person_id = ?1 AND deleted = 0 COLLATE NOCASE")
         {
             Ok(stmt) => stmt,
             Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
@@ -319,7 +322,8 @@ impl Reminder {
         conn: &Connection,
         name: &str,
     ) -> Result<Option<Reminder>, DbOperationsError> {
-        let mut stmt = match conn.prepare("SELECT * FROM reminders WHERE name = ?1 COLLATE NOCASE")
+        let mut stmt = match conn
+            .prepare("SELECT * FROM reminders WHERE name = ?1 AND deleted = 0 COLLATE NOCASE")
         {
             Ok(stmt) => stmt,
             Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
@@ -408,7 +412,7 @@ impl Reminder {
         include_past: bool,
     ) -> Result<Vec<Reminder>, DbOperationsError> {
         let sql: String;
-        let base_sql = "SELECT * FROM reminders";
+        let base_sql = "SELECT * FROM reminders WHERE deleted = 0";
         if include_past {
             sql = format!("{}", base_sql);
         } else {
@@ -617,7 +621,8 @@ impl Reminder {
 
 impl crate::db::db_interface::DbOperations for Reminder {
     fn add(&self, conn: &Connection) -> Result<&Reminder, DbOperationsError> {
-        let mut stmt = match conn.prepare("SELECT id FROM reminders WHERE name = ?") {
+        let mut stmt = match conn.prepare("SELECT id FROM reminders WHERE name = ? AND deleted = 0")
+        {
             Ok(stmt) => stmt,
             Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
@@ -822,7 +827,7 @@ impl crate::db::db_interface::DbOperations for Reminder {
     }
 
     fn get_by_id(conn: &Connection, id: u64) -> Result<Option<Entities>, DbOperationsError> {
-        let mut stmt = match conn.prepare("SELECT * FROM reminders WHERE id = ?1") {
+        let mut stmt = match conn.prepare("SELECT * FROM reminders WHERE id = ?1 AND deleted = 0") {
             Ok(stmt) => stmt,
             Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
