@@ -393,7 +393,7 @@ impl Reminder {
                         .unwrap_or_default(),
                         description,
                         recurring: recurring_type,
-                        people: people,
+                        people,
                     }))
                 }
                 None => return Ok(None),
@@ -458,7 +458,7 @@ impl Reminder {
                 .unwrap_or_default(),
                 description: row.get(3)?,
                 recurring: recurring_type,
-                people: people,
+                people,
             })
         }) {
             Ok(rows) => rows,
@@ -896,7 +896,7 @@ impl crate::db::db_interface::DbOperations for Reminder {
                         .unwrap_or_default(),
                         description,
                         recurring: recurring_type,
-                        people: people,
+                        people,
                     })))
                 }
                 None => return Ok(None),

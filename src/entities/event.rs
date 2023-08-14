@@ -114,10 +114,10 @@ impl Event {
                     )
                     .unwrap_or_default(),
                 ),
-                contact_info: contact_info,
-                activities: activities,
-                reminders: reminders,
-                notes: notes,
+                contact_info,
+                activities,
+                reminders,
+                notes,
             })
         }) {
             Ok(rows) => rows,
@@ -182,7 +182,7 @@ impl Event {
                 .unwrap_or_default(),
                 description: row.get(3)?,
                 recurring: recurring_type,
-                people: people,
+                people,
             })
         }) {
             Ok(rows) => rows,

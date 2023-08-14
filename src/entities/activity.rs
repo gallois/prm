@@ -311,7 +311,7 @@ impl Activity {
                 )
                 .unwrap_or_default(),
                 content: row.get(4)?,
-                people: people,
+                people,
             })
         }) {
             Ok(rows) => rows,

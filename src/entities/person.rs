@@ -131,7 +131,7 @@ impl Person {
 
                     Ok(Some(Person {
                         id: person_id,
-                        name: name,
+                        name,
                         birthday: Some(
                             crate::helpers::parse_from_str_ymd(
                                 String::from(row.get::<usize, String>(2).unwrap_or_default())
@@ -139,10 +139,10 @@ impl Person {
                             )
                             .unwrap_or_default(),
                         ),
-                        contact_info: contact_info,
-                        activities: activities,
-                        reminders: reminders,
-                        notes: notes,
+                        contact_info,
+                        activities,
+                        reminders,
+                        notes,
                     }))
                 }
                 None => return Ok(None),
@@ -267,10 +267,10 @@ impl Person {
                     )
                     .unwrap_or_default(),
                 ),
-                contact_info: contact_info,
-                activities: activities,
-                reminders: reminders,
-                notes: notes,
+                contact_info,
+                activities,
+                reminders,
+                notes,
             })
         }) {
             Ok(rows) => rows,
@@ -312,7 +312,7 @@ impl Person {
                 Ok(date) => birthday_obj = Some(date),
                 Err(_) => match crate::helpers::parse_from_str_md(&birthday) {
                     Ok(date) => birthday_obj = Some(date),
-                    Err(_) => return BirthdayParseSnafu { birthday: birthday }.fail(),
+                    Err(_) => return BirthdayParseSnafu { birthday }.fail(),
                 },
             }
             self.birthday = birthday_obj;
@@ -747,10 +747,10 @@ impl crate::db::db_interface::DbOperations for Person {
                             )
                             .unwrap_or_default(),
                         ),
-                        contact_info: contact_info,
-                        activities: activities,
-                        reminders: reminders,
-                        notes: notes,
+                        contact_info,
+                        activities,
+                        reminders,
+                        notes,
                     })))
                 }
                 None => return Ok(None),
