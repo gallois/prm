@@ -55,7 +55,7 @@ impl Note {
     }
 
     pub fn get_all(conn: &Connection) -> Result<Vec<Note>, DbOperationsError> {
-        let mut stmt = match conn.prepare("SELECT * FROM notes") {
+        let mut stmt = match conn.prepare("SELECT * FROM notes WHERE deleted = 0") {
             Ok(stmt) => stmt,
             Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
@@ -286,7 +286,8 @@ impl crate::db::db_interface::DbOperations for Note {
                         people_notes
                     WHERE
                         note_id = ?1 
-                        AND person_id = ?2",
+                        AND person_id = ?2
+                        AND deleted = 0",
             ) {
                 Ok(stmt) => stmt,
                 Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
@@ -363,7 +364,7 @@ impl crate::db::db_interface::DbOperations for Note {
     }
 
     fn get_by_id(conn: &Connection, id: u64) -> Result<Option<Entities>, DbOperationsError> {
-        let mut stmt = match conn.prepare("SELECT * FROM notes WHERE id = ?1") {
+        let mut stmt = match conn.prepare("SELECT * FROM notes WHERE id = ?1 AND deleted = 0") {
             Ok(stmt) => stmt,
             Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
