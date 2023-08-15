@@ -133,9 +133,17 @@ impl Activity {
         person: Option<String>,
     ) -> Result<Vec<Activity>, DbOperationsError> {
         let mut activities: Vec<Activity> = vec![];
-        let mut stmt = match conn
-            .prepare("SELECT * FROM activities WHERE name = ?1 AND deleted = 0 COLLATE NOCASE")
-        {
+        let mut stmt = match conn.prepare(
+            "
+                SELECT 
+                    * 
+                FROM 
+                    activities 
+                WHERE 
+                    name = ?1 AND 
+                    deleted = 0 
+                COLLATE NOCASE",
+        ) {
             Ok(stmt) => stmt,
             Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
@@ -178,9 +186,17 @@ impl Activity {
         person: String,
     ) -> Result<Vec<Activity>, DbOperationsError> {
         let mut activities: Vec<Activity> = vec![];
-        let mut stmt = match conn
-            .prepare("SELECT id FROM people WHERE name = ?1 AND deleted = 0 COLLATE NOCASE")
-        {
+        let mut stmt = match conn.prepare(
+            "
+                SELECT 
+                    id 
+                FROM 
+                    people 
+                WHERE 
+                    name = ?1 AND 
+                    deleted = 0 
+                COLLATE NOCASE",
+        ) {
             Ok(stmt) => stmt,
             Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
@@ -205,7 +221,13 @@ impl Activity {
 
                     let vars = crate::helpers::repeat_vars(activity_ids.len());
                     let sql = format!(
-                        "SELECT * from activities WHERE id IN ({}) AND deleted = 0",
+                        "SELECT 
+                            * 
+                        FROM 
+                            activities 
+                        WHERE 
+                            id IN ({}) AND 
+                        deleted = 0",
                         vars
                     );
                     let mut stmt = match conn.prepare(&sql) {
@@ -472,7 +494,14 @@ impl Activity {
     ) -> Result<Vec<u8>, DbOperationsError> {
         let mut ids: Vec<u8> = vec![];
         let mut stmt = match conn.prepare(
-            "SELECT activity_id FROM people_activities WHERE person_id = ?1 AND deleted = 0",
+            "
+                SELECT 
+                    activity_id 
+                FROM 
+                    people_activities 
+                WHERE 
+                    person_id = ?1 AND 
+                deleted = 0",
         ) {
             Ok(stmt) => stmt,
             Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
@@ -534,7 +563,15 @@ impl DbOperations for Activity {
         let activity_type_str = self.activity_type.as_ref();
         let date_str = self.date.to_string();
 
-        let mut stmt = match conn.prepare("SELECT id FROM activity_types WHERE type = ?") {
+        let mut stmt = match conn.prepare(
+            "
+            SELECT 
+                id 
+            FROM 
+                activity_types 
+            WHERE 
+                type = ?",
+        ) {
             Ok(stmt) => stmt,
             Err(_) => return Err(DbOperationsError::GenericError),
         };
@@ -633,7 +670,15 @@ impl DbOperations for Activity {
     fn save(&self, conn: &Connection) -> Result<&Activity, DbOperationsError> {
         let activity_type_str = self.activity_type.as_ref();
 
-        let mut stmt = match conn.prepare("SELECT id FROM activity_types WHERE type = ?") {
+        let mut stmt = match conn.prepare(
+            "
+            SELECT
+                id
+            FROM
+                activity_types 
+            WHERE 
+                type = ?",
+        ) {
             Ok(stmt) => stmt,
             Err(_) => return Err(DbOperationsError::GenericError),
         };
@@ -737,9 +782,15 @@ impl DbOperations for Activity {
 
             if results.len() > 0 {
                 for id in results {
-                    let mut stmt = match conn
-                        .prepare("UPDATE people_activities SET deleted = TRUE WHERE id = ?1")
-                    {
+                    let mut stmt = match conn.prepare(
+                        "
+                            UPDATE 
+                                people_activities 
+                            SET 
+                                deleted = TRUE 
+                            WHERE 
+                                id = ?1",
+                    ) {
                         Ok(stmt) => stmt,
                         Err(_) => return Err(DbOperationsError::GenericError),
                     };
@@ -776,8 +827,16 @@ impl DbOperations for Activity {
     }
 
     fn get_by_id(conn: &Connection, id: u64) -> Result<Option<Entities>, DbOperationsError> {
-        let mut stmt = match conn.prepare("SELECT * FROM activities WHERE id = ?1 AND deleted = 0")
-        {
+        let mut stmt = match conn.prepare(
+            "
+            SELECT 
+                * 
+            FROM 
+                activities 
+            WHERE 
+                id = ?1 AND 
+            deleted = 0",
+        ) {
             Ok(stmt) => stmt,
             Err(_) => return Err(DbOperationsError::GenericError),
         };
@@ -864,7 +923,15 @@ impl ActivityType {
         conn: &Connection,
         id: u64,
     ) -> Result<Option<ActivityType>, DbOperationsError> {
-        let mut stmt = match conn.prepare("SELECT type FROM activity_types WHERE id = ?") {
+        let mut stmt = match conn.prepare(
+            "
+            SELECT 
+                type 
+            FROM 
+                activity_types 
+            WHERE 
+                id = ?",
+        ) {
             Ok(stmt) => stmt,
             Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
