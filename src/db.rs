@@ -49,7 +49,7 @@ pub mod db_helpers {
             people_notes
         WHERE
             person_id = ?
-            AND deleted = FALSE
+            AND deleted = 0
         ",
         ) {
             Ok(stmt) => stmt,
@@ -89,10 +89,7 @@ pub mod db_helpers {
         }
 
         let vars = crate::helpers::repeat_vars(note_ids.len());
-        let sql = format!(
-            "SELECT * from notes WHERE id IN ({}) AND deleted = FALSE",
-            vars
-        );
+        let sql = format!("SELECT * FROM notes WHERE id IN ({}) AND deleted = 0", vars);
         let mut stmt = match conn.prepare(&sql) {
             Ok(stmt) => stmt,
             Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
@@ -141,7 +138,7 @@ pub mod db_helpers {
             people_reminders
         WHERE
             person_id = ?
-            AND deleted = FALSE
+            AND deleted = 0
         ",
         ) {
             Ok(stmt) => stmt,
@@ -315,7 +312,7 @@ pub mod db_helpers {
                 people_activities
             WHERE
                 person_id = ?
-                AND deleted = FALSE
+                AND deleted = 0
             ",
         ) {
             Ok(stmt) => stmt,
@@ -356,7 +353,7 @@ pub mod db_helpers {
 
         let vars = crate::helpers::repeat_vars(activity_ids.len());
         let sql = format!(
-            "SELECT * FROM activities WHERE id IN ({}) AND deleted = FALSE",
+            "SELECT * FROM activities WHERE id IN ({}) AND deleted = 0",
             vars
         );
         let mut stmt = match conn.prepare(&sql) {
@@ -436,7 +433,7 @@ pub mod db_helpers {
                         people_reminders
                     WHERE
                         reminder_id = ?
-                        AND deleted = FALSE
+                        AND deleted = 0
             ",
         ) {
             Ok(stmt) => stmt,
@@ -477,7 +474,7 @@ pub mod db_helpers {
 
         let vars = crate::helpers::repeat_vars(people_ids.len());
         let sql = format!(
-            "SELECT * FROM people WHERE id IN ({}) AND deleted = FALSE",
+            "SELECT * FROM people WHERE id IN ({}) AND deleted = 0",
             vars
         );
         let mut stmt = match conn.prepare(&sql) {
@@ -578,7 +575,7 @@ pub mod db_helpers {
                         people_activities
                     WHERE
                         activity_id = ?
-                        AND deleted = FALSE
+                        AND deleted = 0
             ",
         ) {
             Ok(stmt) => stmt,
@@ -619,7 +616,7 @@ pub mod db_helpers {
 
         let vars = crate::helpers::repeat_vars(people_ids.len());
         let sql = format!(
-            "SELECT * FROM people WHERE id IN ({}) AND deleted = FALSE",
+            "SELECT * FROM people WHERE id IN ({}) AND deleted = 0",
             vars
         );
         let mut stmt = match conn.prepare(&sql) {
@@ -721,7 +718,7 @@ pub mod db_helpers {
                         people_notes
                     WHERE
                         note_id = ?
-                        AND deleted = FALSE
+                        AND deleted = 0
                     ",
         ) {
             Ok(stmt) => stmt,
@@ -762,7 +759,7 @@ pub mod db_helpers {
 
         let vars = crate::helpers::repeat_vars(people_ids.len());
         let sql = format!(
-            "SELECT * FROM people WHERE id IN ({}) AND deleted = FALSE",
+            "SELECT * FROM people WHERE id IN ({}) AND deleted = 0",
             vars
         );
         let mut stmt = match conn.prepare(&sql) {
