@@ -335,7 +335,7 @@ fn main() {
                         exit(exitcode::DATAERR);
                     }
                 };
-                if activities.len() == 0 {
+                if activities.is_empty() {
                     println!("No activities found");
                 } else {
                     for activity in activities {
@@ -355,7 +355,7 @@ fn main() {
                         exit(exitcode::DATAERR);
                     }
                 };
-                if reminders.len() == 0 {
+                if reminders.is_empty() {
                     println!("No reminders found");
                 } else {
                     for reminder in reminders {
@@ -521,12 +521,10 @@ fn main() {
                         }
                         None => {
                             println!("Could not find note with id: {}", id);
-                            return;
                         }
                     },
                     Err(e) => {
                         eprintln!("Error while fetching note: {:#?}", e);
-                        return;
                     }
                 };
             }
@@ -591,7 +589,7 @@ fn main() {
                             continue;
                         }
                         let mut ics_event = IcsEvent::new(uuid.to_string(), dtstamp);
-                        let dtstart = format!("{}", event.date.format("%Y%m%d").to_string());
+                        let dtstart = format!("{}", event.date.format("%Y%m%d"));
                         ics_event.push(Summary::new(format!("{}'s birthday", person.name)));
                         ics_event.push(Comment::new(escape_text(format!(
                             "Contact info: {:#?}",
@@ -607,10 +605,12 @@ fn main() {
                             continue;
                         }
                         let mut todo = ToDo::new(uuid.to_string(), dtstamp);
-                        let dtdue = format!("{}T090000", event.date.format("%Y%m%d").to_string());
+                        let dtdue = format!("{}T090000", event.date.format("%Y%m%d"));
                         todo.push(Summary::new(reminder.name));
                         todo.push(Comment::new(
-                            reminder.description.unwrap_or(String::from("[Empty]")),
+                            reminder
+                                .description
+                                .unwrap_or_else(|| String::from("[Empty]")),
                         ));
                         todo.push(Status::needs_action());
                         todo.push(Due::new(dtdue));

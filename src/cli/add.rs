@@ -19,29 +19,29 @@ use snafu::prelude::*;
 #[snafu(visibility(pub(crate)))]
 pub enum CliError {
     #[snafu(display("Invalid birthday: {}", birthday))]
-    BirthdayParseError { birthday: String },
+    BirthdayParse { birthday: String },
     #[snafu(display("Invalid contact info: {}", contact_info))]
-    ContactInfoParseError { contact_info: String },
+    ContactInfoParse { contact_info: String },
     #[snafu(display("Invalid activity type: {}", activity_type))]
-    ActivityTypeParseError { activity_type: String },
+    ActivityTypeParse { activity_type: String },
     #[snafu(display("Invalid date: {}", date))]
-    DateParseError { date: String },
+    DateParse { date: String },
     #[snafu(display("Invalid recurring type: {}", recurring_type))]
-    RecurringTypeParseError { recurring_type: String },
+    RecurringTypeParse { recurring_type: String },
     #[snafu(display("Error parsing {} from editor", entity))]
-    EditorParseError { entity: String },
+    EditorParse { entity: String },
     #[snafu(display("Error adding {}", entity))]
-    AddError { entity: String },
+    Add { entity: String },
     #[snafu(display("Entity error {}", entity))]
-    EntityError { entity: String },
+    Entity { entity: String },
     #[snafu(display("Error editing {}", entity))]
-    EditError { entity: String },
+    Edit { entity: String },
     #[snafu(display("Entity not found {} for id {}", entity, id))]
-    NotFoundError { entity: String, id: u64 },
+    NotFound { entity: String, id: u64 },
     #[snafu(display("Unexpected missing field {}: {}", entity, field))]
-    MissingFieldError { entity: String, field: String },
+    MissingField { entity: String, field: String },
     #[snafu(display("Failed to apply string template {}: {:#?}", template, vars))]
-    TemplateError {
+    Template {
         template: String,
         vars: HashMap<String, String>,
     },
@@ -57,7 +57,7 @@ pub fn person(
     let mut birthday_str: Option<String> = None;
     let mut contact_info_vec: Vec<String> = vec![];
     let mut editor = false;
-    if name == None {
+    if name.is_none() {
         editor = true;
 
         let mut vars = HashMap::new();
@@ -79,12 +79,12 @@ pub fn person(
             Err(_) => {
                 return TemplateSnafu {
                     template: PERSON_TEMPLATE,
-                    vars: vars,
+                    vars,
                 }
                 .fail()
             }
         };
-        let edited = match edit::edit(&person_str) {
+        let edited = match edit::edit(person_str) {
             Ok(edited) => edited,
             Err(_) => return EditorParseSnafu { entity: "Person" }.fail(),
         };
@@ -123,7 +123,7 @@ pub fn person(
                 Ok(date) => birthday_obj = Some(date),
                 Err(_) => {
                     return BirthdayParseSnafu {
-                        birthday: String::from(birthday_str),
+                        birthday: birthday_str,
                     }
                     .fail()
                 }
@@ -148,7 +148,7 @@ pub fn person(
     }
 
     let mut invalid_contact_info = vec![];
-    if contact_info_splits.len() > 0 {
+    if !contact_info_splits.is_empty() {
         contact_info_splits
             .into_iter()
             .for_each(|contact_info_split| match contact_info_split[0].as_str() {
@@ -162,21 +162,20 @@ pub fn person(
                 }
                 _ => {
                     invalid_contact_info.push(
-                        vec![contact_info_split[0].clone(), contact_info_split[1].clone()]
-                            .join(":"),
+                        [contact_info_split[0].clone(), contact_info_split[1].clone()].join(":"),
                     );
                 }
             });
     }
     if !invalid_contact_info.is_empty() {
         return ContactInfoParseSnafu {
-            contact_info: String::from(invalid_contact_info.join(",")),
+            contact_info: invalid_contact_info.join(","),
         }
         .fail();
     }
 
     let mut contact_info: Vec<ContactInfo> = Vec::new();
-    if contact_info_types.len() > 0 {
+    if !contact_info_types.is_empty() {
         contact_info_types
             .into_iter()
             .for_each(|contact_info_type| {
@@ -184,9 +183,9 @@ pub fn person(
             });
     }
 
-    assert_eq!(name_str.is_empty(), false, "Name cannot be empty");
+    assert!(!name_str.is_empty(), "Name cannot be empty");
     let person = Person::new(0, name_str, birthday_obj, contact_info);
-    match person.add(&conn) {
+    match person.add(conn) {
         Ok(_) => println!("{} added successfully", person),
         Err(_) => return AddSnafu { entity: "Person" }.fail(),
     };
@@ -201,7 +200,6 @@ pub fn activity(
     content: Option<String>,
     people: Vec<String>,
 ) -> Result<Activity, CliError> {
-    let activity_vars: prm::helpers::ActivityVars;
     let mut vars = HashMap::new();
     vars.insert(
         "name".to_string(),
@@ -227,8 +225,12 @@ pub fn activity(
             people.clone().join(",")
         },
     );
-    if name == None {
-        activity_vars = match prm::editor::populate_activity_vars(vars) {
+    let activity_vars: prm::helpers::ActivityVars = if name.is_none()
+        || [activity_type.clone(), date.clone(), content.clone()]
+            .iter()
+            .any(Option::is_none)
+    {
+        match prm::editor::populate_activity_vars(vars) {
             Ok(activity_vars) => activity_vars,
             Err(err) => {
                 return EditorParseSnafu {
@@ -236,72 +238,57 @@ pub fn activity(
                 }
                 .fail()
             }
-        };
-    } else {
-        if [activity_type.clone(), date.clone(), content.clone()]
-            .iter()
-            .any(Option::is_none)
-        {
-            activity_vars = match prm::editor::populate_activity_vars(vars) {
-                Ok(activity_vars) => activity_vars,
-                Err(err) => {
-                    return EditorParseSnafu {
-                        entity: err.to_string(),
-                    }
-                    .fail()
-                }
-            };
-        } else {
-            let entity = "Activity";
-            let name = match name {
-                Some(name) => name,
-                None => {
-                    return MissingFieldSnafu {
-                        entity: String::from(entity),
-                        field: "Name",
-                    }
-                    .fail()
-                }
-            };
-            let date = match date {
-                Some(date) => date,
-                None => {
-                    return MissingFieldSnafu {
-                        entity: String::from(entity),
-                        field: "Date",
-                    }
-                    .fail()
-                }
-            };
-            let activity_type = match activity_type {
-                Some(activity_type) => activity_type,
-                None => {
-                    return MissingFieldSnafu {
-                        entity: String::from(entity),
-                        field: "Activity Type",
-                    }
-                    .fail()
-                }
-            };
-            let content = match content {
-                Some(content) => content,
-                None => {
-                    return MissingFieldSnafu {
-                        entity: String::from(entity),
-                        field: "Content",
-                    }
-                    .fail()
-                }
-            };
-            activity_vars = prm::helpers::ActivityVars {
-                name,
-                date,
-                activity_type,
-                content,
-                people,
-            };
         }
-    }
+    } else {
+        let entity = "Activity";
+        let name = match name {
+            Some(name) => name,
+            None => {
+                return MissingFieldSnafu {
+                    entity: String::from(entity),
+                    field: "Name",
+                }
+                .fail()
+            }
+        };
+        let date = match date {
+            Some(date) => date,
+            None => {
+                return MissingFieldSnafu {
+                    entity: String::from(entity),
+                    field: "Date",
+                }
+                .fail()
+            }
+        };
+        let activity_type = match activity_type {
+            Some(activity_type) => activity_type,
+            None => {
+                return MissingFieldSnafu {
+                    entity: String::from(entity),
+                    field: "Activity Type",
+                }
+                .fail()
+            }
+        };
+        let content = match content {
+            Some(content) => content,
+            None => {
+                return MissingFieldSnafu {
+                    entity: String::from(entity),
+                    field: "Content",
+                }
+                .fail()
+            }
+        };
+        prm::helpers::ActivityVars {
+            name,
+            date,
+            activity_type,
+            content,
+            people,
+        }
+    };
 
     let activity_type = match activity_vars.activity_type.as_str() {
         "phone" => ActivityType::Phone,
@@ -319,13 +306,13 @@ pub fn activity(
         Ok(date) => date,
         Err(_) => {
             return DateParseSnafu {
-                date: String::from(activity_vars.date.clone()),
+                date: activity_vars.date.clone(),
             }
             .fail()
         }
     };
 
-    let people = match Person::get_by_names(&conn, activity_vars.people) {
+    let people = match Person::get_by_names(conn, activity_vars.people) {
         Ok(people) => people,
         Err(_) => {
             return EntitySnafu {
@@ -343,7 +330,7 @@ pub fn activity(
         activity_vars.content,
         people,
     );
-    match activity.add(&conn) {
+    match activity.add(conn) {
         Ok(_) => println!("{:#?} added successfully", activity),
         Err(_) => return AddSnafu { entity: "Activity" }.fail(),
     };
@@ -365,7 +352,7 @@ pub fn reminder(
 
     let mut editor = false;
     let entity = String::from("Reminder");
-    if name == None {
+    if name.is_none() {
         editor = true;
 
         let mut vars = HashMap::new();
@@ -399,7 +386,7 @@ pub fn reminder(
             Err(_) => {
                 return TemplateSnafu {
                     template: REMINDER_TEMPLATE,
-                    vars: vars,
+                    vars,
                 }
                 .fail()
             }
@@ -419,7 +406,7 @@ pub fn reminder(
             Some(da) => da,
             None => {
                 return MissingFieldSnafu {
-                    entity: entity,
+                    entity,
                     field: "Date",
                 }
                 .fail()
@@ -429,7 +416,7 @@ pub fn reminder(
             Some(r) => r,
             None => {
                 return MissingFieldSnafu {
-                    entity: entity,
+                    entity,
                     field: "Recurring Type",
                 }
                 .fail()
@@ -439,7 +426,7 @@ pub fn reminder(
             Some(de) => de,
             None => {
                 return MissingFieldSnafu {
-                    entity: entity,
+                    entity,
                     field: "Description",
                 }
                 .fail()
@@ -453,7 +440,7 @@ pub fn reminder(
             Some(name) => name,
             None => {
                 return MissingFieldSnafu {
-                    entity: entity,
+                    entity,
                     field: "Name",
                 }
                 .fail()
@@ -463,7 +450,7 @@ pub fn reminder(
             Some(date) => date,
             None => {
                 return MissingFieldSnafu {
-                    entity: entity,
+                    entity,
                     field: "Date",
                 }
                 .fail()
@@ -473,7 +460,7 @@ pub fn reminder(
             Some(recurring) => recurring,
             None => {
                 return MissingFieldSnafu {
-                    entity: entity,
+                    entity,
                     field: "Recurring Type",
                 }
                 .fail()
@@ -482,36 +469,35 @@ pub fn reminder(
         description_string = description.unwrap_or("".to_string());
     }
 
-    let recurring_type = match recurring_type_string {
-        recurring_type_str => match recurring_type_str.as_str() {
-            "daily" => RecurringType::Daily,
-            "weekly" => RecurringType::Weekly,
-            "fortnightly" => RecurringType::Fortnightly,
-            "monthly" => RecurringType::Monthly,
-            "quarterly" => RecurringType::Quarterly,
-            "biannual" => RecurringType::Biannual,
-            "yearly" => RecurringType::Yearly,
-            "onetime" => RecurringType::OneTime,
-            _ => {
-                return RecurringTypeParseSnafu {
-                    recurring_type: recurring_type_str.clone(),
-                }
-                .fail()
+    let recurring_type_str = recurring_type_string;
+    let recurring_type = match recurring_type_str.as_str() {
+        "daily" => RecurringType::Daily,
+        "weekly" => RecurringType::Weekly,
+        "fortnightly" => RecurringType::Fortnightly,
+        "monthly" => RecurringType::Monthly,
+        "quarterly" => RecurringType::Quarterly,
+        "biannual" => RecurringType::Biannual,
+        "yearly" => RecurringType::Yearly,
+        "onetime" => RecurringType::OneTime,
+        _ => {
+            return RecurringTypeParseSnafu {
+                recurring_type: recurring_type_str.clone(),
             }
-        },
+            .fail()
+        }
     };
 
     let date_obj = match prm::helpers::parse_from_str_ymd(date_string.as_str()) {
         Ok(date) => date,
         Err(_) => {
             return DateParseSnafu {
-                date: String::from(date_string.clone()),
+                date: date_string.clone(),
             }
             .fail()
         }
     };
 
-    let people = match Person::get_by_names(&conn, people) {
+    let people = match Person::get_by_names(conn, people) {
         Ok(people) => people,
         Err(_) => {
             return EntitySnafu {
@@ -530,7 +516,7 @@ pub fn reminder(
         people,
     );
     println!("Reminder: {:#?}", reminder);
-    match reminder.add(&conn) {
+    match reminder.add(conn) {
         Ok(_) => println!("{:#?} added successfully", reminder),
         Err(_) => return AddSnafu { entity: "Reminder" }.fail(),
     };
@@ -547,7 +533,7 @@ pub fn note(
     let mut people_vec: Vec<Person> = Vec::new();
     let entity = String::from("Note");
 
-    if content == None {
+    if content.is_none() {
         let mut vars = HashMap::new();
         vars.insert(
             "content".to_string(),
@@ -560,22 +546,22 @@ pub fn note(
             Err(_) => {
                 return TemplateSnafu {
                     template: NOTE_TEMPLATE,
-                    vars: vars,
+                    vars,
                 }
                 .fail()
             }
         };
         let edited = match edit::edit(note_str) {
             Ok(edited) => edited,
-            Err(_) => return EditorParseSnafu { entity: entity }.fail(),
+            Err(_) => return EditorParseSnafu { entity }.fail(),
         };
         let (d, c, p) = match Note::parse_from_editor(edited.as_str()) {
             Ok((date, content, people)) => (date, content, people),
-            Err(_) => return EditorParseSnafu { entity: entity }.fail(),
+            Err(_) => return EditorParseSnafu { entity }.fail(),
         };
         date_string = d;
         content_string = c;
-        people_vec = match Person::get_by_names(&conn, p) {
+        people_vec = match Person::get_by_names(conn, p) {
             Ok(people) => people,
             Err(_) => {
                 return EntitySnafu {
@@ -590,7 +576,7 @@ pub fn note(
         Ok(date) => date,
         Err(_) => {
             return DateParseSnafu {
-                date: String::from(date_string.clone()),
+                date: date_string.clone(),
             }
             .fail()
         }
@@ -598,9 +584,9 @@ pub fn note(
 
     let note = Note::new(0, date, content_string, people_vec);
     println!("Note: {:#?}", note);
-    match note.add(&conn) {
+    match note.add(conn) {
         Ok(_) => println!("{:#?} added successfully", note),
-        Err(_) => return AddSnafu { entity: entity }.fail(),
+        Err(_) => return AddSnafu { entity }.fail(),
     };
     Ok(note)
 }

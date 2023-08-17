@@ -26,7 +26,7 @@ pub fn populate_activity_vars(vars: HashMap<String, String>) -> Result<ActivityV
         Ok(activities_str) => activities_str,
         Err(_) => return Err(ParseError::TemplateError),
     };
-    let edited = match edit::edit(&activities_str) {
+    let edited = match edit::edit(activities_str) {
         Ok(edited) => edited,
         Err(_) => return Err(ParseError::EditorError),
     };
@@ -55,11 +55,11 @@ pub fn populate_activity_vars(vars: HashMap<String, String>) -> Result<ActivityV
         None => return FieldSnafu { field: "content" }.fail(),
     };
 
-    return Ok(ActivityVars {
+    Ok(ActivityVars {
         name: n,
         date,
         activity_type,
         content,
         people: p,
-    });
+    })
 }

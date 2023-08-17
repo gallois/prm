@@ -25,7 +25,7 @@ pub fn person(
     let birthday_str: Option<String>;
     let contact_info_str: Option<String>;
 
-    let person = Person::get_by_id(&conn, id);
+    let person = Person::get_by_id(conn, id);
 
     match person {
         Ok(person) => match person {
@@ -59,7 +59,7 @@ pub fn person(
                     name_placeholder = match name {
                         Some(name) => name,
                         None => {
-                            return Err(CliError::MissingFieldError {
+                            return Err(CliError::MissingField {
                                 entity: "person".to_string(),
                                 field: "name".to_string(),
                             })
@@ -75,17 +75,17 @@ pub fn person(
                     birthday_placeholder = match birthday {
                         Some(birthday) => birthday,
                         None => {
-                            return Err(CliError::MissingFieldError {
+                            return Err(CliError::MissingField {
                                 entity: "person".to_string(),
                                 field: "birthday".to_string(),
                             })
                         }
                     };
-                } else if !person.birthday.is_none() {
+                } else if person.birthday.is_some() {
                     birthday_placeholder = match person.birthday {
                         Some(birthday) => birthday.to_string(),
                         None => {
-                            return Err(CliError::MissingFieldError {
+                            return Err(CliError::MissingField {
                                 entity: "person".to_string(),
                                 field: "birthday".to_string(),
                             })
@@ -99,7 +99,7 @@ pub fn person(
                     contact_info_placeholder = match contact_info {
                         Some(contact_info) => contact_info,
                         None => {
-                            return Err(CliError::MissingFieldError {
+                            return Err(CliError::MissingField {
                                 entity: "person".to_string(),
                                 field: "contact info".to_string(),
                             })
@@ -120,7 +120,7 @@ pub fn person(
                         return {
                             TemplateSnafu {
                                 template: PERSON_TEMPLATE,
-                                vars: vars,
+                                vars,
                             }
                         }
                         .fail()
@@ -163,7 +163,7 @@ pub fn person(
                         }
                     }
                 };
-                match person.save(&conn) {
+                match person.save(conn) {
                     Ok(person) => println!("Updated person: {}", person),
                     Err(_) => {
                         return {
@@ -178,21 +178,17 @@ pub fn person(
             }
             None => {
                 println!("Could not find person id {}", id);
-                return {
-                    NotFoundSnafu {
-                        entity: "Person".to_string(),
-                        id,
-                    }
-                    .fail()
-                };
+                NotFoundSnafu {
+                    entity: "Person".to_string(),
+                    id,
+                }
+                .fail()
             }
         },
-        Err(_) => {
-            return EntitySnafu {
-                entity: "Person".to_string(),
-            }
-            .fail()
+        Err(_) => EntitySnafu {
+            entity: "Person".to_string(),
         }
+        .fail(),
     }
 }
 pub fn activity(
@@ -203,7 +199,7 @@ pub fn activity(
     date: Option<String>,
     content: Option<String>,
 ) -> Result<Activity, CliError> {
-    let activity = Activity::get_by_id(&conn, id);
+    let activity = Activity::get_by_id(conn, id);
 
     let name_string: String;
     let date_string: String;
@@ -232,7 +228,7 @@ pub fn activity(
                     name_placeholder = match name.clone() {
                         Some(name) => name,
                         None => {
-                            return Err(CliError::MissingFieldError {
+                            return Err(CliError::MissingField {
                                 entity: "activity".to_string(),
                                 field: "name".to_string(),
                             })
@@ -248,7 +244,7 @@ pub fn activity(
                     date_placeholder = match date.clone() {
                         Some(date) => date,
                         None => {
-                            return Err(CliError::MissingFieldError {
+                            return Err(CliError::MissingField {
                                 entity: "activity".to_string(),
                                 field: "date".to_string(),
                             })
@@ -264,7 +260,7 @@ pub fn activity(
                     activity_type_placeholder = match activity_type.clone() {
                         Some(activity_type) => activity_type,
                         None => {
-                            return Err(CliError::MissingFieldError {
+                            return Err(CliError::MissingField {
                                 entity: "activity".to_string(),
                                 field: "activity type".to_string(),
                             })
@@ -281,7 +277,7 @@ pub fn activity(
                     content_placeholder = match content.clone() {
                         Some(content) => content,
                         None => {
-                            return Err(CliError::MissingFieldError {
+                            return Err(CliError::MissingField {
                                 entity: "activity".to_string(),
                                 field: "content".to_string(),
                             })
@@ -292,19 +288,18 @@ pub fn activity(
                 } else {
                     content_placeholder = "".to_string();
                 }
-                let people_placeholder: String;
-                if !activity.people.is_empty() {
-                    people_placeholder = activity
+                let people_placeholder: String = if !activity.people.is_empty() {
+                    activity
                         .people
                         .clone()
                         .iter()
                         .map(|p| p.clone().name)
                         .collect::<Vec<String>>()
                         .join(",")
-                        .to_string();
+                        .to_string()
                 } else {
-                    people_placeholder = "".to_string();
-                }
+                    "".to_string()
+                };
 
                 vars.insert("name".to_string(), name_placeholder);
                 vars.insert("date".to_string(), date_placeholder);
@@ -318,7 +313,7 @@ pub fn activity(
                         return {
                             TemplateSnafu {
                                 template: ACTIVITY_TEMPLATE,
-                                vars: vars,
+                                vars,
                             }
                             .fail()
                         }
@@ -352,7 +347,7 @@ pub fn activity(
                 date_string = match d {
                     Some(d) => d,
                     None => {
-                        return Err(CliError::MissingFieldError {
+                        return Err(CliError::MissingField {
                             entity: "activity".to_string(),
                             field: "date".to_string(),
                         })
@@ -361,7 +356,7 @@ pub fn activity(
                 activity_type_string = match t {
                     Some(t) => t,
                     None => {
-                        return Err(CliError::MissingFieldError {
+                        return Err(CliError::MissingField {
                             entity: "activity".to_string(),
                             field: "activity type".to_string(),
                         })
@@ -370,7 +365,7 @@ pub fn activity(
                 content_string = match c {
                     Some(c) => c,
                     None => {
-                        return Err(CliError::MissingFieldError {
+                        return Err(CliError::MissingField {
                             entity: "activity".to_string(),
                             field: "content".to_string(),
                         })
@@ -379,7 +374,7 @@ pub fn activity(
                 people = p;
 
                 match activity.update(
-                    &conn,
+                    conn,
                     Some(name_string),
                     Some(activity_type_string),
                     Some(date_string),
@@ -396,7 +391,7 @@ pub fn activity(
                         .fail()
                     }
                 };
-                match activity.save(&conn) {
+                match activity.save(conn) {
                     Ok(activity) => println!("Updated activity: {:#?}", activity),
                     Err(_) => {
                         return {
@@ -409,22 +404,16 @@ pub fn activity(
                 }
                 Ok(activity)
             }
-            None => {
-                return {
-                    NotFoundSnafu {
-                        entity: "Activity".to_string(),
-                        id,
-                    }
-                    .fail()
-                }
-            }
-        },
-        Err(_) => {
-            return EntitySnafu {
+            None => NotFoundSnafu {
                 entity: "Activity".to_string(),
+                id,
             }
-            .fail()
+            .fail(),
+        },
+        Err(_) => EntitySnafu {
+            entity: "Activity".to_string(),
         }
+        .fail(),
     }
 }
 
@@ -436,7 +425,7 @@ pub fn reminder(
     description: Option<String>,
     recurring: Option<String>,
 ) -> Result<Reminder, CliError> {
-    let reminder = Reminder::get_by_id(&conn, id);
+    let reminder = Reminder::get_by_id(conn, id);
 
     let name_string: String;
     let date_string: String;
@@ -461,11 +450,11 @@ pub fn reminder(
 
                 let mut vars = HashMap::new();
                 let name_placeholder: String;
-                if name.clone().is_some() {
-                    name_placeholder = match name.clone() {
+                if name.is_some() {
+                    name_placeholder = match name {
                         Some(name) => name,
                         None => {
-                            return Err(CliError::MissingFieldError {
+                            return Err(CliError::MissingField {
                                 entity: "reminder".to_string(),
                                 field: "name".to_string(),
                             })
@@ -477,11 +466,11 @@ pub fn reminder(
                     name_placeholder = "".to_string();
                 }
                 let date_placeholder: String;
-                if date.clone().is_some() {
-                    date_placeholder = match date.clone() {
+                if date.is_some() {
+                    date_placeholder = match date {
                         Some(date) => date,
                         None => {
-                            return Err(CliError::MissingFieldError {
+                            return Err(CliError::MissingField {
                                 entity: "reminder".to_string(),
                                 field: "date".to_string(),
                             })
@@ -498,10 +487,10 @@ pub fn reminder(
                     None => "",
                 };
                 if description.is_some() {
-                    description_placeholder = match description.clone() {
+                    description_placeholder = match description {
                         Some(description) => description,
                         None => {
-                            return Err(CliError::MissingFieldError {
+                            return Err(CliError::MissingField {
                                 entity: "reminder".to_string(),
                                 field: "description".to_string(),
                             })
@@ -513,11 +502,11 @@ pub fn reminder(
                     description_placeholder = "".to_string();
                 }
                 let recurring_placeholder: String;
-                if recurring.clone().is_some() {
-                    recurring_placeholder = match recurring.clone() {
+                if recurring.is_some() {
+                    recurring_placeholder = match recurring {
                         Some(recurring) => recurring,
                         None => {
-                            return Err(CliError::MissingFieldError {
+                            return Err(CliError::MissingField {
                                 entity: "reminder".to_string(),
                                 field: "recurring type".to_string(),
                             })
@@ -528,19 +517,17 @@ pub fn reminder(
                 } else {
                     recurring_placeholder = "".to_string();
                 }
-                let people_placeholder: String;
-                if !reminder.people.is_empty() {
-                    people_placeholder = reminder
+                let people_placeholder: String = if !reminder.people.is_empty() {
+                    reminder
                         .people
                         .clone()
                         .iter()
                         .map(|p| p.clone().name)
                         .collect::<Vec<String>>()
                         .join(",")
-                        .to_string();
                 } else {
-                    people_placeholder = "".to_string();
-                }
+                    "".to_string()
+                };
                 vars.insert("date".to_string(), date_placeholder);
                 vars.insert("name".to_string(), name_placeholder);
                 vars.insert("description".to_string(), description_placeholder);
@@ -553,7 +540,7 @@ pub fn reminder(
                         return {
                             TemplateSnafu {
                                 template: "Reminder".to_string(),
-                                vars: vars,
+                                vars,
                             }
                             .fail()
                         }
@@ -587,7 +574,7 @@ pub fn reminder(
                 date_string = match da {
                     Some(da) => da,
                     None => {
-                        return Err(CliError::MissingFieldError {
+                        return Err(CliError::MissingField {
                             entity: "reminder".to_string(),
                             field: "date".to_string(),
                         })
@@ -596,7 +583,7 @@ pub fn reminder(
                 recurring_type_string = match r {
                     Some(r) => r,
                     None => {
-                        return Err(CliError::MissingFieldError {
+                        return Err(CliError::MissingField {
                             entity: "reminder".to_string(),
                             field: "recurring type".to_string(),
                         })
@@ -605,7 +592,7 @@ pub fn reminder(
                 description_string = match de {
                     Some(de) => de,
                     None => {
-                        return Err(CliError::MissingFieldError {
+                        return Err(CliError::MissingField {
                             entity: "reminder".to_string(),
                             field: "description".to_string(),
                         })
@@ -631,7 +618,7 @@ pub fn reminder(
                         }
                     }
                 };
-                match reminder.save(&conn) {
+                match reminder.save(conn) {
                     Ok(reminder) => println!("Updated reminder: {:#?}", reminder),
                     Err(_) => {
                         return {
@@ -644,22 +631,16 @@ pub fn reminder(
                 }
                 Ok(reminder)
             }
-            None => {
-                return {
-                    NotFoundSnafu {
-                        entity: "Reminder".to_string(),
-                        id,
-                    }
-                    .fail()
-                };
-            }
-        },
-        Err(_) => {
-            return EntitySnafu {
+            None => NotFoundSnafu {
                 entity: "Reminder".to_string(),
+                id,
             }
-            .fail()
+            .fail(),
+        },
+        Err(_) => EntitySnafu {
+            entity: "Reminder".to_string(),
         }
+        .fail(),
     }
 }
 pub fn note(
@@ -668,7 +649,7 @@ pub fn note(
     date: Option<String>,
     content: Option<String>,
 ) -> Result<Note, CliError> {
-    let note = Note::get_by_id(&conn, id);
+    let note = Note::get_by_id(conn, id);
 
     let date_string: String;
     let content_string: String;
@@ -691,13 +672,21 @@ pub fn note(
                 let mut vars = HashMap::new();
                 let date_placeholder: String;
                 let content_placeholder: String;
-                let people_placeholder: String;
+                let people_placeholder: String = if !note.people.is_empty() {
+                    note.people
+                        .iter()
+                        .map(|p| p.clone().name)
+                        .collect::<Vec<String>>()
+                        .join(",")
+                } else {
+                    "".to_string()
+                };
 
-                if date.clone().is_some() {
-                    date_placeholder = match date.clone() {
+                if date.is_some() {
+                    date_placeholder = match date {
                         Some(date) => date,
                         None => {
-                            return Err(CliError::MissingFieldError {
+                            return Err(CliError::MissingField {
                                 entity: "note".to_string(),
                                 field: "date".to_string(),
                             })
@@ -708,11 +697,11 @@ pub fn note(
                 } else {
                     date_placeholder = "".to_string();
                 }
-                if content.clone().is_some() {
-                    content_placeholder = match content.clone() {
+                if content.is_some() {
+                    content_placeholder = match content {
                         Some(content) => content,
                         None => {
-                            return Err(CliError::MissingFieldError {
+                            return Err(CliError::MissingField {
                                 entity: "note".to_string(),
                                 field: "content".to_string(),
                             })
@@ -722,18 +711,6 @@ pub fn note(
                     content_placeholder = note.content.clone();
                 } else {
                     content_placeholder = "".to_string();
-                }
-                if !note.people.is_empty() {
-                    people_placeholder = note
-                        .people
-                        .clone()
-                        .iter()
-                        .map(|p| p.clone().name)
-                        .collect::<Vec<String>>()
-                        .join(",")
-                        .to_string();
-                } else {
-                    people_placeholder = "".to_string();
                 }
 
                 vars.insert("date".to_string(), date_placeholder);
@@ -746,7 +723,7 @@ pub fn note(
                         return {
                             TemplateSnafu {
                                 template: NOTE_TEMPLATE,
-                                vars: vars,
+                                vars,
                             }
                             .fail()
                         }
@@ -790,7 +767,7 @@ pub fn note(
                         }
                     }
                 };
-                match note.save(&conn) {
+                match note.save(conn) {
                     Ok(note) => println!("Updated note: {:#?}", note),
                     Err(_) => {
                         return {
@@ -804,21 +781,15 @@ pub fn note(
                 println!("Updated note: {:#?}", note);
                 Ok(note)
             }
-            None => {
-                return {
-                    NotFoundSnafu {
-                        entity: "Note".to_string(),
-                        id,
-                    }
-                    .fail()
-                };
-            }
-        },
-        Err(_) => {
-            return EntitySnafu {
+            None => NotFoundSnafu {
                 entity: "Note".to_string(),
+                id,
             }
-            .fail()
+            .fail(),
+        },
+        Err(_) => EntitySnafu {
+            entity: "Note".to_string(),
         }
+        .fail(),
     }
 }

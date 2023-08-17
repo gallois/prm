@@ -104,8 +104,8 @@ impl Reminder {
                 })
             }
         };
-        let people = crate::db_helpers::get_people_by_reminder(&conn, id)?;
-        let recurring_type = match RecurringType::get_by_id(&conn, recurring_type_id) {
+        let people = crate::db_helpers::get_people_by_reminder(conn, id)?;
+        let recurring_type = match RecurringType::get_by_id(conn, recurring_type_id) {
             Ok(recurring_type) => match recurring_type {
                 Some(recurring_type) => recurring_type,
                 None => {
@@ -117,9 +117,8 @@ impl Reminder {
             },
             Err(e) => return Err(e),
         };
-        let date =
-            crate::helpers::parse_from_str_ymd(String::from(date.unwrap_or_default()).as_str())
-                .unwrap_or_default();
+        let date = crate::helpers::parse_from_str_ymd(date.unwrap_or_default().as_str())
+            .unwrap_or_default();
         Ok(Reminder {
             id,
             name,
@@ -192,8 +191,8 @@ impl Reminder {
         };
         let person_id: u64;
         match rows.next() {
-            Ok(row) => match row {
-                Some(row) => {
+            Ok(row) => {
+                if let Some(row) = row {
                     person_id = match row.get(0) {
                         Ok(person_id) => person_id,
                         Err(e) => {
@@ -241,12 +240,11 @@ impl Reminder {
                         }
                     }
                 }
-                None => (),
-            },
+            }
             Err(_) => return Err(DbOperationsError::GenericError),
         }
 
-        return Ok(reminders);
+        Ok(reminders)
     }
 
     pub fn get(
@@ -256,21 +254,15 @@ impl Reminder {
     ) -> Result<Vec<Reminder>, DbOperationsError> {
         let mut reminders: Vec<Reminder> = vec![];
 
-        match name {
-            Some(name) => {
-                // FIXME this is almost a duplication of get_by_name(conn, name)
-                reminders = Self::get_reminders_by_name(conn, name, person.clone())?;
-                return Ok(reminders);
-            }
-            None => (),
+        if let Some(name) = name {
+            // FIXME this is almost a duplication of get_by_name(conn, name)
+            reminders = Self::get_reminders_by_name(conn, name, person.clone())?;
+            return Ok(reminders);
         }
-        match person {
-            Some(person) => {
-                reminders = Self::get_by_person(conn, person.clone())?;
-            }
-            None => (),
+        if let Some(person) = person {
+            reminders = Self::get_by_person(conn, person.clone())?;
         }
-        return Ok(reminders);
+        Ok(reminders)
     }
 
     fn get_ids_by_person_id(
@@ -314,7 +306,7 @@ impl Reminder {
             }
         }
 
-        return Ok(ids);
+        Ok(ids)
     }
 
     // TODO remove duplication between different entities
@@ -371,8 +363,8 @@ impl Reminder {
                             })
                         }
                     };
-                    let people = crate::db_helpers::get_people_by_reminder(&conn, reminder_id)?;
-                    let recurring_type = match RecurringType::get_by_id(&conn, recurring_type_id) {
+                    let people = crate::db_helpers::get_people_by_reminder(conn, reminder_id)?;
+                    let recurring_type = match RecurringType::get_by_id(conn, recurring_type_id) {
                         Ok(recurring_type) => match recurring_type {
                             Some(recurring_type) => recurring_type,
                             None => {
@@ -388,7 +380,7 @@ impl Reminder {
                         id: reminder_id,
                         name,
                         date: crate::helpers::parse_from_str_ymd(
-                            String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
+                            row.get::<usize, String>(2).unwrap_or_default().as_str(),
                         )
                         .unwrap_or_default(),
                         description,
@@ -396,14 +388,12 @@ impl Reminder {
                         people,
                     }))
                 }
-                None => return Ok(None),
+                None => Ok(None),
             },
-            Err(e) => {
-                return Err(DbOperationsError::RecordError {
-                    sqlite_error: Some(e),
-                    strum_error: None,
-                })
-            }
+            Err(e) => Err(DbOperationsError::RecordError {
+                sqlite_error: Some(e),
+                strum_error: None,
+            }),
         }
     }
 
@@ -411,13 +401,12 @@ impl Reminder {
         conn: &Connection,
         include_past: bool,
     ) -> Result<Vec<Reminder>, DbOperationsError> {
-        let sql: String;
         let base_sql = "SELECT * FROM reminders WHERE deleted = 0";
-        if include_past {
-            sql = format!("{}", base_sql);
+        let sql: String = if include_past {
+            base_sql.to_string()
         } else {
-            sql = format!("{} WHERE date > DATE()", base_sql);
-        }
+            format!("{} WHERE date > DATE()", base_sql)
+        };
 
         let mut stmt = match conn.prepare(&sql) {
             Ok(stmt) => stmt,
@@ -425,7 +414,7 @@ impl Reminder {
         };
         let rows = match stmt.query_map([], |row| {
             let reminder_id = row.get(0)?;
-            let people = match crate::db_helpers::get_people_by_reminder(&conn, reminder_id) {
+            let people = match crate::db_helpers::get_people_by_reminder(conn, reminder_id) {
                 Ok(people) => people,
                 Err(e) => {
                     let sqlite_error = match e {
@@ -436,7 +425,7 @@ impl Reminder {
                 }
             };
             let recurring_type_id: u64 = row.get(4)?;
-            let recurring_type = match RecurringType::get_by_id(&conn, recurring_type_id) {
+            let recurring_type = match RecurringType::get_by_id(conn, recurring_type_id) {
                 Ok(recurring_type) => match recurring_type {
                     Some(recurring_type) => recurring_type,
                     None => panic!("Recurring Type cannot be None"),
@@ -453,7 +442,7 @@ impl Reminder {
                 id: reminder_id,
                 name: row.get(1)?,
                 date: crate::helpers::parse_from_str_ymd(
-                    String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
+                    row.get::<usize, String>(2).unwrap_or_default().as_str(),
                 )
                 .unwrap_or_default(),
                 description: row.get(3)?,
@@ -552,7 +541,7 @@ impl Reminder {
             self.recurring = recurring_type;
         }
 
-        let people = match Person::get_by_names(&conn, people) {
+        let people = match Person::get_by_names(conn, people) {
             Ok(people) => people,
             Err(_) => {
                 return RecordParseSnafu {
@@ -606,7 +595,7 @@ impl Reminder {
             }
             s if s.starts_with(people_prefix) => {
                 let people_str = s.trim_start_matches(people_prefix);
-                people = people_str.split(",").map(|x| x.to_string()).collect();
+                people = people_str.split(',').map(|x| x.to_string()).collect();
             }
             _ => error = true,
         });
@@ -654,7 +643,7 @@ impl crate::db::db_interface::DbOperations for Reminder {
             }
         }
 
-        if ids.len() > 0 {
+        if !ids.is_empty() {
             return Err(DbOperationsError::DuplicateEntry);
         }
 
@@ -856,7 +845,7 @@ impl crate::db::db_interface::DbOperations for Reminder {
                             })
                         }
                     };
-                    let people = crate::db_helpers::get_people_by_reminder(&conn, reminder_id)?;
+                    let people = crate::db_helpers::get_people_by_reminder(conn, reminder_id)?;
                     let description: Option<String> = match row.get(4) {
                         Ok(description) => description,
                         Err(e) => {
@@ -875,7 +864,7 @@ impl crate::db::db_interface::DbOperations for Reminder {
                             })
                         }
                     };
-                    let recurring_type = match RecurringType::get_by_id(&conn, recurring_type_id) {
+                    let recurring_type = match RecurringType::get_by_id(conn, recurring_type_id) {
                         Ok(recurring_type) => match recurring_type {
                             Some(recurring_type) => recurring_type,
                             None => {
@@ -891,7 +880,7 @@ impl crate::db::db_interface::DbOperations for Reminder {
                         id: reminder_id,
                         name,
                         date: crate::helpers::parse_from_str_ymd(
-                            String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
+                            row.get::<usize, String>(2).unwrap_or_default().as_str(),
                         )
                         .unwrap_or_default(),
                         description,
@@ -899,14 +888,12 @@ impl crate::db::db_interface::DbOperations for Reminder {
                         people,
                     })))
                 }
-                None => return Ok(None),
+                None => Ok(None),
             },
-            Err(e) => {
-                return Err(DbOperationsError::RecordError {
-                    sqlite_error: Some(e),
-                    strum_error: None,
-                })
-            }
+            Err(e) => Err(DbOperationsError::RecordError {
+                sqlite_error: Some(e),
+                strum_error: None,
+            }),
         }
     }
 }
@@ -988,12 +975,10 @@ impl RecurringType {
                 }
                 None => Ok(None),
             },
-            Err(e) => {
-                return Err(DbOperationsError::RecordError {
-                    sqlite_error: Some(e),
-                    strum_error: None,
-                })
-            }
+            Err(e) => Err(DbOperationsError::RecordError {
+                sqlite_error: Some(e),
+                strum_error: None,
+            }),
         }
     }
 }

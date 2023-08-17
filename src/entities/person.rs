@@ -68,21 +68,23 @@ impl Person {
         let mut birthday_some: String = String::from("");
         if let Some(name) = name {
             name_present = true;
-            query = query + " name = ?1";
+            query.push_str(" name = ?1");
             name_some = name;
         }
         if let Some(birthday) = birthday {
             let mut placeholder = "?1";
             if name_present {
-                query = query + " AND";
+                query.push_str(" AND");
                 placeholder = "?2";
             }
             birthday_present = true;
-            query = query + " birthday LIKE " + placeholder;
-            birthday_some = "%".to_string() + &birthday;
+            query.push_str(" birthday LIKE ");
+            query.push_str(placeholder);
+            birthday_some.push('%');
+            birthday_some.push_str(&birthday);
         }
-        query = query + " AND deleted = 0";
-        query = query + " COLLATE NOCASE";
+        query.push_str(" AND deleted = 0");
+        query.push_str(" COLLATE NOCASE");
 
         let mut stmt = match conn.prepare(query.as_str()) {
             Ok(stmt) => stmt,
@@ -121,21 +123,20 @@ impl Person {
                             })
                         }
                     };
-                    let notes = crate::db::db_helpers::get_notes_by_person(&conn, person_id)?;
+                    let notes = crate::db::db_helpers::get_notes_by_person(conn, person_id)?;
                     let reminders =
-                        crate::db::db_helpers::get_reminders_by_person(&conn, person_id)?;
+                        crate::db::db_helpers::get_reminders_by_person(conn, person_id)?;
                     let contact_info =
-                        crate::db::db_helpers::get_contact_info_by_person(&conn, person_id)?;
+                        crate::db::db_helpers::get_contact_info_by_person(conn, person_id)?;
                     let activities =
-                        crate::db::db_helpers::get_activities_by_person(&conn, person_id)?;
+                        crate::db::db_helpers::get_activities_by_person(conn, person_id)?;
 
                     Ok(Some(Person {
                         id: person_id,
                         name,
                         birthday: Some(
                             crate::helpers::parse_from_str_ymd(
-                                String::from(row.get::<usize, String>(2).unwrap_or_default())
-                                    .as_str(),
+                                row.get::<usize, String>(2).unwrap_or_default().as_str(),
                             )
                             .unwrap_or_default(),
                         ),
@@ -145,14 +146,12 @@ impl Person {
                         notes,
                     }))
                 }
-                None => return Ok(None),
+                None => Ok(None),
             },
-            Err(e) => {
-                return Err(DbOperationsError::RecordError {
-                    sqlite_error: Some(e),
-                    strum_error: None,
-                })
-            }
+            Err(e) => Err(DbOperationsError::RecordError {
+                sqlite_error: Some(e),
+                strum_error: None,
+            }),
         }
     }
 
@@ -175,13 +174,13 @@ impl Person {
             Ok(stmt) => stmt,
             Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
         };
-        let rows: _ = match stmt.query_map(params_from_iter(names.iter()), |row| {
+        let rows = match stmt.query_map(params_from_iter(names.iter()), |row| {
             Ok(Person::new(
                 row.get(0)?,
                 row.get(1)?,
                 Some(
                     crate::helpers::parse_from_str_ymd(
-                        String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
+                        row.get::<usize, String>(2).unwrap_or_default().as_str(),
                     )
                     .unwrap_or_default(),
                 ),
@@ -216,7 +215,7 @@ impl Person {
 
         let rows = match stmt.query_map([], |row| {
             let person_id = row.get(0)?;
-            let notes = match crate::db::db_helpers::get_notes_by_person(&conn, person_id) {
+            let notes = match crate::db::db_helpers::get_notes_by_person(conn, person_id) {
                 Ok(notes) => notes,
                 Err(e) => {
                     let sqlite_error = match e {
@@ -226,7 +225,7 @@ impl Person {
                     return Err(sqlite_error);
                 }
             };
-            let reminders = match crate::db::db_helpers::get_reminders_by_person(&conn, person_id) {
+            let reminders = match crate::db::db_helpers::get_reminders_by_person(conn, person_id) {
                 Ok(reminders) => reminders,
                 Err(e) => {
                     let sqlite_error = match e {
@@ -237,7 +236,7 @@ impl Person {
                 }
             };
             let contact_info =
-                match crate::db::db_helpers::get_contact_info_by_person(&conn, person_id) {
+                match crate::db::db_helpers::get_contact_info_by_person(conn, person_id) {
                     Ok(contact_info) => contact_info,
                     Err(e) => {
                         let sqlite_error = match e {
@@ -247,7 +246,7 @@ impl Person {
                         return Err(sqlite_error);
                     }
                 };
-            let activities = match crate::db::db_helpers::get_activities_by_person(&conn, person_id)
+            let activities = match crate::db::db_helpers::get_activities_by_person(conn, person_id)
             {
                 Ok(activities) => activities,
                 Err(e) => {
@@ -263,7 +262,7 @@ impl Person {
                 name: row.get(1)?,
                 birthday: Some(
                     crate::helpers::parse_from_str_ymd(
-                        String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
+                        row.get::<usize, String>(2).unwrap_or_default().as_str(),
                     )
                     .unwrap_or_default(),
                 ),
@@ -323,9 +322,9 @@ impl Person {
         let mut contact_info_vec: Vec<ContactInfo> = Vec::new();
         match contact_info {
             Some(contact_info_vec) => {
-                for contact_info_str in contact_info_vec.split(",") {
+                for contact_info_str in contact_info_vec.split(',') {
                     contact_info_splits
-                        .push(contact_info_str.split(":").map(|x| x.to_string()).collect());
+                        .push(contact_info_str.split(':').map(|x| x.to_string()).collect());
                 }
             }
             None => contact_info_splits = vec![],
@@ -333,7 +332,7 @@ impl Person {
 
         // FIXME duplication in src/cli/add.rs
         let mut invalid_contact_info = vec![];
-        if contact_info_splits.len() > 0 {
+        if !contact_info_splits.is_empty() {
             for contact_info_split in contact_info_splits.iter() {
                 match contact_info_split[0].as_str() {
                     "phone" => {
@@ -350,11 +349,11 @@ impl Person {
                     }
                     _ => {
                         invalid_contact_info.push(
-                            vec![contact_info_split[0].clone(), contact_info_split[1].clone()]
+                            [contact_info_split[0].clone(), contact_info_split[1].clone()]
                                 .join(":"),
                         );
                         return ContactInfoParseSnafu {
-                            contact_info: String::from(invalid_contact_info.join(",")),
+                            contact_info: invalid_contact_info.join(","),
                         }
                         .fail();
                     }
@@ -389,7 +388,7 @@ impl Person {
             }
             s if s.starts_with(contact_info_prefix) => {
                 let contact_info_str = s.trim_start_matches(contact_info_prefix);
-                contact_info = contact_info_str.split(",").map(|x| x.to_string()).collect();
+                contact_info = contact_info_str.split(',').map(|x| x.to_string()).collect();
             }
             _ => error = true,
         });
@@ -439,7 +438,7 @@ impl crate::db::db_interface::DbOperations for Person {
             }
         }
 
-        if ids.len() > 0 {
+        if !ids.is_empty() {
             return Err(crate::db::db_interface::DbOperationsError::DuplicateEntry);
         }
 
@@ -532,9 +531,7 @@ impl crate::db::db_interface::DbOperations for Person {
             Ok(())
         });
 
-        if res.is_err() {
-            return Err(res.unwrap_err());
-        }
+        res?;
 
         Ok(self)
     }
@@ -592,7 +589,7 @@ impl crate::db::db_interface::DbOperations for Person {
             Err(_) => return Err(DbOperationsError::QueryError),
         }
 
-        if self.contact_info.len() > 0 {
+        if !self.contact_info.is_empty() {
             for ci in self.contact_info.iter() {
                 let (ci_type, ci_value): (String, &str) = match &ci.contact_info_type {
                     ContactInfoType::Phone(value) => (
@@ -730,20 +727,19 @@ impl crate::db::db_interface::DbOperations for Person {
                             })
                         }
                     };
-                    let notes = crate::db::db_helpers::get_notes_by_person(&conn, person_id)?;
+                    let notes = crate::db::db_helpers::get_notes_by_person(conn, person_id)?;
                     let reminders =
-                        crate::db::db_helpers::get_reminders_by_person(&conn, person_id)?;
+                        crate::db::db_helpers::get_reminders_by_person(conn, person_id)?;
                     let contact_info =
-                        crate::db::db_helpers::get_contact_info_by_person(&conn, person_id)?;
+                        crate::db::db_helpers::get_contact_info_by_person(conn, person_id)?;
                     let activities =
-                        crate::db::db_helpers::get_activities_by_person(&conn, person_id)?;
+                        crate::db::db_helpers::get_activities_by_person(conn, person_id)?;
                     Ok(Some(Entities::Person(Person {
                         id: person_id,
                         name,
                         birthday: Some(
                             crate::helpers::parse_from_str_ymd(
-                                String::from(row.get::<usize, String>(2).unwrap_or_default())
-                                    .as_str(),
+                                row.get::<usize, String>(2).unwrap_or_default().as_str(),
                             )
                             .unwrap_or_default(),
                         ),
@@ -753,25 +749,22 @@ impl crate::db::db_interface::DbOperations for Person {
                         notes,
                     })))
                 }
-                None => return Ok(None),
+                None => Ok(None),
             },
-            Err(e) => {
-                return Err(DbOperationsError::RecordError {
-                    sqlite_error: Some(e),
-                    strum_error: None,
-                })
-            }
+            Err(e) => Err(DbOperationsError::RecordError {
+                sqlite_error: Some(e),
+                strum_error: None,
+            }),
         }
     }
 }
 
 impl fmt::Display for Person {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let birthday: String;
-        match &self.birthday {
-            Some(bday) => birthday = bday.to_string(),
-            None => birthday = String::new(),
-        }
+        let birthday: String = match &self.birthday {
+            Some(bday) => bday.to_string(),
+            None => String::new(),
+        };
         let mut contact_info_str = String::new();
         for ci in self.contact_info.iter() {
             contact_info_str.push_str("\n\t");
@@ -828,9 +821,9 @@ impl ContactInfo {
         }
     }
 
-    pub fn populate_splits(splits: &mut Vec<Vec<String>>, list: &mut Vec<String>) {
-        list.into_iter().for_each(|contact_info_str| {
-            splits.push(contact_info_str.split(":").map(|x| x.to_string()).collect());
+    pub fn populate_splits(splits: &mut Vec<Vec<String>>, list: &mut [String]) {
+        list.iter_mut().for_each(|contact_info_str| {
+            splits.push(contact_info_str.split(':').map(|x| x.to_string()).collect());
         });
     }
 }
@@ -869,7 +862,7 @@ impl ContactInfoType {
                             })
                         }
                     };
-                    let ci = match ContactInfoType::from_str(&ci_type_id.as_str()) {
+                    let ci = match ContactInfoType::from_str(ci_type_id.as_str()) {
                         Ok(ci) => ci,
                         Err(e) => {
                             return Err(DbOperationsError::RecordError {
@@ -882,12 +875,10 @@ impl ContactInfoType {
                 }
                 None => Ok(None),
             },
-            Err(e) => {
-                return Err(DbOperationsError::RecordError {
-                    sqlite_error: Some(e),
-                    strum_error: None,
-                })
-            }
+            Err(e) => Err(DbOperationsError::RecordError {
+                sqlite_error: Some(e),
+                strum_error: None,
+            }),
         }
     }
 }

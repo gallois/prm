@@ -100,7 +100,7 @@ impl Activity {
                 })
             }
         };
-        let activity_type = match ActivityType::get_by_id(&conn, activity_type_id) {
+        let activity_type = match ActivityType::get_by_id(conn, activity_type_id) {
             Ok(activity_type) => match activity_type {
                 Some(activity_type) => activity_type,
                 None => {
@@ -112,10 +112,9 @@ impl Activity {
             },
             Err(e) => return Err(e),
         };
-        let date =
-            crate::helpers::parse_from_str_ymd(String::from(date.unwrap_or_default()).as_str())
-                .unwrap_or_default();
-        let people = crate::db::db_helpers::get_people_by_activity(&conn, id, true)?;
+        let date = crate::helpers::parse_from_str_ymd(date.unwrap_or_default().as_str())
+            .unwrap_or_default();
+        let people = crate::db::db_helpers::get_people_by_activity(conn, id, true)?;
         Ok(Activity {
             id,
             name,
@@ -206,8 +205,8 @@ impl Activity {
         };
         let person_id: u64;
         match rows.next() {
-            Ok(row) => match row {
-                Some(row) => {
+            Ok(row) => {
+                if let Some(row) = row {
                     person_id = match row.get(0) {
                         Ok(person_id) => person_id,
                         Err(e) => {
@@ -262,12 +261,11 @@ impl Activity {
                         }
                     }
                 }
-                None => (),
-            },
+            }
             Err(_) => return Err(DbOperationsError::GenericError),
         }
 
-        return Ok(activities);
+        Ok(activities)
     }
 
     pub fn get(
@@ -276,20 +274,14 @@ impl Activity {
         person: Option<String>,
     ) -> Result<Vec<Activity>, DbOperationsError> {
         let mut activities: Vec<Activity> = vec![];
-        match name {
-            Some(name) => {
-                activities = Self::get_by_name(conn, name, person.clone())?;
-                return Ok(activities);
-            }
-            None => (),
+        if let Some(name) = name {
+            activities = Self::get_by_name(conn, name, person.clone())?;
+            return Ok(activities);
         }
-        match person {
-            Some(person) => {
-                activities = Self::get_by_person(conn, person.clone())?;
-            }
-            None => (),
+        if let Some(person) = person {
+            activities = Self::get_by_person(conn, person.clone())?;
         }
-        return Ok(activities);
+        Ok(activities)
     }
 
     pub fn get_all(conn: &Connection) -> Result<Vec<Activity>, DbOperationsError> {
@@ -301,7 +293,7 @@ impl Activity {
         let rows = match stmt.query_map([], |row| {
             let activity_id = row.get(0)?;
             let people =
-                match crate::db::db_helpers::get_people_by_activity(&conn, activity_id, true) {
+                match crate::db::db_helpers::get_people_by_activity(conn, activity_id, true) {
                     Ok(people) => people,
                     Err(e) => {
                         let sqlite_error = match e {
@@ -311,7 +303,7 @@ impl Activity {
                         return Err(sqlite_error);
                     }
                 };
-            let activity_type = match ActivityType::get_by_id(&conn, row.get(2)?) {
+            let activity_type = match ActivityType::get_by_id(conn, row.get(2)?) {
                 Ok(activity_type) => match activity_type {
                     Some(activity_type) => activity_type,
                     None => panic!("Activity type cannot be None"),
@@ -329,7 +321,7 @@ impl Activity {
                 name: row.get(1)?,
                 activity_type,
                 date: crate::helpers::parse_from_str_ymd(
-                    String::from(row.get::<usize, String>(3).unwrap_or_default()).as_str(),
+                    row.get::<usize, String>(3).unwrap_or_default().as_str(),
                 )
                 .unwrap_or_default(),
                 content: row.get(4)?,
@@ -421,7 +413,7 @@ impl Activity {
             self.content = content;
         }
 
-        let people = Person::get_by_names(&conn, people);
+        let people = Person::get_by_names(conn, people);
         self.people = match people {
             Ok(people) => people,
             Err(_) => {
@@ -436,6 +428,7 @@ impl Activity {
 
         Ok(self)
     }
+
     pub fn parse_from_editor(
         content: &str,
     ) -> Result<
@@ -476,7 +469,7 @@ impl Activity {
             }
             s if s.starts_with(people_prefix) => {
                 let people_str = s.trim_start_matches(people_prefix);
-                people = people_str.split(",").map(|x| x.to_string()).collect();
+                people = people_str.split(',').map(|x| x.to_string()).collect();
             }
             _ => error = true,
         });
@@ -535,7 +528,7 @@ impl Activity {
                 }
             }
         }
-        return Ok(ids);
+        Ok(ids)
     }
 }
 
@@ -549,7 +542,7 @@ impl fmt::Display for Activity {
             .map(|p| p.name.as_str())
             .collect::<Vec<&str>>()
             .join(",");
-        people_str.push_str(format!("{}", people).as_ref());
+        people_str.push_str(people.to_string().as_ref());
         write!(
             f,
             "activity id: {}\nname: {}\ndate: {}\npeople: {}\n",
@@ -780,7 +773,7 @@ impl DbOperations for Activity {
                 }
             }
 
-            if results.len() > 0 {
+            if !results.is_empty() {
                 for id in results {
                     let mut stmt = match conn.prepare(
                         "
@@ -884,8 +877,8 @@ impl DbOperations for Activity {
                         }
                     };
                     let people =
-                        crate::db::db_helpers::get_people_by_activity(&conn, activity_id, true)?;
-                    let activity_type = match ActivityType::get_by_id(&conn, activity_type_id) {
+                        crate::db::db_helpers::get_people_by_activity(conn, activity_id, true)?;
+                    let activity_type = match ActivityType::get_by_id(conn, activity_type_id) {
                         Ok(activity_type) => match activity_type {
                             Some(activity_type) => activity_type,
                             None => panic!("Activity type cannot be None"),
@@ -897,16 +890,16 @@ impl DbOperations for Activity {
                         name,
                         activity_type,
                         date: crate::helpers::parse_from_str_ymd(
-                            String::from(row.get::<usize, String>(3).unwrap_or_default()).as_str(),
+                            row.get::<usize, String>(3).unwrap_or_default().as_str(),
                         )
                         .unwrap_or_default(),
                         content,
                         people,
                     })))
                 }
-                None => return Ok(None),
+                None => Ok(None),
             },
-            Err(_) => return Err(DbOperationsError::GenericError),
+            Err(_) => Err(DbOperationsError::GenericError),
         }
     }
 }
@@ -966,12 +959,10 @@ impl ActivityType {
                 }
                 None => Ok(None),
             },
-            Err(e) => {
-                return Err(DbOperationsError::RecordError {
-                    sqlite_error: Some(e),
-                    strum_error: None,
-                })
-            }
+            Err(e) => Err(DbOperationsError::RecordError {
+                sqlite_error: Some(e),
+                strum_error: None,
+            }),
         }
     }
 }

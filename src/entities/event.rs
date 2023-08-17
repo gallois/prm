@@ -63,7 +63,7 @@ impl Event {
 
         let rows = match stmt.query_map(params![days], |row| {
             let person_id = row.get(0)?;
-            let notes = match crate::db::db_helpers::get_notes_by_person(&conn, person_id) {
+            let notes = match crate::db::db_helpers::get_notes_by_person(conn, person_id) {
                 Ok(notes) => notes,
                 Err(e) => {
                     let sqlite_error = match e {
@@ -73,7 +73,7 @@ impl Event {
                     return Err(sqlite_error);
                 }
             };
-            let reminders = match crate::db::db_helpers::get_reminders_by_person(&conn, person_id) {
+            let reminders = match crate::db::db_helpers::get_reminders_by_person(conn, person_id) {
                 Ok(reminders) => reminders,
                 Err(e) => {
                     let sqlite_error = match e {
@@ -84,7 +84,7 @@ impl Event {
                 }
             };
             let contact_info =
-                match crate::db::db_helpers::get_contact_info_by_person(&conn, person_id) {
+                match crate::db::db_helpers::get_contact_info_by_person(conn, person_id) {
                     Ok(contact_info) => contact_info,
                     Err(e) => {
                         let sqlite_error = match e {
@@ -94,7 +94,7 @@ impl Event {
                         return Err(sqlite_error);
                     }
                 };
-            let activities = match crate::db::db_helpers::get_activities_by_person(&conn, person_id)
+            let activities = match crate::db::db_helpers::get_activities_by_person(conn, person_id)
             {
                 Ok(activities) => activities,
                 Err(e) => {
@@ -110,7 +110,7 @@ impl Event {
                 name: row.get(1)?,
                 birthday: Some(
                     crate::helpers::parse_from_str_ymd(
-                        String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
+                        row.get::<usize, String>(2).unwrap_or_default().as_str(),
                     )
                     .unwrap_or_default(),
                 ),
@@ -150,7 +150,7 @@ impl Event {
         };
         let rows = match stmt.query_map(params![today_str, date_limit_str], |row| {
             let reminder_id = row.get(0)?;
-            let people = match crate::db_helpers::get_people_by_reminder(&conn, reminder_id) {
+            let people = match crate::db_helpers::get_people_by_reminder(conn, reminder_id) {
                 Ok(people) => people,
                 Err(e) => {
                     let sqlite_error = match e {
@@ -160,7 +160,7 @@ impl Event {
                     return Err(sqlite_error);
                 }
             };
-            let recurring_type = match RecurringType::get_by_id(&conn, row.get(4)?) {
+            let recurring_type = match RecurringType::get_by_id(conn, row.get(4)?) {
                 Ok(recurring_type) => match recurring_type {
                     Some(recurring_type) => recurring_type,
                     None => panic!("Recurring Type cannot be None"),
@@ -177,7 +177,7 @@ impl Event {
                 id: reminder_id,
                 name: row.get(1)?,
                 date: crate::helpers::parse_from_str_ymd(
-                    String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
+                    row.get::<usize, String>(2).unwrap_or_default().as_str(),
                 )
                 .unwrap_or_default(),
                 description: row.get(3)?,
@@ -215,17 +215,17 @@ impl fmt::Display for Event {
                     contact_info_str.push_str(": ");
                     contact_info_str.push_str(ci.details.as_ref());
                 }
-                return write!(
+                write!(
                     f,
                     "name: {}\ndate: {}\nkind: {}\ncontact info: {}\n",
                     person.name,
                     &self.date.to_string(),
                     &self.kind,
                     contact_info_str,
-                );
+                )
             }
             EventType::Reminder(reminder) => {
-                return write!(
+                write!(
                     f,
                     "name: {}\ndate: {}\nkind: {}\ndescription: {}\npeople: {}\n",
                     reminder.name,
@@ -241,9 +241,9 @@ impl fmt::Display for Event {
                         .map(|p| p.name.as_str())
                         .collect::<Vec<&str>>()
                         .join(", "),
-                );
+                )
             }
-        };
+        }
     }
 }
 

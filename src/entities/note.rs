@@ -44,13 +44,13 @@ impl Note {
         conn: &Connection,
         person: String,
     ) -> Result<Vec<Note>, DbOperationsError> {
-        let person = Person::get_by_name(&conn, Some(person), None);
+        let person = Person::get_by_name(conn, Some(person), None);
         match person {
             Ok(person) => match person {
                 Some(person) => Ok(person.notes),
                 None => Ok(vec![]),
             },
-            Err(e) => return Err(e),
+            Err(e) => Err(e),
         }
     }
 
@@ -62,7 +62,7 @@ impl Note {
 
         let rows = match stmt.query_map([], |row| {
             let note_id = row.get(0)?;
-            let people = match crate::db::db_helpers::get_people_by_note(&conn, note_id) {
+            let people = match crate::db::db_helpers::get_people_by_note(conn, note_id) {
                 Ok(people) => people,
                 Err(e) => {
                     let sqlite_error = match e {
@@ -75,7 +75,7 @@ impl Note {
             Ok(Note {
                 id: note_id,
                 date: crate::helpers::parse_from_str_ymd(
-                    String::from(row.get::<usize, String>(1).unwrap_or_default()).as_str(),
+                    row.get::<usize, String>(1).unwrap_or_default().as_str(),
                 )
                 .unwrap_or_default(),
                 content: row.get(2)?,
@@ -140,7 +140,7 @@ impl Note {
             self.content = content;
         }
 
-        self.people = match Person::get_by_names(&conn, people) {
+        self.people = match Person::get_by_names(conn, people) {
             Ok(people) => people,
             Err(_) => {
                 return RecordParseSnafu {
@@ -174,7 +174,7 @@ impl Note {
             }
             s if s.starts_with(people_prefix) => {
                 let people_str = s.trim_start_matches(people_prefix);
-                people = people_str.split(",").map(|x| x.to_string()).collect();
+                people = people_str.split(',').map(|x| x.to_string()).collect();
             }
             _ => error = true,
         });
@@ -321,7 +321,7 @@ impl crate::db::db_interface::DbOperations for Note {
                 }
             }
 
-            if results.len() > 0 {
+            if !results.is_empty() {
                 for id in results {
                     let mut stmt =
                         match conn.prepare("UPDATE people_notes SET deleted = 1 WHERE id = ?1") {
@@ -384,7 +384,7 @@ impl crate::db::db_interface::DbOperations for Note {
                             })
                         }
                     };
-                    let people = crate::db::db_helpers::get_people_by_note(&conn, note_id)?;
+                    let people = crate::db::db_helpers::get_people_by_note(conn, note_id)?;
                     let content = match row.get(2) {
                         Ok(content) => content,
                         Err(e) => {
@@ -397,21 +397,19 @@ impl crate::db::db_interface::DbOperations for Note {
                     Ok(Some(Entities::Note(Note {
                         id: note_id,
                         date: crate::helpers::parse_from_str_ymd(
-                            String::from(row.get::<usize, String>(1).unwrap_or_default()).as_str(),
+                            row.get::<usize, String>(1).unwrap_or_default().as_str(),
                         )
                         .unwrap_or_default(),
                         content,
                         people,
                     })))
                 }
-                None => return Ok(None),
+                None => Ok(None),
             },
-            Err(e) => {
-                return Err(DbOperationsError::RecordError {
-                    sqlite_error: Some(e),
-                    strum_error: None,
-                })
-            }
+            Err(e) => Err(DbOperationsError::RecordError {
+                sqlite_error: Some(e),
+                strum_error: None,
+            }),
         }
     }
 }

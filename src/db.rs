@@ -99,7 +99,7 @@ pub mod db_helpers {
             Ok(crate::entities::note::Note::new(
                 row.get(0)?,
                 crate::helpers::parse_from_str_ymd(
-                    String::from(row.get::<usize, String>(1).unwrap_or_default()).as_str(),
+                    row.get::<usize, String>(1).unwrap_or_default().as_str(),
                 )
                 .unwrap_or_default(),
                 row.get(2)?,
@@ -188,7 +188,7 @@ pub mod db_helpers {
         };
 
         let rows = match stmt.query_map(params_from_iter(reminder_ids.iter()), |row| {
-            let recurring_type = match RecurringType::get_by_id(&conn, row.get(4)?) {
+            let recurring_type = match RecurringType::get_by_id(conn, row.get(4)?) {
                 Ok(recurring_type) => match recurring_type {
                     Some(recurring_type) => recurring_type,
                     None => panic!("Recurring Type cannot be None"),
@@ -205,7 +205,7 @@ pub mod db_helpers {
                 row.get(0)?,
                 row.get(1)?,
                 crate::helpers::parse_from_str_ymd(
-                    String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
+                    row.get::<usize, String>(2).unwrap_or_default().as_str(),
                 )
                 .unwrap_or_default(),
                 row.get(3)?,
@@ -254,7 +254,7 @@ pub mod db_helpers {
 
         let mut contact_info_vec: Vec<crate::entities::person::ContactInfo> = vec![];
         let rows = match stmt.query_map(params![person_id], |row| {
-            let contact_info_type = match ContactInfoType::get_by_id(&conn, row.get(2)?) {
+            let contact_info_type = match ContactInfoType::get_by_id(conn, row.get(2)?) {
                 Ok(contact_info_type) => match contact_info_type {
                     Some(contact_info_type) => contact_info_type,
                     None => panic!("Contact Info Type cannot be None"),
@@ -363,8 +363,7 @@ pub mod db_helpers {
 
         let rows = match stmt.query_map(params_from_iter(activity_ids.iter()), |row| {
             let activity_id = row.get(0)?;
-            let people = match crate::db_helpers::get_people_by_activity(&conn, activity_id, false)
-            {
+            let people = match crate::db_helpers::get_people_by_activity(conn, activity_id, false) {
                 Ok(people) => people,
                 Err(e) => {
                     let sqlite_error = match e {
@@ -375,7 +374,7 @@ pub mod db_helpers {
                 }
             };
             let activity_type =
-                match crate::entities::activity::ActivityType::get_by_id(&conn, row.get(2)?) {
+                match crate::entities::activity::ActivityType::get_by_id(conn, row.get(2)?) {
                     Ok(activity_type) => match activity_type {
                         Some(activity_type) => activity_type,
                         None => panic!("Activity type cannot be None"),
@@ -393,7 +392,7 @@ pub mod db_helpers {
                 row.get(1)?,
                 activity_type,
                 crate::helpers::parse_from_str_ymd(
-                    String::from(row.get::<usize, String>(3).unwrap_or_default()).as_str(),
+                    row.get::<usize, String>(3).unwrap_or_default().as_str(),
                 )
                 .unwrap_or_default(),
                 row.get(4)?,
@@ -484,7 +483,7 @@ pub mod db_helpers {
 
         let rows = match stmt.query_map(params_from_iter(people_ids.iter()), |row| {
             let person_id = row.get(0)?;
-            let notes = match crate::db::db_helpers::get_notes_by_person(&conn, person_id) {
+            let notes = match crate::db::db_helpers::get_notes_by_person(conn, person_id) {
                 Ok(notes) => notes,
                 Err(e) => {
                     let sqlite_error = match e {
@@ -494,7 +493,7 @@ pub mod db_helpers {
                     return Err(sqlite_error);
                 }
             };
-            let reminders = match crate::db::db_helpers::get_reminders_by_person(&conn, person_id) {
+            let reminders = match crate::db::db_helpers::get_reminders_by_person(conn, person_id) {
                 Ok(reminders) => reminders,
                 Err(e) => {
                     let sqlite_error = match e {
@@ -505,7 +504,7 @@ pub mod db_helpers {
                 }
             };
             let contact_info =
-                match crate::db::db_helpers::get_contact_info_by_person(&conn, person_id) {
+                match crate::db::db_helpers::get_contact_info_by_person(conn, person_id) {
                     Ok(contact_info) => contact_info,
                     Err(e) => {
                         let sqlite_error = match e {
@@ -515,7 +514,7 @@ pub mod db_helpers {
                         return Err(sqlite_error);
                     }
                 };
-            let activities = match crate::db::db_helpers::get_activities_by_person(&conn, person_id)
+            let activities = match crate::db::db_helpers::get_activities_by_person(conn, person_id)
             {
                 Ok(activities) => activities,
                 Err(e) => {
@@ -531,14 +530,14 @@ pub mod db_helpers {
                 name: row.get(1)?,
                 birthday: Some(
                     crate::helpers::parse_from_str_ymd(
-                        String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
+                        row.get::<usize, String>(2).unwrap_or_default().as_str(),
                     )
                     .unwrap_or_default(),
                 ),
-                contact_info: contact_info,
-                activities: activities,
-                reminders: reminders,
-                notes: notes,
+                contact_info,
+                activities,
+                reminders,
+                notes,
             })
         }) {
             Ok(rows) => rows,
@@ -626,7 +625,7 @@ pub mod db_helpers {
 
         let rows = match stmt.query_map(params_from_iter(people_ids.iter()), |row| {
             let person_id = row.get(0)?;
-            let notes = match crate::db::db_helpers::get_notes_by_person(&conn, person_id) {
+            let notes = match crate::db::db_helpers::get_notes_by_person(conn, person_id) {
                 Ok(notes) => notes,
                 Err(e) => {
                     let sqlite_error = match e {
@@ -636,7 +635,7 @@ pub mod db_helpers {
                     return Err(sqlite_error);
                 }
             };
-            let reminders = match crate::db::db_helpers::get_reminders_by_person(&conn, person_id) {
+            let reminders = match crate::db::db_helpers::get_reminders_by_person(conn, person_id) {
                 Ok(reminders) => reminders,
                 Err(e) => {
                     let sqlite_error = match e {
@@ -647,7 +646,7 @@ pub mod db_helpers {
                 }
             };
             let contact_info =
-                match crate::db::db_helpers::get_contact_info_by_person(&conn, person_id) {
+                match crate::db::db_helpers::get_contact_info_by_person(conn, person_id) {
                     Ok(contact_info) => contact_info,
                     Err(e) => {
                         let sqlite_error = match e {
@@ -659,7 +658,7 @@ pub mod db_helpers {
                 };
             let mut activities: Vec<crate::entities::activity::Activity> = vec![];
             if recurse {
-                activities = match crate::db::db_helpers::get_activities_by_person(&conn, person_id)
+                activities = match crate::db::db_helpers::get_activities_by_person(conn, person_id)
                 {
                     Ok(activities) => activities,
                     Err(e) => {
@@ -676,7 +675,7 @@ pub mod db_helpers {
                 name: row.get(1)?,
                 birthday: Some(
                     crate::helpers::parse_from_str_ymd(
-                        String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
+                        row.get::<usize, String>(2).unwrap_or_default().as_str(),
                     )
                     .unwrap_or_default(),
                 ),
@@ -769,7 +768,7 @@ pub mod db_helpers {
 
         let rows = match stmt.query_map(params_from_iter(people_ids.iter()), |row| {
             let person_id = row.get(0)?;
-            let notes = match crate::db::db_helpers::get_notes_by_person(&conn, person_id) {
+            let notes = match crate::db::db_helpers::get_notes_by_person(conn, person_id) {
                 Ok(notes) => notes,
                 Err(e) => {
                     let sqlite_error = match e {
@@ -779,7 +778,7 @@ pub mod db_helpers {
                     return Err(sqlite_error);
                 }
             };
-            let reminders = match crate::db::db_helpers::get_reminders_by_person(&conn, person_id) {
+            let reminders = match crate::db::db_helpers::get_reminders_by_person(conn, person_id) {
                 Ok(reminders) => reminders,
                 Err(e) => {
                     let sqlite_error = match e {
@@ -790,7 +789,7 @@ pub mod db_helpers {
                 }
             };
             let contact_info =
-                match crate::db::db_helpers::get_contact_info_by_person(&conn, person_id) {
+                match crate::db::db_helpers::get_contact_info_by_person(conn, person_id) {
                     Ok(contact_info) => contact_info,
                     Err(e) => {
                         let sqlite_error = match e {
@@ -800,7 +799,7 @@ pub mod db_helpers {
                         return Err(sqlite_error);
                     }
                 };
-            let activities = match crate::db::db_helpers::get_activities_by_person(&conn, person_id)
+            let activities = match crate::db::db_helpers::get_activities_by_person(conn, person_id)
             {
                 Ok(activities) => activities,
                 Err(e) => {
@@ -816,14 +815,14 @@ pub mod db_helpers {
                 name: row.get(1)?,
                 birthday: Some(
                     crate::helpers::parse_from_str_ymd(
-                        String::from(row.get::<usize, String>(2).unwrap_or_default()).as_str(),
+                        row.get::<usize, String>(2).unwrap_or_default().as_str(),
                     )
                     .unwrap_or_default(),
                 ),
-                contact_info: contact_info,
-                activities: activities,
-                reminders: reminders,
-                notes: notes,
+                contact_info,
+                activities,
+                reminders,
+                notes,
             })
         }) {
             Ok(rows) => rows,
