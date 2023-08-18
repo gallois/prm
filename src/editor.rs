@@ -1,4 +1,4 @@
-use crate::entities::activity::{Activity, ACTIVITY_TEMPLATE};
+use crate::entities::activity::{Activity, ParseActivityFromEditorData, ACTIVITY_TEMPLATE};
 use crate::helpers::ActivityVars;
 use std::collections::HashMap;
 use strfmt::strfmt;
@@ -31,9 +31,13 @@ pub fn populate_activity_vars(vars: HashMap<String, String>) -> Result<ActivityV
         Err(_) => return Err(ParseError::EditorError),
     };
     let (n, d, t, c, p) = match Activity::parse_from_editor(edited.as_str()) {
-        Ok((name, date, activity_type, content, people)) => {
-            (name, date, activity_type, content, people)
-        }
+        Ok(ParseActivityFromEditorData {
+            name,
+            date,
+            activity_type,
+            content,
+            people,
+        }) => (name, date, activity_type, content, people),
         Err(_) => return ActivityParseSnafu { activity: edited }.fail(),
     };
 

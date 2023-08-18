@@ -1,8 +1,8 @@
 use prm::db::db_interface::DbOperations;
-use prm::entities::activity::{Activity, ACTIVITY_TEMPLATE};
+use prm::entities::activity::{Activity, ParseActivityFromEditorData, ACTIVITY_TEMPLATE};
 use prm::entities::note::{Note, NOTE_TEMPLATE};
 use prm::entities::person::{Person, PERSON_TEMPLATE};
-use prm::entities::reminder::{Reminder, REMINDER_TEMPLATE};
+use prm::entities::reminder::{ParseReminderFromEditorData, Reminder, REMINDER_TEMPLATE};
 use prm::entities::Entities;
 extern crate strfmt;
 use rusqlite::Connection;
@@ -331,9 +331,13 @@ pub fn activity(
                     }
                 };
                 let (n, d, t, c, p) = match Activity::parse_from_editor(edited.as_str()) {
-                    Ok((name, date, activity_type, content, people)) => {
-                        (name, date, activity_type, content, people)
-                    }
+                    Ok(ParseActivityFromEditorData {
+                        name,
+                        date,
+                        activity_type,
+                        content,
+                        people,
+                    }) => (name, date, activity_type, content, people),
                     Err(_) => {
                         return {
                             EditorParseSnafu {
@@ -558,9 +562,13 @@ pub fn reminder(
                     }
                 };
                 let (n, da, r, de, p) = match Reminder::parse_from_editor(edited.as_str()) {
-                    Ok((name, date, recurring_type, description, people)) => {
-                        (name, date, recurring_type, description, people)
-                    }
+                    Ok(ParseReminderFromEditorData {
+                        name,
+                        date,
+                        recurring_type,
+                        description,
+                        people,
+                    }) => (name, date, recurring_type, description, people),
                     Err(_) => {
                         return {
                             EditorParseSnafu {

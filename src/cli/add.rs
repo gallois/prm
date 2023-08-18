@@ -5,7 +5,9 @@ use prm::db_interface::DbOperations;
 use prm::entities::activity::{Activity, ActivityType};
 use prm::entities::note::{Note, NOTE_TEMPLATE};
 use prm::entities::person::{ContactInfo, ContactInfoType, Person, PERSON_TEMPLATE};
-use prm::entities::reminder::{RecurringType, Reminder, REMINDER_TEMPLATE};
+use prm::entities::reminder::{
+    ParseReminderFromEditorData, RecurringType, Reminder, REMINDER_TEMPLATE,
+};
 use rusqlite::Connection;
 
 extern crate strfmt;
@@ -396,9 +398,13 @@ pub fn reminder(
             Err(_) => return EditorParseSnafu { entity: "Reminder" }.fail(),
         };
         let (n, da, r, de, p) = match Reminder::parse_from_editor(edited.as_str()) {
-            Ok((name, date, recurring_type, description, people)) => {
-                (name, date, recurring_type, description, people)
-            }
+            Ok(ParseReminderFromEditorData {
+                name,
+                date,
+                recurring_type,
+                description,
+                people,
+            }) => (name, date, recurring_type, description, people),
             Err(_) => return EditorParseSnafu { entity: "Reminder" }.fail(),
         };
         name_string = n;

@@ -22,6 +22,14 @@ pub enum EntityError {
     RecordParseError { record: String },
 }
 
+pub struct ParseReminderFromEditorData {
+    pub name: String,
+    pub date: Option<String>,
+    pub recurring_type: Option<String>,
+    pub description: Option<String>,
+    pub people: Vec<String>,
+}
+
 pub static REMINDER_TEMPLATE: &str = "Name: {name}
 Date: {date}
 Recurring: {recurring_type}
@@ -557,16 +565,7 @@ impl Reminder {
 
     pub fn parse_from_editor(
         content: &str,
-    ) -> Result<
-        (
-            String,
-            Option<String>,
-            Option<String>,
-            Option<String>,
-            Vec<String>,
-        ),
-        crate::editor::ParseError,
-    > {
+    ) -> Result<ParseReminderFromEditorData, crate::editor::ParseError> {
         let mut error = false;
         let mut name: String = String::new();
         let mut date: Option<String> = None;
@@ -604,7 +603,13 @@ impl Reminder {
             return Err(crate::editor::ParseError::FormatError);
         }
 
-        Ok((name, date, recurring_type, description, people))
+        Ok(ParseReminderFromEditorData {
+            name,
+            date,
+            recurring_type,
+            description,
+            people,
+        })
     }
 }
 

@@ -25,6 +25,13 @@ pub struct Activity {
     pub content: String,
     pub people: Vec<Person>,
 }
+pub struct ParseActivityFromEditorData {
+    pub name: String,
+    pub date: Option<String>,
+    pub activity_type: Option<String>,
+    pub content: Option<String>,
+    pub people: Vec<String>,
+}
 
 #[derive(Debug, Snafu)]
 pub enum ActivityError {
@@ -431,16 +438,7 @@ impl Activity {
 
     pub fn parse_from_editor(
         content: &str,
-    ) -> Result<
-        (
-            String,
-            Option<String>,
-            Option<String>,
-            Option<String>,
-            Vec<String>,
-        ),
-        crate::editor::ParseError,
-    > {
+    ) -> Result<ParseActivityFromEditorData, crate::editor::ParseError> {
         let mut error = false;
         let mut name: String = String::new();
         let mut date: Option<String> = None;
@@ -478,7 +476,13 @@ impl Activity {
             return Err(crate::editor::ParseError::FormatError);
         }
 
-        Ok((name, date, activity_type, activity_content, people))
+        Ok(ParseActivityFromEditorData {
+            name,
+            date,
+            activity_type,
+            content: activity_content,
+            people,
+        })
     }
 
     fn get_ids_by_person_id(
