@@ -40,10 +40,78 @@ impl Note {
         }
     }
 
-    pub fn get_by_person(
+    pub fn get(
         conn: &Connection,
-        person: String,
+        person: Option<String>,
+        content: Option<String>,
     ) -> Result<Vec<Note>, DbOperationsError> {
+        let mut notes: Vec<Note> = vec![];
+        if let Some(person) = person {
+            notes = Self::get_by_person(conn, person)?;
+            return Ok(notes);
+        }
+        if let Some(content) = content {
+            notes = Self::get_by_content(conn, content)?;
+        }
+        Ok(notes)
+    }
+
+    fn get_by_content(conn: &Connection, content: String) -> Result<Vec<Note>, DbOperationsError> {
+        let mut stmt = match conn.prepare(
+            "SELECT 
+                * 
+            FROM 
+                notes
+            WHERE
+                content LIKE '%' || ?1 || '%'
+                AND deleted = 0",
+        ) {
+            Ok(stmt) => stmt,
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
+        };
+
+        let mut notes: Vec<Note> = vec![];
+
+        let mut rows = match stmt.query([content]) {
+            Ok(rows) => rows,
+            Err(_) => return Err(DbOperationsError::QueryError),
+        };
+        match rows.next() {
+            Ok(row) => {
+                if let Some(row) = row {
+                    let id = match row.get(0) {
+                        Ok(id) => id,
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
+                    };
+                    let date = row.get::<usize, String>(1);
+                    let date =
+                        crate::helpers::parse_from_str_ymd(date.unwrap_or_default().as_str())
+                            .unwrap_or_default();
+                    let content = match row.get(2) {
+                        Ok(content) => content,
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
+                    };
+                    let people = crate::db::db_helpers::get_people_by_note(conn, id)?;
+                    notes.push(Note::new(id, date, content, people))
+                }
+            }
+            Err(_) => return Err(DbOperationsError::GenericError),
+        }
+
+        Ok(notes)
+    }
+
+    fn get_by_person(conn: &Connection, person: String) -> Result<Vec<Note>, DbOperationsError> {
         let person = Person::get_by_name(conn, Some(person), None);
         match person {
             Ok(person) => match person {

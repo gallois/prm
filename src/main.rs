@@ -141,7 +141,9 @@ enum ShowEntity {
     },
     Notes {
         #[arg(short, long)]
-        person: String,
+        person: Option<String>,
+        #[arg(short, long)]
+        content: Option<String>,
         // TODO Filters
     },
 }
@@ -363,8 +365,15 @@ fn main() {
                     }
                 }
             }
-            ShowEntity::Notes { person } => {
-                let note = Note::get_by_person(&conn, person);
+            ShowEntity::Notes { person, content } => {
+                if [person.clone(), content.clone()]
+                    .iter()
+                    .all(Option::is_none)
+                {
+                    eprintln!("No person or content provided");
+                    exit(exitcode::DATAERR);
+                }
+                let note = Note::get(&conn, person, content);
                 println!("got note: {:#?}", note);
             }
         },
