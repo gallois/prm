@@ -138,13 +138,14 @@ enum ShowEntity {
         name: Option<String>,
         #[arg(short, long)]
         person: Option<String>,
+        #[arg(short, long)]
+        description: Option<String>,
     },
     Notes {
         #[arg(short, long)]
         person: Option<String>,
         #[arg(short, long)]
         content: Option<String>,
-        // TODO Filters
     },
 }
 
@@ -345,12 +346,19 @@ fn main() {
                     }
                 }
             }
-            ShowEntity::Reminder { name, person } => {
-                if [name.clone(), person.clone()].iter().all(Option::is_none) {
+            ShowEntity::Reminder {
+                name,
+                person,
+                description,
+            } => {
+                if [name.clone(), person.clone(), description.clone()]
+                    .iter()
+                    .all(Option::is_none)
+                {
                     eprintln!("No name or person provided");
                     exit(exitcode::DATAERR);
                 }
-                let reminders = match Reminder::get(&conn, name, person) {
+                let reminders = match Reminder::get(&conn, name, person, description) {
                     Ok(reminder) => reminder,
                     Err(e) => {
                         eprintln!("Error fetching reminders: {:#?}", e);
@@ -374,6 +382,7 @@ fn main() {
                     exit(exitcode::DATAERR);
                 }
                 let note = Note::get(&conn, person, content);
+                // FIXME formatting
                 println!("got note: {:#?}", note);
             }
         },

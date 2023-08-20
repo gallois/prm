@@ -64,7 +64,8 @@ impl Note {
                 notes
             WHERE
                 content LIKE '%' || ?1 || '%'
-                AND deleted = 0",
+                AND deleted = 0
+            COLLATE NOCASE",
         ) {
             Ok(stmt) => stmt,
             Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
