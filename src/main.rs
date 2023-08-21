@@ -381,9 +381,20 @@ fn main() {
                     eprintln!("No person or content provided");
                     exit(exitcode::DATAERR);
                 }
-                let note = Note::get(&conn, person, content);
-                // FIXME formatting
-                println!("got note: {:#?}", note);
+                let notes = match Note::get(&conn, person, content) {
+                    Ok(note) => note,
+                    Err(e) => {
+                        eprintln!("Error fetching notes: {:#?}", e);
+                        exit(exitcode::DATAERR);
+                    }
+                };
+                if notes.is_empty() {
+                    println!("No notes found");
+                } else {
+                    for note in notes {
+                        println!("{}", note);
+                    }
+                }
             }
         },
         Commands::Edit(edit) => match edit.entity {

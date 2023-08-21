@@ -962,7 +962,7 @@ impl fmt::Display for Reminder {
         let mut people_str = String::new();
         for person in self.people.iter() {
             people_str.push_str("\n\t");
-            people_str.push_str(format!("name: {}\n\t", person.name).as_ref());
+            people_str.push_str(format!("name: {}", person.name).as_ref());
         }
         write!(
             f,

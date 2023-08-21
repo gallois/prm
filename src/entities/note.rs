@@ -1,3 +1,5 @@
+use std::fmt;
+
 use chrono::prelude::*;
 use rusqlite::params;
 
@@ -480,6 +482,24 @@ impl crate::db::db_interface::DbOperations for Note {
                 strum_error: None,
             }),
         }
+    }
+}
+
+impl fmt::Display for Note {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut people_str = String::new();
+        for person in self.people.iter() {
+            people_str.push_str("\n\t");
+            people_str.push_str(format!("name: {}", person.name).as_ref());
+        }
+        write!(
+            f,
+            "note id: {}\ncontent: {}\ndate: {}\npeople:{}\n",
+            &self.id,
+            &self.content,
+            &self.date.to_string(),
+            people_str
+        )
     }
 }
 
