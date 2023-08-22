@@ -60,7 +60,8 @@ impl Person {
         conn: &Connection,
         name: Option<String>,
         birthday: Option<String>,
-    ) -> Result<Option<Person>, DbOperationsError> {
+    ) -> Result<Vec<Person>, DbOperationsError> {
+        let mut people: Vec<Person> = vec![];
         let mut query = String::from("SELECT * FROM people WHERE deleted = 0");
         let mut name_present: bool = false;
         let mut birthday_present: bool = false;
@@ -68,7 +69,7 @@ impl Person {
         let mut birthday_some: String = String::from("");
         if let Some(name) = name {
             name_present = true;
-            query.push_str(" name = ?1");
+            query.push_str(" AND name LIKE '%' || ?1 || '%'");
             name_some = name;
         }
         if let Some(birthday) = birthday {
@@ -101,57 +102,60 @@ impl Person {
             Ok(rows) => rows,
             Err(_) => return Err(DbOperationsError::QueryError),
         };
-        // TODO allow for returning multiple rows
-        match rows.next() {
-            Ok(row) => match row {
-                Some(row) => {
-                    let person_id = match row.get(0) {
-                        Ok(person_id) => person_id,
-                        Err(e) => {
-                            return Err(DbOperationsError::RecordError {
-                                sqlite_error: Some(e),
-                                strum_error: None,
-                            })
-                        }
-                    };
-                    let name = match row.get(1) {
-                        Ok(name) => name,
-                        Err(e) => {
-                            return Err(DbOperationsError::RecordError {
-                                sqlite_error: Some(e),
-                                strum_error: None,
-                            })
-                        }
-                    };
-                    let notes = crate::db::db_helpers::get_notes_by_person(conn, person_id)?;
-                    let reminders =
-                        crate::db::db_helpers::get_reminders_by_person(conn, person_id)?;
-                    let contact_info =
-                        crate::db::db_helpers::get_contact_info_by_person(conn, person_id)?;
-                    let activities =
-                        crate::db::db_helpers::get_activities_by_person(conn, person_id)?;
+        loop {
+            match rows.next() {
+                Ok(row) => match row {
+                    Some(row) => {
+                        let person_id = match row.get(0) {
+                            Ok(person_id) => person_id,
+                            Err(e) => {
+                                return Err(DbOperationsError::RecordError {
+                                    sqlite_error: Some(e),
+                                    strum_error: None,
+                                })
+                            }
+                        };
+                        let name = match row.get(1) {
+                            Ok(name) => name,
+                            Err(e) => {
+                                return Err(DbOperationsError::RecordError {
+                                    sqlite_error: Some(e),
+                                    strum_error: None,
+                                })
+                            }
+                        };
+                        let notes = crate::db::db_helpers::get_notes_by_person(conn, person_id)?;
+                        let reminders =
+                            crate::db::db_helpers::get_reminders_by_person(conn, person_id)?;
+                        let contact_info =
+                            crate::db::db_helpers::get_contact_info_by_person(conn, person_id)?;
+                        let activities =
+                            crate::db::db_helpers::get_activities_by_person(conn, person_id)?;
 
-                    Ok(Some(Person {
-                        id: person_id,
-                        name,
-                        birthday: Some(
-                            crate::helpers::parse_from_str_ymd(
-                                row.get::<usize, String>(2).unwrap_or_default().as_str(),
-                            )
-                            .unwrap_or_default(),
-                        ),
-                        contact_info,
-                        activities,
-                        reminders,
-                        notes,
-                    }))
+                        people.push(Person {
+                            id: person_id,
+                            name,
+                            birthday: Some(
+                                crate::helpers::parse_from_str_ymd(
+                                    row.get::<usize, String>(2).unwrap_or_default().as_str(),
+                                )
+                                .unwrap_or_default(),
+                            ),
+                            contact_info,
+                            activities,
+                            reminders,
+                            notes,
+                        })
+                    }
+                    None => return Ok(people),
+                },
+                Err(e) => {
+                    return Err(DbOperationsError::RecordError {
+                        sqlite_error: Some(e),
+                        strum_error: None,
+                    })
                 }
-                None => Ok(None),
-            },
-            Err(e) => Err(DbOperationsError::RecordError {
-                sqlite_error: Some(e),
-                strum_error: None,
-            }),
+            }
         }
     }
 

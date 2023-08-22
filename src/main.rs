@@ -311,20 +311,16 @@ fn main() {
                     eprintln!("No name or birthday provided");
                     exit(exitcode::DATAERR);
                 }
-                let person = match Person::get_by_name(&conn, name, birthday) {
-                    Ok(person) => match person {
-                        Some(person) => person,
-                        None => {
-                            eprintln!("Person not found");
-                            exit(exitcode::DATAERR);
-                        }
-                    },
+                let people = match Person::get_by_name(&conn, name, birthday) {
+                    Ok(people) => people,
                     Err(e) => {
                         eprintln!("Error while fecthing person: {:#?}", e);
                         exit(exitcode::DATAERR);
                     }
                 };
-                println!("got person: {}", person);
+                for person in people {
+                    println!("{}", person);
+                }
             }
             ShowEntity::Activity { name, person } => {
                 if [name.clone(), person.clone()].iter().all(Option::is_none) {
@@ -455,18 +451,22 @@ fn main() {
         Commands::Remove(remove) => match remove.entity {
             RemoveEntity::Person { name } => {
                 let person = match Person::get_by_name(&conn, Some(name), None) {
-                    Ok(person) => match person {
-                        Some(person) => person,
-                        None => {
-                            eprintln!("Person not found");
-                            exit(exitcode::DATAERR);
-                        }
-                    },
+                    Ok(person) => person,
                     Err(e) => {
                         eprintln!("Error while fecthing person: {:#?}", e);
                         exit(exitcode::DATAERR);
                     }
                 };
+                if person.len() > 1 {
+                    eprintln!("Multiple people found, narrow down your search");
+                    for p in person {
+                        eprintln!("{}", p);
+                    }
+                    exit(exitcode::DATAERR);
+                }
+
+                let person = &person[0];
+
                 match person.remove(&conn) {
                     Ok(_) => println!("{} removed successfully", person),
                     Err(_) => {

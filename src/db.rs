@@ -18,6 +18,7 @@ pub mod db_interface {
         InitialisationError {
             action: String,
         },
+        UnexpectedMultipleEntries,
     }
 
     pub trait DbOperations {

@@ -117,10 +117,13 @@ impl Note {
     fn get_by_person(conn: &Connection, person: String) -> Result<Vec<Note>, DbOperationsError> {
         let person = Person::get_by_name(conn, Some(person), None);
         match person {
-            Ok(person) => match person {
-                Some(person) => Ok(person.notes),
-                None => Ok(vec![]),
-            },
+            Ok(person) => {
+                if person.len() > 1 {
+                    return Err(DbOperationsError::UnexpectedMultipleEntries);
+                }
+                let notes = person[0].notes.clone();
+                Ok(notes)
+            }
             Err(e) => Err(e),
         }
     }
