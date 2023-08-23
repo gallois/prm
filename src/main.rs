@@ -132,6 +132,8 @@ enum ShowEntity {
         name: Option<String>,
         #[arg(short, long)]
         person: Option<String>,
+        #[arg(short, long)]
+        content: Option<String>,
     },
     Reminder {
         #[arg(short, long)]
@@ -274,6 +276,7 @@ fn main() {
                 content,
                 people,
             } => {
+                // FIXME people should not be empty
                 if let Err(e) =
                     cli::add::activity(&conn, name, activity_type, date, content, people)
                 {
@@ -322,12 +325,19 @@ fn main() {
                     println!("{}", person);
                 }
             }
-            ShowEntity::Activity { name, person } => {
-                if [name.clone(), person.clone()].iter().all(Option::is_none) {
-                    eprintln!("No name or person provided");
+            ShowEntity::Activity {
+                name,
+                person,
+                content,
+            } => {
+                if [name.clone(), person.clone(), content.clone()]
+                    .iter()
+                    .all(Option::is_none)
+                {
+                    eprintln!("No name, person or content provided");
                     exit(exitcode::DATAERR);
                 }
-                let activities = match Activity::get(&conn, name, person) {
+                let activities = match Activity::get(&conn, name, person, content) {
                     Ok(activities) => activities,
                     Err(e) => {
                         eprintln!("Error fetching activities: {:#?}", e);
@@ -351,7 +361,7 @@ fn main() {
                     .iter()
                     .all(Option::is_none)
                 {
-                    eprintln!("No name or person provided");
+                    eprintln!("No name, person or description provided");
                     exit(exitcode::DATAERR);
                 }
                 let reminders = match Reminder::get(&conn, name, person, description) {
@@ -448,6 +458,7 @@ fn main() {
                 };
             }
         },
+        // TODO Add confirmation for when removing entries
         Commands::Remove(remove) => match remove.entity {
             RemoveEntity::Person { name } => {
                 let person = match Person::get_by_name(&conn, Some(name), None) {
@@ -477,7 +488,8 @@ fn main() {
                 println!("removed: {}", person);
             }
             RemoveEntity::Activity { name, person } => {
-                let activities = match Activity::get(&conn, Some(name), person) {
+                // FIXME allow passing content as an argument
+                let activities = match Activity::get(&conn, Some(name), person, None) {
                     Ok(activity) => activity,
                     Err(e) => {
                         eprintln!("Error while fetching activity: {:#?}", e);
@@ -486,7 +498,6 @@ fn main() {
                 };
                 if activities.len() > 1 {
                     println!("Multiple activities found");
-                    // TODO print activities in a more readable fashion
                     for (i, e) in activities.iter().enumerate() {
                         println!("[{}]\n{}", i, e);
                     }
