@@ -226,6 +226,8 @@ enum RemoveEntity {
         name: String,
         #[arg(short, long)]
         person: Option<String>,
+        #[arg(short, long)]
+        content: Option<String>,
     },
     Reminder {
         #[arg(short, long)]
@@ -487,9 +489,13 @@ fn main() {
                 };
                 println!("removed: {}", person);
             }
-            RemoveEntity::Activity { name, person } => {
+            RemoveEntity::Activity {
+                name,
+                person,
+                content,
+            } => {
                 // FIXME allow passing content as an argument
-                let activities = match Activity::get(&conn, Some(name), person, None) {
+                let activities = match Activity::get(&conn, Some(name), person, content) {
                     Ok(activity) => activity,
                     Err(e) => {
                         eprintln!("Error while fetching activity: {:#?}", e);
