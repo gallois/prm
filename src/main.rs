@@ -460,8 +460,9 @@ fn main() {
                 };
             }
         },
-        // TODO Add confirmation for when removing entries
         Commands::Remove(remove) => match remove.entity {
+            // TODO Allow for additional ways to filter to avoid not being
+            //      able to remove people with the same name
             RemoveEntity::Person { name } => {
                 let person = match Person::get_by_name(&conn, Some(name), None) {
                     Ok(person) => person,
@@ -480,6 +481,16 @@ fn main() {
 
                 let person = &person[0];
 
+                println!("Found: {}", person);
+                print!("Do you want to remove this person? [y/n] ");
+                io::stdout().flush().unwrap();
+                let mut answer = String::new();
+                io::stdin().read_line(&mut answer).unwrap();
+                if answer.trim() != "y" {
+                    println!("Not removing");
+                    exit(0);
+                }
+
                 match person.remove(&conn) {
                     Ok(_) => println!("{} removed successfully", person),
                     Err(_) => {
@@ -489,12 +500,12 @@ fn main() {
                 };
                 println!("removed: {}", person);
             }
+            // TODO Add confirmation for when removing entries
             RemoveEntity::Activity {
                 name,
                 person,
                 content,
             } => {
-                // FIXME allow passing content as an argument
                 let activities = match Activity::get(&conn, Some(name), person, content) {
                     Ok(activity) => activity,
                     Err(e) => {
@@ -526,6 +537,7 @@ fn main() {
                     println!("removed: {:#?}", activities);
                 }
             }
+            // TODO Add confirmation for when removing entries
             RemoveEntity::Reminder { name } => {
                 let reminder = match Reminder::get_by_name(&conn, &name) {
                     Ok(reminder) => match reminder {
@@ -549,6 +561,7 @@ fn main() {
                 };
                 println!("removed: {:#?}", reminder);
             }
+            // TODO Add confirmation for when removing entries
             RemoveEntity::Note { id } => {
                 let note = Note::get_by_id(&conn, id);
                 match note {
