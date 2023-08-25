@@ -461,25 +461,46 @@ fn main() {
             }
         },
         Commands::Remove(remove) => match remove.entity {
-            // TODO Allow for additional ways to filter to avoid not being
-            //      able to remove people with the same name
             RemoveEntity::Person { name } => {
-                let person = match Person::get_by_name(&conn, Some(name), None) {
+                let mut people = match Person::get_by_name(&conn, Some(name), None) {
                     Ok(person) => person,
                     Err(e) => {
                         eprintln!("Error while fecthing person: {:#?}", e);
                         exit(exitcode::DATAERR);
                     }
                 };
-                if person.len() > 1 {
-                    eprintln!("Multiple people found, narrow down your search");
-                    for p in person {
-                        eprintln!("{}", p);
+                if people.len() > 1 {
+                    eprintln!("Multiple people found");
+                    for p in people {
+                        eprintln!("[{}]\n{}", p.id, p);
                     }
-                    exit(exitcode::DATAERR);
+                    print!("Which person do you want to remove? ");
+                    io::stdout().flush().unwrap();
+                    let mut n = String::new();
+                    io::stdin().read_line(&mut n).unwrap();
+                    let n = n.trim().parse::<usize>().expect("Invalid input");
+                    people = match Person::get_by_id(&conn, n as u64) {
+                        Ok(person) => match person {
+                            Some(person) => match person {
+                                Entities::Person(p) => vec![p],
+                                _ => {
+                                    eprintln!("Unexpected entity for person id: {}", n);
+                                    exit(exitcode::DATAERR);
+                                }
+                            },
+                            None => {
+                                eprintln!("Could not fetch person id: {}", n);
+                                exit(exitcode::DATAERR);
+                            }
+                        },
+                        Err(e) => {
+                            eprintln!("Error while fecthing person: {:#?}", e);
+                            exit(exitcode::DATAERR);
+                        }
+                    };
                 }
 
-                let person = &person[0];
+                let person = &people[0];
 
                 println!("Found: {}", person);
                 print!("Do you want to remove this person? [y/n] ");
