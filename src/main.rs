@@ -471,38 +471,24 @@ fn main() {
                 };
                 if people.len() > 1 {
                     eprintln!("Multiple people found");
-                    for p in people {
-                        eprintln!("[{}]\n{}", p.id, p);
+                    for person in people.clone() {
+                        eprintln!("[{}]\n{}", person.id, person);
                     }
                     print!("Which person do you want to remove? ");
                     io::stdout().flush().unwrap();
                     let mut n = String::new();
                     io::stdin().read_line(&mut n).unwrap();
                     let n = n.trim().parse::<usize>().expect("Invalid input");
-                    people = match Person::get_by_id(&conn, n as u64) {
-                        Ok(person) => match person {
-                            Some(person) => match person {
-                                Entities::Person(p) => vec![p],
-                                _ => {
-                                    eprintln!("Unexpected entity for person id: {}", n);
-                                    exit(exitcode::DATAERR);
-                                }
-                            },
-                            None => {
-                                eprintln!("Could not fetch person id: {}", n);
-                                exit(exitcode::DATAERR);
-                            }
-                        },
-                        Err(e) => {
-                            eprintln!("Error while fecthing person: {:#?}", e);
-                            exit(exitcode::DATAERR);
+                    for person in people.clone() {
+                        if person.id == n as u64 {
+                            people = vec![person];
                         }
-                    };
+                    }
                 }
 
                 let person = &people[0];
 
-                println!("Found: {}", person);
+                println!("{}", person);
                 print!("Do you want to remove this person? [y/n] ");
                 io::stdout().flush().unwrap();
                 let mut answer = String::new();
@@ -513,13 +499,12 @@ fn main() {
                 }
 
                 match person.remove(&conn) {
-                    Ok(_) => println!("{} removed successfully", person),
+                    Ok(_) => println!("{}\nremoved successfully", person),
                     Err(_) => {
                         eprintln!("Error while removing {}", person);
                         exit(exitcode::DATAERR);
                     }
                 };
-                println!("removed: {}", person);
             }
             // TODO Add confirmation for when removing entries
             RemoveEntity::Activity {
