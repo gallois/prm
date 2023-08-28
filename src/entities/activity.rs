@@ -18,7 +18,7 @@ People: {people}
 ";
 #[derive(Debug, Clone, PartialEq)]
 pub struct Activity {
-    id: u64,
+    pub id: u64,
     pub name: String,
     pub activity_type: ActivityType,
     pub date: NaiveDate,

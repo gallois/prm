@@ -512,7 +512,7 @@ fn main() {
                 person,
                 content,
             } => {
-                let activities = match Activity::get(&conn, Some(name), person, content) {
+                let mut activities = match Activity::get(&conn, Some(name), person, content) {
                     Ok(activity) => activity,
                     Err(e) => {
                         eprintln!("Error while fetching activity: {:#?}", e);
@@ -521,27 +521,40 @@ fn main() {
                 };
                 if activities.len() > 1 {
                     println!("Multiple activities found");
-                    for (i, e) in activities.iter().enumerate() {
-                        println!("[{}]\n{}", i, e);
+                    for activity in activities.clone() {
+                        println!("[{}]\n{}", activity.id, activity);
                     }
                     print!("Which activity do you want to remove? ");
                     io::stdout().flush().unwrap();
                     let mut n = String::new();
                     io::stdin().read_line(&mut n).unwrap();
                     let n = n.trim().parse::<usize>().expect("Invalid input");
-                    println!("Deleting [{}]: {:#?}", n, activities[n]);
-                    eprintln!("Not implemented");
-                    exit(exitcode::DATAERR);
-                } else {
-                    match activities[0].remove(&conn) {
-                        Ok(_) => println!("{:#?} removed successfully", activities),
-                        Err(_) => {
-                            eprintln!("Error while removing {:#?}", activities);
-                            exit(exitcode::DATAERR);
+                    for activity in activities.clone() {
+                        if activity.id == n as u64 {
+                            activities = vec![activity];
                         }
-                    };
-                    println!("removed: {:#?}", activities);
+                    }
                 }
+
+                let activity = &activities[0];
+
+                println!("{}", activity);
+                print!("Do you want to remove this activity? [y/n] ");
+                io::stdout().flush().unwrap();
+                let mut answer = String::new();
+                io::stdin().read_line(&mut answer).unwrap();
+                if answer.trim() != "y" {
+                    println!("Not removing");
+                    exit(0);
+                }
+
+                match activity.remove(&conn) {
+                    Ok(_) => println!("{}\nremoved successfully", activity),
+                    Err(_) => {
+                        eprintln!("Error while removing {}", activity);
+                        exit(exitcode::DATAERR);
+                    }
+                };
             }
             // TODO Add confirmation for when removing entries
             RemoveEntity::Reminder { name } => {
