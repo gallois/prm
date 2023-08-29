@@ -201,7 +201,10 @@ enum EditEntity {
 #[derive(Subcommand)]
 enum ListEntity {
     // TODO add some filtering
-    People,
+    People {
+        #[arg(short, long)]
+        name: Option<String>,
+    },
     Activities,
     Reminders {
         #[arg(short, long, action = ArgAction::SetTrue)]
@@ -608,10 +611,28 @@ fn main() {
             }
         },
         Commands::List(list) => match list.entity {
-            ListEntity::People {} => {
-                let people = Person::get_all(&conn);
-                if let Ok(person) = people {
-                    println!("{:#?}", person);
+            ListEntity::People { name } => {
+                let people: Vec<Person>;
+                if let Some(name) = name {
+                    people = match Person::get_by_name(&conn, Some(name), None) {
+                        Ok(people) => people,
+                        Err(e) => {
+                            eprintln!("Error while fecthing person: {:#?}", e);
+                            exit(exitcode::DATAERR);
+                        }
+                    }
+                } else {
+                    people = match Person::get_all(&conn) {
+                        Ok(people) => people,
+                        Err(e) => {
+                            eprintln!("Error while fecthing person: {:#?}", e);
+                            exit(exitcode::DATAERR);
+                        }
+                    };
+                }
+
+                for person in people.iter() {
+                    println!("{}", person);
                 }
             }
             ListEntity::Activities {} => {
