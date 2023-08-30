@@ -367,6 +367,7 @@ impl Reminder {
     }
 
     // TODO remove duplication between different entities
+    // TODO handle multiple rows
     pub fn get_by_name(
         conn: &Connection,
         name: &str,

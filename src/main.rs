@@ -498,7 +498,7 @@ fn main() {
                 io::stdin().read_line(&mut answer).unwrap();
                 if answer.trim() != "y" {
                     println!("Not removing");
-                    exit(0);
+                    exit(exitcode::OK);
                 }
 
                 match person.remove(&conn) {
@@ -509,7 +509,6 @@ fn main() {
                     }
                 };
             }
-            // TODO Add confirmation for when removing entries
             RemoveEntity::Activity {
                 name,
                 person,
@@ -548,7 +547,7 @@ fn main() {
                 io::stdin().read_line(&mut answer).unwrap();
                 if answer.trim() != "y" {
                     println!("Not removing");
-                    exit(0);
+                    exit(exitcode::OK);
                 }
 
                 match activity.remove(&conn) {
@@ -559,8 +558,8 @@ fn main() {
                     }
                 };
             }
-            // TODO Add confirmation for when removing entries
             RemoveEntity::Reminder { name } => {
+                // TODO handle multiple rows
                 let reminder = match Reminder::get_by_name(&conn, &name) {
                     Ok(reminder) => match reminder {
                         Some(reminder) => reminder,
@@ -574,14 +573,24 @@ fn main() {
                         exit(exitcode::DATAERR);
                     }
                 };
+
+                println!("{}", reminder);
+                print!("Do you want to remove this reminder? [y/n] ");
+                io::stdout().flush().unwrap();
+                let mut answer = String::new();
+                io::stdin().read_line(&mut answer).unwrap();
+                if answer.trim() != "y" {
+                    println!("Not removing");
+                    exit(0);
+                }
+
                 match reminder.remove(&conn) {
-                    Ok(_) => println!("{:#?} removed successfully", reminder),
+                    Ok(_) => println!("{} removed successfully", reminder),
                     Err(_) => {
-                        eprintln!("Error while removing {:#?}", reminder);
+                        eprintln!("Error while removing {}", reminder);
                         exit(exitcode::DATAERR);
                     }
                 };
-                println!("removed: {:#?}", reminder);
             }
             // TODO Add confirmation for when removing entries
             RemoveEntity::Note { id } => {
