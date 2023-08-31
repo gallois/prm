@@ -466,7 +466,7 @@ fn main() {
         Commands::Remove(remove) => match remove.entity {
             RemoveEntity::Person { name } => {
                 let mut people = match Person::get_by_name(&conn, Some(name), None) {
-                    Ok(person) => person,
+                    Ok(people) => people,
                     Err(e) => {
                         eprintln!("Error while fecthing person: {:#?}", e);
                         exit(exitcode::DATAERR);
@@ -482,10 +482,16 @@ fn main() {
                     let mut n = String::new();
                     io::stdin().read_line(&mut n).unwrap();
                     let n = n.trim().parse::<usize>().expect("Invalid input");
+                    let mut valid_id = false;
                     for person in people.clone() {
                         if person.id == n as u64 {
                             people = vec![person];
+                            valid_id = true;
                         }
+                    }
+                    if !valid_id {
+                        eprintln!("Invalid input");
+                        exit(exitcode::DATAERR);
                     }
                 }
 
@@ -515,7 +521,7 @@ fn main() {
                 content,
             } => {
                 let mut activities = match Activity::get(&conn, Some(name), person, content) {
-                    Ok(activity) => activity,
+                    Ok(activities) => activities,
                     Err(e) => {
                         eprintln!("Error while fetching activity: {:#?}", e);
                         exit(exitcode::DATAERR);
@@ -531,10 +537,16 @@ fn main() {
                     let mut n = String::new();
                     io::stdin().read_line(&mut n).unwrap();
                     let n = n.trim().parse::<usize>().expect("Invalid input");
+                    let mut valid_id = false;
                     for activity in activities.clone() {
                         if activity.id == n as u64 {
                             activities = vec![activity];
+                            valid_id = true;
                         }
+                    }
+                    if !valid_id {
+                        eprintln!("Invalid input");
+                        exit(exitcode::DATAERR);
                     }
                 }
 
@@ -559,22 +571,39 @@ fn main() {
                 };
             }
             RemoveEntity::Reminder { name } => {
-                // TODO handle multiple rows
-                let reminder = match Reminder::get_by_name(&conn, &name) {
-                    Ok(reminder) => match reminder {
-                        Some(reminder) => reminder,
-                        None => {
-                            eprintln!("Reminder not found");
-                            exit(exitcode::DATAERR);
-                        }
-                    },
+                let mut reminders = match Reminder::get_by_name(&conn, &name) {
+                    Ok(reminders) => reminders,
                     Err(e) => {
                         eprintln!("Error fetching reminder: {:#?}", e);
                         exit(exitcode::DATAERR);
                     }
                 };
+                if reminders.len() > 1 {
+                    println!("Multiple reminders found");
+                    for reminder in reminders.clone() {
+                        println!("[{}]\n{}", reminder.id, reminder);
+                    }
+                    print!("Which reminder do you want to remove? ");
+                    io::stdout().flush().unwrap();
+                    let mut n = String::new();
+                    io::stdin().read_line(&mut n).unwrap();
+                    let n = n.trim().parse::<usize>().expect("Invalid input");
+                    let mut valid_id = false;
+                    for reminder in reminders.clone() {
+                        if reminder.id == n as u64 {
+                            reminders = vec![reminder];
+                            valid_id = true;
+                        }
+                    }
+                    if !valid_id {
+                        eprintln!("Invalid input");
+                        exit(exitcode::DATAERR);
+                    }
+                }
 
-                println!("{}", reminder);
+                let reminders = &reminders[0];
+
+                println!("{}", reminders);
                 print!("Do you want to remove this reminder? [y/n] ");
                 io::stdout().flush().unwrap();
                 let mut answer = String::new();
@@ -584,10 +613,10 @@ fn main() {
                     exit(0);
                 }
 
-                match reminder.remove(&conn) {
-                    Ok(_) => println!("{} removed successfully", reminder),
+                match reminders.remove(&conn) {
+                    Ok(_) => println!("{} removed successfully", reminders),
                     Err(_) => {
-                        eprintln!("Error while removing {}", reminder);
+                        eprintln!("Error while removing {}", reminders);
                         exit(exitcode::DATAERR);
                     }
                 };
