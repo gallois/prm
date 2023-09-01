@@ -10,7 +10,6 @@ use prm::entities::event::{Event, EventType};
 use prm::entities::note::Note;
 use prm::entities::person::Person;
 use prm::entities::reminder::Reminder;
-use prm::entities::Entities;
 use rusqlite::Connection;
 use std::io;
 use std::io::Write;
@@ -238,7 +237,7 @@ enum RemoveEntity {
     },
     Note {
         #[arg(short, long)]
-        id: u64,
+        content: String,
     },
 }
 
@@ -621,31 +620,57 @@ fn main() {
                     }
                 };
             }
-            // TODO Add confirmation for when removing entries
-            RemoveEntity::Note { id } => {
-                let note = Note::get_by_id(&conn, id);
-                match note {
-                    Ok(note) => match note {
-                        Some(note) => {
-                            if let Entities::Note(note) = note {
-                                match note.remove(&conn) {
-                                    Ok(_) => println!("{:#?} removed successfully", note),
-                                    Err(_) => {
-                                        eprintln!("Error while removing {:#?}", note);
-                                        exit(exitcode::DATAERR);
-                                    }
-                                };
-                                println!("removed: {:#?}", note);
-                            }
-                        }
-                        None => {
-                            println!("Could not find note with id: {}", id);
-                        }
-                    },
+            RemoveEntity::Note { content } => {
+                let mut notes = match Note::get_by_content(&conn, content) {
+                    Ok(notes) => notes,
                     Err(e) => {
-                        eprintln!("Error while fetching note: {:#?}", e);
+                        eprintln!("Error while fetching notes: {:#?}", e);
+                        exit(exitcode::DATAERR);
                     }
                 };
+
+                if notes.len() > 1 {
+                    println!("Multiple notes found");
+                    for note in notes.clone() {
+                        println!("[{}]\n{}", note.id, note);
+                    }
+                    print!("Which note do you want to remove? ");
+                    io::stdout().flush().unwrap();
+                    let mut n = String::new();
+                    io::stdin().read_line(&mut n).unwrap();
+                    let n = n.trim().parse::<usize>().expect("Invalid input");
+                    let mut valid_id = false;
+                    for note in notes.clone() {
+                        if note.id == n as u64 {
+                            notes = vec![note];
+                            valid_id = true;
+                        }
+                    }
+                    if !valid_id {
+                        eprintln!("Invalid input");
+                        exit(exitcode::DATAERR);
+                    }
+                }
+
+                let note = &notes[0];
+
+                println!("{}", note);
+                print!("Do you want to remove this note? [y/n] ");
+                io::stdout().flush().unwrap();
+                let mut answer = String::new();
+                io::stdin().read_line(&mut answer).unwrap();
+                if answer.trim() != "y" {
+                    println!("Not removing");
+                    exit(exitcode::OK);
+                }
+
+                match note.remove(&conn) {
+                    Ok(_) => println!("{}\nremoved successfully", note),
+                    Err(_) => {
+                        eprintln!("Error while removing {}", note);
+                        exit(exitcode::DATAERR);
+                    }
+                }
             }
         },
         Commands::List(list) => match list.entity {

@@ -137,6 +137,7 @@ impl Reminder {
         })
     }
 
+    // FIXME there's already a get_by_name function
     fn get_reminders_by_name(
         conn: &Connection,
         name: String,

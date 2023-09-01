@@ -17,7 +17,7 @@ use snafu::prelude::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Note {
-    id: u64,
+    pub id: u64,
     pub date: NaiveDate,
     pub content: String,
     pub people: Vec<Person>,
@@ -58,7 +58,10 @@ impl Note {
         Ok(notes)
     }
 
-    fn get_by_content(conn: &Connection, content: String) -> Result<Vec<Note>, DbOperationsError> {
+    pub fn get_by_content(
+        conn: &Connection,
+        content: String,
+    ) -> Result<Vec<Note>, DbOperationsError> {
         let mut stmt = match conn.prepare(
             "SELECT 
                 * 
@@ -79,39 +82,40 @@ impl Note {
             Ok(rows) => rows,
             Err(_) => return Err(DbOperationsError::QueryError),
         };
-        match rows.next() {
-            Ok(row) => {
-                if let Some(row) = row {
-                    let id = match row.get(0) {
-                        Ok(id) => id,
-                        Err(e) => {
-                            return Err(DbOperationsError::RecordError {
-                                sqlite_error: Some(e),
-                                strum_error: None,
-                            })
-                        }
-                    };
-                    let date = row.get::<usize, String>(1);
-                    let date =
-                        crate::helpers::parse_from_str_ymd(date.unwrap_or_default().as_str())
-                            .unwrap_or_default();
-                    let content = match row.get(2) {
-                        Ok(content) => content,
-                        Err(e) => {
-                            return Err(DbOperationsError::RecordError {
-                                sqlite_error: Some(e),
-                                strum_error: None,
-                            })
-                        }
-                    };
-                    let people = crate::db::db_helpers::get_people_by_note(conn, id)?;
-                    notes.push(Note::new(id, date, content, people))
-                }
+        loop {
+            match rows.next() {
+                Ok(row) => match row {
+                    Some(row) => {
+                        let id = match row.get(0) {
+                            Ok(id) => id,
+                            Err(e) => {
+                                return Err(DbOperationsError::RecordError {
+                                    sqlite_error: Some(e),
+                                    strum_error: None,
+                                })
+                            }
+                        };
+                        let date = row.get::<usize, String>(1);
+                        let date =
+                            crate::helpers::parse_from_str_ymd(date.unwrap_or_default().as_str())
+                                .unwrap_or_default();
+                        let content = match row.get(2) {
+                            Ok(content) => content,
+                            Err(e) => {
+                                return Err(DbOperationsError::RecordError {
+                                    sqlite_error: Some(e),
+                                    strum_error: None,
+                                })
+                            }
+                        };
+                        let people = crate::db::db_helpers::get_people_by_note(conn, id)?;
+                        notes.push(Note::new(id, date, content, people))
+                    }
+                    None => return Ok(notes),
+                },
+                Err(_) => return Err(DbOperationsError::GenericError),
             }
-            Err(_) => return Err(DbOperationsError::GenericError),
         }
-
-        Ok(notes)
     }
 
     fn get_by_person(conn: &Connection, person: String) -> Result<Vec<Note>, DbOperationsError> {
