@@ -138,14 +138,14 @@ impl Reminder {
     }
 
     // FIXME there's already a get_by_name function
-    fn get_reminders_by_name(
+    pub fn get_by_name(
         conn: &Connection,
-        name: String,
+        name: &str,
         person: Option<String>,
     ) -> Result<Vec<Reminder>, DbOperationsError> {
         let mut reminders: Vec<Reminder> = vec![];
         let mut stmt = match conn
-            .prepare("SELECT * FROM reminders WHERE name = ?1 AND deleted = 0 COLLATE NOCASE")
+            .prepare("SELECT * FROM reminders WHERE name LIKE '%' || ?1 || '%' AND deleted = 0 COLLATE NOCASE")
         {
             Ok(stmt) => stmt,
             Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
@@ -309,7 +309,7 @@ impl Reminder {
 
         if let Some(name) = name {
             // FIXME this is almost a duplication of get_by_name(conn, name)
-            reminders = Self::get_reminders_by_name(conn, name, person.clone())?;
+            reminders = Self::get_by_name(conn, &name, person.clone())?;
             return Ok(reminders);
         }
         if let Some(person) = person {
@@ -365,98 +365,6 @@ impl Reminder {
         }
 
         Ok(ids)
-    }
-
-    // TODO remove duplication between different entities
-    // TODO handle multiple rows
-    pub fn get_by_name(conn: &Connection, name: &str) -> Result<Vec<Reminder>, DbOperationsError> {
-        let mut reminders: Vec<Reminder> = vec![];
-        let mut stmt = match conn
-            .prepare("SELECT * FROM reminders WHERE name LIKE '%' || ?1 || '%' AND deleted = 0 COLLATE NOCASE")
-        {
-            Ok(stmt) => stmt,
-            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
-        };
-        let mut rows = match stmt.query(params![name]) {
-            Ok(rows) => rows,
-            Err(_) => return Err(DbOperationsError::QueryError),
-        };
-        loop {
-            match rows.next() {
-                Ok(row) => match row {
-                    Some(row) => {
-                        let reminder_id = match row.get(0) {
-                            Ok(reminder_id) => reminder_id,
-                            Err(e) => {
-                                return Err(DbOperationsError::RecordError {
-                                    sqlite_error: Some(e),
-                                    strum_error: None,
-                                })
-                            }
-                        };
-                        let name: String = match row.get(1) {
-                            Ok(name) => name,
-                            Err(e) => {
-                                return Err(DbOperationsError::RecordError {
-                                    sqlite_error: Some(e),
-                                    strum_error: None,
-                                })
-                            }
-                        };
-                        let description: Option<String> = match row.get(3) {
-                            Ok(description) => description,
-                            Err(e) => {
-                                return Err(DbOperationsError::RecordError {
-                                    sqlite_error: Some(e),
-                                    strum_error: None,
-                                })
-                            }
-                        };
-                        let recurring_type_id = match row.get(4) {
-                            Ok(recurring_type_id) => recurring_type_id,
-                            Err(e) => {
-                                return Err(DbOperationsError::RecordError {
-                                    sqlite_error: Some(e),
-                                    strum_error: None,
-                                })
-                            }
-                        };
-                        let people = crate::db_helpers::get_people_by_reminder(conn, reminder_id)?;
-                        let recurring_type = match RecurringType::get_by_id(conn, recurring_type_id)
-                        {
-                            Ok(recurring_type) => match recurring_type {
-                                Some(recurring_type) => recurring_type,
-                                None => {
-                                    return Err(DbOperationsError::RecordError {
-                                        sqlite_error: None,
-                                        strum_error: None,
-                                    })
-                                }
-                            },
-                            Err(e) => return Err(e),
-                        };
-                        reminders.push(Reminder {
-                            id: reminder_id,
-                            name,
-                            date: crate::helpers::parse_from_str_ymd(
-                                row.get::<usize, String>(2).unwrap_or_default().as_str(),
-                            )
-                            .unwrap_or_default(),
-                            description,
-                            recurring: recurring_type,
-                            people,
-                        })
-                    }
-                    None => return Ok(reminders),
-                },
-                Err(e) => {
-                    return Err(DbOperationsError::RecordError {
-                        sqlite_error: Some(e),
-                        strum_error: None,
-                    })
-                }
-            }
-        }
     }
 
     pub fn get_all(

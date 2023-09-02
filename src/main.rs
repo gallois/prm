@@ -570,23 +570,36 @@ fn main() {
                 };
             }
             RemoveEntity::Reminder { name } => {
-                let mut reminders = match Reminder::get_by_name(&conn, &name) {
+                let mut reminders = match Reminder::get_by_name(&conn, &name, None) {
                     Ok(reminders) => reminders,
                     Err(e) => {
                         eprintln!("Error fetching reminder: {:#?}", e);
                         exit(exitcode::DATAERR);
                     }
                 };
+                // TODO fix input handling for selecting IDs for other entities and
+                //      abstract the implementation, as it's essentially repeated
+                //      between them
                 if reminders.len() > 1 {
                     println!("Multiple reminders found");
                     for reminder in reminders.clone() {
                         println!("[{}]\n{}", reminder.id, reminder);
                     }
-                    print!("Which reminder do you want to remove? ");
+                    print!("Which reminder do you want to remove (0 to cancel)? ");
                     io::stdout().flush().unwrap();
                     let mut n = String::new();
                     io::stdin().read_line(&mut n).unwrap();
-                    let n = n.trim().parse::<usize>().expect("Invalid input");
+                    let n = match n.trim().parse::<usize>() {
+                        Ok(n) => n,
+                        Err(_) => {
+                            eprintln!("Invalid input");
+                            exit(exitcode::USAGE);
+                        }
+                    };
+                    if n == 0 {
+                        println!("Aborted");
+                        exit(exitcode::OK);
+                    }
                     let mut valid_id = false;
                     for reminder in reminders.clone() {
                         if reminder.id == n as u64 {
