@@ -10,6 +10,8 @@ use rusqlite::Connection;
 
 use snafu::prelude::*;
 
+use super::Entity;
+
 // FIXME this is a duplication of what we have in `CliError` (src/cli/add.rs)
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub(crate)))]
@@ -44,6 +46,11 @@ pub struct Reminder {
     pub description: Option<String>,
     pub recurring: RecurringType,
     pub people: Vec<Person>,
+}
+impl Entity for Reminder {
+    fn get_id(&self) -> u64 {
+        self.id
+    }
 }
 
 impl Reminder {
@@ -137,7 +144,6 @@ impl Reminder {
         })
     }
 
-    // FIXME there's already a get_by_name function
     pub fn get_by_name(
         conn: &Connection,
         name: &str,

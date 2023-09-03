@@ -10,6 +10,7 @@ use prm::entities::event::{Event, EventType};
 use prm::entities::note::Note;
 use prm::entities::person::Person;
 use prm::entities::reminder::Reminder;
+use prm::helpers::handle_id_selection;
 use rusqlite::Connection;
 use std::io;
 use std::io::Write;
@@ -581,36 +582,13 @@ fn main() {
                 //      abstract the implementation, as it's essentially repeated
                 //      between them
                 if reminders.len() > 1 {
-                    println!("Multiple reminders found");
-                    for reminder in reminders.clone() {
-                        println!("[{}]\n{}", reminder.id, reminder);
-                    }
-                    print!("Which reminder do you want to remove (0 to cancel)? ");
-                    io::stdout().flush().unwrap();
-                    let mut n = String::new();
-                    io::stdin().read_line(&mut n).unwrap();
-                    let n = match n.trim().parse::<usize>() {
-                        Ok(n) => n,
-                        Err(_) => {
-                            eprintln!("Invalid input");
-                            exit(exitcode::USAGE);
+                    reminders = match handle_id_selection::<Reminder>("reminder", reminders) {
+                        Ok(reminders) => reminders,
+                        Err(e) => {
+                            eprintln!("{}", e.message);
+                            exit(exitcode::DATAERR);
                         }
                     };
-                    if n == 0 {
-                        println!("Aborted");
-                        exit(exitcode::OK);
-                    }
-                    let mut valid_id = false;
-                    for reminder in reminders.clone() {
-                        if reminder.id == n as u64 {
-                            reminders = vec![reminder];
-                            valid_id = true;
-                        }
-                    }
-                    if !valid_id {
-                        eprintln!("Invalid input");
-                        exit(exitcode::DATAERR);
-                    }
                 }
 
                 let reminders = &reminders[0];

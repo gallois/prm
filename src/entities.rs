@@ -16,3 +16,7 @@ pub enum Entities {
     Reminder(Reminder),
     Note(Note),
 }
+
+pub trait Entity {
+    fn get_id(&self) -> u64;
+}
