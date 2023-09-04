@@ -473,25 +473,12 @@ fn main() {
                     }
                 };
                 if people.len() > 1 {
-                    eprintln!("Multiple people found");
-                    for person in people.clone() {
-                        eprintln!("[{}]\n{}", person.id, person);
-                    }
-                    print!("Which person do you want to remove? ");
-                    io::stdout().flush().unwrap();
-                    let mut n = String::new();
-                    io::stdin().read_line(&mut n).unwrap();
-                    let n = n.trim().parse::<usize>().expect("Invalid input");
-                    let mut valid_id = false;
-                    for person in people.clone() {
-                        if person.id == n as u64 {
-                            people = vec![person];
-                            valid_id = true;
+                    people = match handle_id_selection::<Person>("people", people) {
+                        Ok(people) => people,
+                        Err(e) => {
+                            eprintln!("{}", e.message);
+                            exit(exitcode::DATAERR);
                         }
-                    }
-                    if !valid_id {
-                        eprintln!("Invalid input");
-                        exit(exitcode::DATAERR);
                     }
                 }
 

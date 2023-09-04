@@ -12,6 +12,8 @@ use rusqlite::Connection;
 
 use snafu::prelude::*;
 
+use super::Entity;
+
 // FIXME this is a duplication of what we have in `CliError` (src/cli/add.rs)
 #[derive(Debug, Snafu)]
 pub enum EntityError {
@@ -34,6 +36,12 @@ pub struct Person {
     pub activities: Vec<Activity>,
     pub reminders: Vec<Reminder>,
     pub notes: Vec<Note>,
+}
+
+impl Entity for Person {
+    fn get_id(&self) -> u64 {
+        self.id
+    }
 }
 
 impl Person {
