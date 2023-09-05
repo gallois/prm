@@ -10,6 +10,8 @@ use rusqlite::Connection;
 
 use snafu::prelude::*;
 
+use super::Entity;
+
 pub static ACTIVITY_TEMPLATE: &str = "Name: {name}
 Date: {date}
 Activity Type: {activity_type}
@@ -42,6 +44,12 @@ pub enum ActivityError {
     DateParseError { date: String },
     #[snafu(display("Invalid record: {}", record))]
     RecordParseError { record: String },
+}
+
+impl Entity for Activity {
+    fn get_id(&self) -> u64 {
+        self.id
+    }
 }
 
 impl Activity {

@@ -15,6 +15,8 @@ People: {people}
 
 use snafu::prelude::*;
 
+use super::Entity;
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Note {
     pub id: u64,
@@ -30,6 +32,12 @@ pub enum NoteError {
     DateParseError { date: String },
     #[snafu(display("Invalid record: {}", record))]
     RecordParseError { record: String },
+}
+
+impl Entity for Note {
+    fn get_id(&self) -> u64 {
+        self.id
+    }
 }
 
 impl Note {

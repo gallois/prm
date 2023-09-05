@@ -473,6 +473,7 @@ fn main() {
                     }
                 };
                 if people.len() > 1 {
+                    // TODO must be possible to make it simpler here and skip passing that many arguments?
                     people = match handle_id_selection::<Person>("people", people) {
                         Ok(people) => people,
                         Err(e) => {
@@ -515,25 +516,12 @@ fn main() {
                     }
                 };
                 if activities.len() > 1 {
-                    println!("Multiple activities found");
-                    for activity in activities.clone() {
-                        println!("[{}]\n{}", activity.id, activity);
-                    }
-                    print!("Which activity do you want to remove? ");
-                    io::stdout().flush().unwrap();
-                    let mut n = String::new();
-                    io::stdin().read_line(&mut n).unwrap();
-                    let n = n.trim().parse::<usize>().expect("Invalid input");
-                    let mut valid_id = false;
-                    for activity in activities.clone() {
-                        if activity.id == n as u64 {
-                            activities = vec![activity];
-                            valid_id = true;
+                    activities = match handle_id_selection::<Activity>("activities", activities) {
+                        Ok(activities) => activities,
+                        Err(e) => {
+                            eprintln!("{}", e.message);
+                            exit(exitcode::DATAERR);
                         }
-                    }
-                    if !valid_id {
-                        eprintln!("Invalid input");
-                        exit(exitcode::DATAERR);
                     }
                 }
 
@@ -565,9 +553,6 @@ fn main() {
                         exit(exitcode::DATAERR);
                     }
                 };
-                // TODO fix input handling for selecting IDs for other entities and
-                //      abstract the implementation, as it's essentially repeated
-                //      between them
                 if reminders.len() > 1 {
                     reminders = match handle_id_selection::<Reminder>("reminder", reminders) {
                         Ok(reminders) => reminders,
@@ -608,25 +593,12 @@ fn main() {
                 };
 
                 if notes.len() > 1 {
-                    println!("Multiple notes found");
-                    for note in notes.clone() {
-                        println!("[{}]\n{}", note.id, note);
-                    }
-                    print!("Which note do you want to remove? ");
-                    io::stdout().flush().unwrap();
-                    let mut n = String::new();
-                    io::stdin().read_line(&mut n).unwrap();
-                    let n = n.trim().parse::<usize>().expect("Invalid input");
-                    let mut valid_id = false;
-                    for note in notes.clone() {
-                        if note.id == n as u64 {
-                            notes = vec![note];
-                            valid_id = true;
+                    notes = match handle_id_selection::<Note>("notes", notes) {
+                        Ok(notes) => notes,
+                        Err(e) => {
+                            eprintln!("{}", e.message);
+                            exit(exitcode::DATAERR);
                         }
-                    }
-                    if !valid_id {
-                        eprintln!("Invalid input");
-                        exit(exitcode::DATAERR);
                     }
                 }
 
