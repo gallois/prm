@@ -1,4 +1,5 @@
 use crate::entities::Entity;
+use std::any::type_name_of_val;
 use std::{
     fmt::Display,
     io::{self, Write},
@@ -38,15 +39,26 @@ pub fn unwrap_arg_or_empty_string(arg: Option<String>) -> String {
     arg.unwrap_or("".to_string())
 }
 
-pub fn handle_id_selection<T>(name: &str, entity_vec: Vec<T>) -> Result<Vec<T>, SelectionError>
+pub fn handle_id_selection<T>(entity_vec: Vec<T>) -> Result<Vec<T>, SelectionError>
 where
     T: Clone + Display + Entity,
 {
-    println!("Multiple {}s found", name);
+    let entity_name = match type_name_of_val(&entity_vec[0]).split("::").last() {
+        Some(entity_name) => entity_name.to_lowercase(),
+        None => {
+            return Err(SelectionError {
+                message: format!("Invalid entity name: {}", type_name_of_val(&entity_vec[0])),
+            })
+        }
+    };
+    println!("Multiple {}s found", entity_name);
     for e in entity_vec.clone() {
         println!("[{}]\n{}", e.get_id(), e);
     }
-    print!("Which reminder do you want to remove (0 to cancel)? ");
+    print!(
+        "Which of the {} do you want to remove (0 to cancel)? ",
+        entity_name
+    );
     io::stdout().flush().unwrap();
     let mut n = String::new();
     io::stdin().read_line(&mut n).unwrap();

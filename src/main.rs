@@ -473,8 +473,7 @@ fn main() {
                     }
                 };
                 if people.len() > 1 {
-                    // TODO must be possible to make it simpler here and skip passing that many arguments?
-                    people = match handle_id_selection::<Person>("people", people) {
+                    people = match handle_id_selection::<Person>(people) {
                         Ok(people) => people,
                         Err(e) => {
                             eprintln!("{}", e.message);
@@ -516,7 +515,7 @@ fn main() {
                     }
                 };
                 if activities.len() > 1 {
-                    activities = match handle_id_selection::<Activity>("activities", activities) {
+                    activities = match handle_id_selection::<Activity>(activities) {
                         Ok(activities) => activities,
                         Err(e) => {
                             eprintln!("{}", e.message);
@@ -554,7 +553,7 @@ fn main() {
                     }
                 };
                 if reminders.len() > 1 {
-                    reminders = match handle_id_selection::<Reminder>("reminder", reminders) {
+                    reminders = match handle_id_selection::<Reminder>(reminders) {
                         Ok(reminders) => reminders,
                         Err(e) => {
                             eprintln!("{}", e.message);
@@ -593,7 +592,7 @@ fn main() {
                 };
 
                 if notes.len() > 1 {
-                    notes = match handle_id_selection::<Note>("notes", notes) {
+                    notes = match handle_id_selection::<Note>(notes) {
                         Ok(notes) => notes,
                         Err(e) => {
                             eprintln!("{}", e.message);
