@@ -205,7 +205,14 @@ enum ListEntity {
         #[arg(short, long)]
         name: Option<String>,
     },
-    Activities,
+    Activities {
+        #[arg(short, long)]
+        name: Option<String>,
+        #[arg(short, long)]
+        person: Option<String>,
+        #[arg(short, long)]
+        content: Option<String>,
+    },
     Reminders {
         #[arg(short, long, action = ArgAction::SetTrue)]
         include_past: bool,
@@ -647,9 +654,34 @@ fn main() {
                     println!("{}", person);
                 }
             }
-            ListEntity::Activities {} => {
-                let activities = Activity::get_all(&conn);
-                println!("listing activities: {:#?}", activities);
+            ListEntity::Activities {
+                name,
+                person,
+                content,
+            } => {
+                let activities: Vec<Activity> = if [name.clone(), person.clone(), content.clone()]
+                    .iter()
+                    .all(Option::is_none)
+                {
+                    match Activity::get_all(&conn) {
+                        Ok(activities) => activities,
+                        Err(e) => {
+                            eprintln!("Error while fecthing activities: {:#?}", e);
+                            exit(exitcode::DATAERR);
+                        }
+                    }
+                } else {
+                    match Activity::get(&conn, name, person, content) {
+                        Ok(activities) => activities,
+                        Err(e) => {
+                            eprintln!("Error while fecthing activities: {:#?}", e);
+                            exit(exitcode::DATAERR);
+                        }
+                    }
+                };
+                for activity in activities.iter() {
+                    println!("{}", activity);
+                }
             }
             ListEntity::Reminders { include_past } => {
                 let reminders = Reminder::get_all(&conn, include_past);
