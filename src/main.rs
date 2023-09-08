@@ -214,6 +214,8 @@ enum ListEntity {
         content: Option<String>,
     },
     Reminders {
+        #[arg(short, long)]
+        name: Option<String>,
         #[arg(short, long, action = ArgAction::SetTrue)]
         include_past: bool,
     },
@@ -329,7 +331,7 @@ fn main() {
                 let people = match Person::get_by_name(&conn, name, birthday) {
                     Ok(people) => people,
                     Err(e) => {
-                        eprintln!("Error while fecthing person: {:#?}", e);
+                        eprintln!("Error while fetching person: {:#?}", e);
                         exit(exitcode::DATAERR);
                     }
                 };
@@ -475,7 +477,7 @@ fn main() {
                 let mut people = match Person::get_by_name(&conn, Some(name), None) {
                     Ok(people) => people,
                     Err(e) => {
-                        eprintln!("Error while fecthing person: {:#?}", e);
+                        eprintln!("Error while fetching person: {:#?}", e);
                         exit(exitcode::DATAERR);
                     }
                 };
@@ -636,7 +638,7 @@ fn main() {
                     people = match Person::get_by_name(&conn, Some(name), None) {
                         Ok(people) => people,
                         Err(e) => {
-                            eprintln!("Error while fecthing person: {:#?}", e);
+                            eprintln!("Error while fetching person: {:#?}", e);
                             exit(exitcode::DATAERR);
                         }
                     }
@@ -644,7 +646,7 @@ fn main() {
                     people = match Person::get_all(&conn) {
                         Ok(people) => people,
                         Err(e) => {
-                            eprintln!("Error while fecthing person: {:#?}", e);
+                            eprintln!("Error while fetching person: {:#?}", e);
                             exit(exitcode::DATAERR);
                         }
                     };
@@ -666,7 +668,7 @@ fn main() {
                     match Activity::get_all(&conn) {
                         Ok(activities) => activities,
                         Err(e) => {
-                            eprintln!("Error while fecthing activities: {:#?}", e);
+                            eprintln!("Error while fetching activities: {:#?}", e);
                             exit(exitcode::DATAERR);
                         }
                     }
@@ -674,7 +676,7 @@ fn main() {
                     match Activity::get(&conn, name, person, content) {
                         Ok(activities) => activities,
                         Err(e) => {
-                            eprintln!("Error while fecthing activities: {:#?}", e);
+                            eprintln!("Error while fetching activities: {:#?}", e);
                             exit(exitcode::DATAERR);
                         }
                     }
@@ -683,10 +685,28 @@ fn main() {
                     println!("{}", activity);
                 }
             }
-            ListEntity::Reminders { include_past } => {
-                let reminders = Reminder::get_all(&conn, include_past);
-                if let Ok(reminder) = reminders {
-                    println!("{:#?}", reminder);
+            ListEntity::Reminders { name, include_past } => {
+                let reminders: Vec<Reminder>;
+                if let Some(name) = name {
+                    reminders = match Reminder::get_by_name(&conn, &name, None) {
+                        Ok(reminders) => reminders,
+                        Err(e) => {
+                            eprintln!("Error while fetching reminders: {:#?}", e);
+                            exit(exitcode::DATAERR);
+                        }
+                    }
+                } else {
+                    reminders = match Reminder::get_all(&conn, include_past) {
+                        Ok(reminders) => reminders,
+                        Err(e) => {
+                            eprintln!("Error while fetching reminders: {:#?}", e);
+                            exit(exitcode::DATAERR);
+                        }
+                    };
+                };
+
+                for reminder in reminders.iter() {
+                    println!("{}", reminder);
                 }
             }
             ListEntity::Notes {} => {
