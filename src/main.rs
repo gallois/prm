@@ -219,7 +219,10 @@ enum ListEntity {
         #[arg(short, long, action = ArgAction::SetTrue)]
         include_past: bool,
     },
-    Notes,
+    Notes {
+        #[arg(short, long)]
+        content: Option<String>,
+    },
     Events {
         #[arg(short, long, default_value = "90")]
         days: u64,
@@ -709,9 +712,28 @@ fn main() {
                     println!("{}", reminder);
                 }
             }
-            ListEntity::Notes {} => {
-                let notes = Note::get_all(&conn);
-                println!("listing notes: {:#?}", notes);
+            ListEntity::Notes { content } => {
+                let notes: Vec<Note>;
+                if let Some(content) = content {
+                    notes = match Note::get_by_content(&conn, content) {
+                        Ok(notes) => notes,
+                        Err(e) => {
+                            eprintln!("Error while fetching notes: {:#?}", e);
+                            exit(exitcode::DATAERR);
+                        }
+                    }
+                } else {
+                    notes = match Note::get_all(&conn) {
+                        Ok(notes) => notes,
+                        Err(e) => {
+                            eprintln!("Error while fetching notes: {:#?}", e);
+                            exit(exitcode::DATAERR);
+                        }
+                    }
+                }
+                for note in notes.iter() {
+                    println!("{}", note);
+                }
             }
             ListEntity::Events { days } => {
                 let mut events = match Event::get_all(&conn, days) {
