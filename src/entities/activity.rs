@@ -327,11 +327,97 @@ impl Activity {
         }
     }
 
+    fn get_by_activity_type(
+        conn: &Connection,
+        activity_type: String,
+    ) -> Result<Vec<Activity>, DbOperationsError> {
+        let mut stmt = match conn.prepare(
+            "
+            SELECT 
+                id 
+            FROM 
+                activity_types 
+            WHERE 
+                type = ?
+            COLLATE NOCASE",
+        ) {
+            Ok(stmt) => stmt,
+            Err(_) => return Err(DbOperationsError::GenericError),
+        };
+        let mut rows = match stmt.query(params![activity_type]) {
+            Ok(rows) => rows,
+            Err(_) => return Err(DbOperationsError::QueryError),
+        };
+        let mut types: Vec<u32> = Vec::new();
+        loop {
+            match rows.next() {
+                Ok(row) => match row {
+                    Some(row) => match row.get(0) {
+                        Ok(row) => types.push(row),
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
+                    },
+                    None => break,
+                },
+                Err(e) => {
+                    return Err(DbOperationsError::RecordError {
+                        sqlite_error: Some(e),
+                        strum_error: None,
+                    })
+                }
+            }
+        }
+
+        let mut activities: Vec<Activity> = vec![];
+        let mut stmt = match conn.prepare(
+            "
+                SELECT 
+                    * 
+                FROM 
+                    activities 
+                WHERE 
+                    type = ?1 AND 
+                    deleted = 0 
+                COLLATE NOCASE",
+        ) {
+            Ok(stmt) => stmt,
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
+        };
+        let mut rows = match stmt.query(params![types[0]]) {
+            Ok(rows) => rows,
+            Err(_) => return Err(DbOperationsError::QueryError),
+        };
+        loop {
+            match rows.next() {
+                Ok(row) => match row {
+                    Some(row) => {
+                        let activity = Self::build_from_sql(
+                            conn,
+                            row.get(0),
+                            row.get(1),
+                            row.get(2),
+                            row.get::<usize, String>(3),
+                            row.get(4),
+                        )?;
+                        activities.push(activity);
+                    }
+                    None => return Ok(activities),
+                },
+                Err(_) => return Err(DbOperationsError::GenericError),
+            }
+        }
+    }
+
     pub fn get(
         conn: &Connection,
         name: Option<String>,
         person: Option<String>,
         content: Option<String>,
+        activity_type: Option<String>,
     ) -> Result<Vec<Activity>, DbOperationsError> {
         let mut activities: Vec<Activity> = vec![];
         if let Some(name) = name {
@@ -340,9 +426,15 @@ impl Activity {
         }
         if let Some(person) = person {
             activities = Self::get_by_person(conn, person.clone())?;
+            return Ok(activities);
         }
         if let Some(content) = content {
             activities = Self::get_by_content(conn, content)?;
+            return Ok(activities);
+        }
+        if let Some(activity_type) = activity_type {
+            activities = Self::get_by_activity_type(conn, activity_type)?;
+            return Ok(activities);
         }
         Ok(activities)
     }

@@ -200,7 +200,6 @@ enum EditEntity {
 
 #[derive(Subcommand)]
 enum ListEntity {
-    // TODO add some filtering
     People {
         #[arg(short, long)]
         name: Option<String>,
@@ -212,6 +211,8 @@ enum ListEntity {
         person: Option<String>,
         #[arg(short, long)]
         content: Option<String>,
+        #[arg(short, long)]
+        activity_type: Option<String>,
     },
     Reminders {
         #[arg(short, long)]
@@ -229,7 +230,6 @@ enum ListEntity {
     },
 }
 
-// TODO add other means of removing
 #[derive(Subcommand)]
 enum RemoveEntity {
     Person {
@@ -354,7 +354,7 @@ fn main() {
                     eprintln!("No name, person or content provided");
                     exit(exitcode::DATAERR);
                 }
-                let activities = match Activity::get(&conn, name, person, content) {
+                let activities = match Activity::get(&conn, name, person, content, None) {
                     Ok(activities) => activities,
                     Err(e) => {
                         eprintln!("Error fetching activities: {:#?}", e);
@@ -519,7 +519,7 @@ fn main() {
                 person,
                 content,
             } => {
-                let mut activities = match Activity::get(&conn, Some(name), person, content) {
+                let mut activities = match Activity::get(&conn, Some(name), person, content, None) {
                     Ok(activities) => activities,
                     Err(e) => {
                         eprintln!("Error while fetching activity: {:#?}", e);
@@ -663,10 +663,16 @@ fn main() {
                 name,
                 person,
                 content,
+                activity_type,
             } => {
-                let activities: Vec<Activity> = if [name.clone(), person.clone(), content.clone()]
-                    .iter()
-                    .all(Option::is_none)
+                let activities: Vec<Activity> = if [
+                    name.clone(),
+                    person.clone(),
+                    content.clone(),
+                    activity_type.clone(),
+                ]
+                .iter()
+                .all(Option::is_none)
                 {
                     match Activity::get_all(&conn) {
                         Ok(activities) => activities,
@@ -676,7 +682,7 @@ fn main() {
                         }
                     }
                 } else {
-                    match Activity::get(&conn, name, person, content) {
+                    match Activity::get(&conn, name, person, content, activity_type) {
                         Ok(activities) => activities,
                         Err(e) => {
                             eprintln!("Error while fetching activities: {:#?}", e);
