@@ -9,10 +9,8 @@ use rusqlite::Connection;
 use std::collections::HashMap;
 use strfmt::strfmt;
 
-use crate::cli::add::CliError;
-use crate::cli::add::{EditSnafu, EditorParseSnafu, EntitySnafu, NotFoundSnafu};
-
-use super::add::TemplateSnafu;
+use crate::cli::CliError;
+use crate::cli::{EditSnafu, EditorParseSnafu, EntitySnafu, NotFoundSnafu, TemplateSnafu};
 
 pub fn person(
     conn: &Connection,
