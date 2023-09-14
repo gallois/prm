@@ -7,6 +7,9 @@ use std::{
 
 use snafu::Snafu;
 
+use crate::entities::activity::ActivityType;
+use crate::{ActivityTypeParseSnafu, CliError};
+
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub(crate)))]
 pub struct SelectionError {
@@ -91,4 +94,18 @@ pub struct ActivityVars {
     pub activity_type: String,
     pub content: String,
     pub people: Vec<String>,
+}
+
+pub fn get_activity_type(activity_type: String) -> Result<ActivityType, CliError> {
+    let activity_type = match activity_type.as_str() {
+        "phone" => ActivityType::Phone,
+        "in_person" => ActivityType::InPerson,
+        "online" => ActivityType::Online,
+        _ => {
+            return ActivityTypeParseSnafu {
+                activity_type: activity_type.to_string(),
+            }.fail()
+        }
+    };
+    Ok(activity_type)
 }

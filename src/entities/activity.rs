@@ -6,7 +6,7 @@ use strum_macros::{AsRefStr, EnumString};
 use crate::db_interface::{DbOperations, DbOperationsError};
 use crate::entities::person::Person;
 use crate::entities::Entities;
-use crate::{ActivityTypeParseSnafu, CliError, DateParseSnafu, RecordParseSnafu};
+use crate::{CliError, DateParseSnafu, RecordParseSnafu};
 use rusqlite::Connection;
 
 use super::Entity;
@@ -502,24 +502,12 @@ impl Activity {
         content: Option<String>,
         people: Vec<String>,
     ) -> Result<&Self, CliError> {
-        // TODO clean up duplication between this and main.rs
         if let Some(name) = name {
             self.name = name;
         }
 
         if let Some(activity_type) = activity_type {
-            let activity_type = match activity_type.as_str() {
-                "phone" => ActivityType::Phone,
-                "in_person" => ActivityType::InPerson,
-                "online" => ActivityType::Online,
-                _ => {
-                    return ActivityTypeParseSnafu {
-                        activity_type: activity_type.to_string(),
-                    }
-                    .fail()
-                }
-            };
-
+            let activity_type = crate::helpers::get_activity_type(activity_type)?;
             self.activity_type = activity_type;
         }
 

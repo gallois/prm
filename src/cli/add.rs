@@ -2,22 +2,22 @@ use chrono::NaiveDate;
 use edit;
 
 use prm::db_interface::DbOperations;
-use prm::entities::activity::{Activity, ActivityType};
+use prm::entities::activity::{Activity};
 use prm::entities::note::{Note, NOTE_TEMPLATE};
 use prm::entities::person::{ContactInfo, ContactInfoType, Person, PERSON_TEMPLATE};
 use prm::entities::reminder::{
     ParseReminderFromEditorData, RecurringType, Reminder, REMINDER_TEMPLATE,
 };
 use prm::{
-    ActivityTypeParseSnafu, AddSnafu, BirthdayParseSnafu, CliError, ContactInfoParseSnafu,
-    DateParseSnafu, EditorParseSnafu, EntitySnafu, RecurringTypeParseSnafu,
+    AddSnafu, BirthdayParseSnafu, CliError, ContactInfoParseSnafu,
+    DateParseSnafu, EditorParseSnafu, EntitySnafu, RecurringTypeParseSnafu, MissingFieldSnafu, TemplateSnafu
 };
-use prm::{MissingFieldSnafu, TemplateSnafu};
 use rusqlite::Connection;
 
 extern crate strfmt;
 use std::collections::HashMap;
 use strfmt::strfmt;
+use prm::helpers::{ActivityVars, get_activity_type, parse_from_str_md, parse_from_str_ymd, unwrap_arg_or_empty_string};
 
 pub fn person(
     conn: &Connection,
@@ -35,11 +35,11 @@ pub fn person(
         let mut vars = HashMap::new();
         vars.insert(
             "name".to_string(),
-            prm::helpers::unwrap_arg_or_empty_string(name.clone()),
+            unwrap_arg_or_empty_string(name.clone()),
         );
         vars.insert(
             "birthday".to_string(),
-            prm::helpers::unwrap_arg_or_empty_string(birthday.clone()),
+            unwrap_arg_or_empty_string(birthday.clone()),
         );
         vars.insert(
             "contact_info".to_string(),
@@ -89,9 +89,9 @@ pub fn person(
     }
 
     if let Some(birthday_str) = birthday_str {
-        match prm::helpers::parse_from_str_ymd(&birthday_str) {
+        match parse_from_str_ymd(&birthday_str) {
             Ok(date) => birthday_obj = Some(date),
-            Err(_) => match prm::helpers::parse_from_str_md(&birthday_str) {
+            Err(_) => match parse_from_str_md(&birthday_str) {
                 Ok(date) => birthday_obj = Some(date),
                 Err(_) => {
                     return BirthdayParseSnafu {
@@ -175,19 +175,19 @@ pub fn activity(
     let mut vars = HashMap::new();
     vars.insert(
         "name".to_string(),
-        prm::helpers::unwrap_arg_or_empty_string(name.clone()),
+        unwrap_arg_or_empty_string(name.clone()),
     );
     vars.insert(
         "date".to_string(),
-        prm::helpers::unwrap_arg_or_empty_string(date.clone()),
+        unwrap_arg_or_empty_string(date.clone()),
     );
     vars.insert(
         "activity_type".to_string(),
-        prm::helpers::unwrap_arg_or_empty_string(activity_type.clone()),
+        unwrap_arg_or_empty_string(activity_type.clone()),
     );
     vars.insert(
         "content".to_string(),
-        prm::helpers::unwrap_arg_or_empty_string(content.clone()),
+        unwrap_arg_or_empty_string(content.clone()),
     );
     vars.insert(
         "people".to_string(),
@@ -197,7 +197,7 @@ pub fn activity(
             people.clone().join(",")
         },
     );
-    let activity_vars: prm::helpers::ActivityVars = if name.is_none()
+    let activity_vars: ActivityVars = if name.is_none()
         || [activity_type.clone(), date.clone(), content.clone()]
             .iter()
             .any(Option::is_none)
@@ -253,7 +253,7 @@ pub fn activity(
                 .fail()
             }
         };
-        prm::helpers::ActivityVars {
+        ActivityVars {
             name,
             date,
             activity_type,
@@ -262,19 +262,9 @@ pub fn activity(
         }
     };
 
-    let activity_type = match activity_vars.activity_type.as_str() {
-        "phone" => ActivityType::Phone,
-        "in_person" => ActivityType::InPerson,
-        "online" => ActivityType::Online,
-        _ => {
-            return ActivityTypeParseSnafu {
-                activity_type: activity_vars.activity_type.clone(),
-            }
-            .fail()
-        }
-    };
+    let activity_type = get_activity_type(activity_vars.activity_type.clone())?;
 
-    let date_obj = match prm::helpers::parse_from_str_ymd(activity_vars.date.as_str()) {
+    let date_obj = match parse_from_str_ymd(activity_vars.date.as_str()) {
         Ok(date) => date,
         Err(_) => {
             return DateParseSnafu {
@@ -330,19 +320,19 @@ pub fn reminder(
         let mut vars = HashMap::new();
         vars.insert(
             "name".to_string(),
-            prm::helpers::unwrap_arg_or_empty_string(name.clone()),
+            unwrap_arg_or_empty_string(name.clone()),
         );
         vars.insert(
             "date".to_string(),
-            prm::helpers::unwrap_arg_or_empty_string(date.clone()),
+            unwrap_arg_or_empty_string(date.clone()),
         );
         vars.insert(
             "recurring_type".to_string(),
-            prm::helpers::unwrap_arg_or_empty_string(recurring.clone()),
+            unwrap_arg_or_empty_string(recurring.clone()),
         );
         vars.insert(
             "description".to_string(),
-            prm::helpers::unwrap_arg_or_empty_string(description.clone()),
+            unwrap_arg_or_empty_string(description.clone()),
         );
         vars.insert(
             "people".to_string(),
@@ -463,7 +453,7 @@ pub fn reminder(
         }
     };
 
-    let date_obj = match prm::helpers::parse_from_str_ymd(date_string.as_str()) {
+    let date_obj = match parse_from_str_ymd(date_string.as_str()) {
         Ok(date) => date,
         Err(_) => {
             return DateParseSnafu {
@@ -513,7 +503,7 @@ pub fn note(
         let mut vars = HashMap::new();
         vars.insert(
             "content".to_string(),
-            prm::helpers::unwrap_arg_or_empty_string(content.clone()),
+            unwrap_arg_or_empty_string(content.clone()),
         );
         vars.insert("people".to_string(), people.clone().join(","));
 
@@ -548,7 +538,7 @@ pub fn note(
         };
     }
 
-    let date = match prm::helpers::parse_from_str_ymd(date_string.as_str()) {
+    let date = match parse_from_str_ymd(date_string.as_str()) {
         Ok(date) => date,
         Err(_) => {
             return DateParseSnafu {
