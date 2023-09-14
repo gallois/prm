@@ -1,5 +1,6 @@
 mod cli;
 
+use std::fmt::Display;
 use clap::builder::ArgAction;
 use clap::{Args, Parser, Subcommand};
 use ics::properties::{Comment, DtStart, Due, RRule, Status, Summary};
@@ -17,6 +18,7 @@ use std::io::Write;
 use uuid::Uuid;
 
 use std::process::exit;
+use prm::entities::Entity;
 
 #[derive(Parser)]
 struct Cli {
@@ -252,6 +254,16 @@ enum RemoveEntity {
         #[arg(short, long)]
         content: String,
     },
+}
+
+pub fn remove_entity<T: Entity + Display + DbOperations>(conn: &Connection, entity: &T) {
+    match entity.remove(conn) {
+        Ok(_) => println!("{}\nremoved successfully", entity),
+        Err(_) => {
+            eprintln!("Error while removing {}", entity);
+            exit(exitcode::DATAERR);
+        }
+    };
 }
 
 fn main() {
@@ -506,13 +518,7 @@ fn main() {
                     exit(exitcode::OK);
                 }
 
-                match person.remove(&conn) {
-                    Ok(_) => println!("{}\nremoved successfully", person),
-                    Err(_) => {
-                        eprintln!("Error while removing {}", person);
-                        exit(exitcode::DATAERR);
-                    }
-                };
+                remove_entity(&conn, person);
             }
             RemoveEntity::Activity {
                 name,
@@ -548,13 +554,7 @@ fn main() {
                     exit(exitcode::OK);
                 }
 
-                match activity.remove(&conn) {
-                    Ok(_) => println!("{}\nremoved successfully", activity),
-                    Err(_) => {
-                        eprintln!("Error while removing {}", activity);
-                        exit(exitcode::DATAERR);
-                    }
-                };
+                remove_entity(&conn, activity);
             }
             RemoveEntity::Reminder { name } => {
                 let mut reminders = match Reminder::get_by_name(&conn, &name, None) {
@@ -586,13 +586,7 @@ fn main() {
                     exit(0);
                 }
 
-                match reminders.remove(&conn) {
-                    Ok(_) => println!("{} removed successfully", reminders),
-                    Err(_) => {
-                        eprintln!("Error while removing {}", reminders);
-                        exit(exitcode::DATAERR);
-                    }
-                };
+                remove_entity(&conn, reminders);
             }
             RemoveEntity::Note { content } => {
                 let mut notes = match Note::get_by_content(&conn, content) {
@@ -625,13 +619,7 @@ fn main() {
                     exit(exitcode::OK);
                 }
 
-                match note.remove(&conn) {
-                    Ok(_) => println!("{}\nremoved successfully", note),
-                    Err(_) => {
-                        eprintln!("Error while removing {}", note);
-                        exit(exitcode::DATAERR);
-                    }
-                }
+                remove_entity(&conn, note);
             }
         },
         Commands::List(list) => match list.entity {
