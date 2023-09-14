@@ -7,22 +7,10 @@ use crate::db::db_interface::DbOperationsError;
 use crate::entities::person::Person;
 use crate::entities::Entities;
 use rusqlite::Connection;
-
-use snafu::prelude::*;
+use crate::{CliError, DateParseSnafu, RecordParseSnafu, RecurringTypeParseSnafu};
 
 use super::Entity;
 
-// FIXME this is a duplication of what we have in `CliError` (src/cli/add.rs)
-#[derive(Debug, Snafu)]
-#[snafu(visibility(pub(crate)))]
-pub enum EntityError {
-    #[snafu(display("Invalid date: {}", date))]
-    DateParseError { date: String },
-    #[snafu(display("Invalid recurring type: {}", recurring_type))]
-    RecurringTypeParseError { recurring_type: String },
-    #[snafu(display("Invalid record: {}", record))]
-    RecordParseError { record: String },
-}
 
 pub struct ParseReminderFromEditorData {
     pub name: String,
@@ -456,7 +444,7 @@ impl Reminder {
         description: Option<String>,
         recurring: Option<String>,
         people: Vec<String>,
-    ) -> Result<&Self, EntityError> {
+    ) -> Result<&Self, CliError> {
         if let Some(name) = name {
             self.name = name;
         }

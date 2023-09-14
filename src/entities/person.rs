@@ -9,19 +9,10 @@ use crate::entities::note::Note;
 use crate::entities::reminder::Reminder;
 use crate::entities::Entities;
 use rusqlite::Connection;
-
-use snafu::prelude::*;
+use crate::{CliError, BirthdayParseSnafu, ContactInfoParseSnafu};
 
 use super::Entity;
 
-// FIXME this is a duplication of what we have in `CliError` (src/cli/add.rs)
-#[derive(Debug, Snafu)]
-pub enum EntityError {
-    #[snafu(display("Invalid birthday: {}", birthday))]
-    BirthdayParseError { birthday: String },
-    #[snafu(display("Invalid contact info: {}", contact_info))]
-    ContactInfoParseError { contact_info: String },
-}
 
 pub static PERSON_TEMPLATE: &str = "Name: {name}
 Birthday: {birthday}
@@ -312,7 +303,7 @@ impl Person {
         name: Option<String>,
         birthday: Option<String>,
         contact_info: Option<String>,
-    ) -> Result<&Self, EntityError> {
+    ) -> Result<&Self, CliError> {
         // TODO clean up duplication between this and main.rs
         if let Some(name) = name {
             self.name = name;
