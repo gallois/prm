@@ -273,7 +273,7 @@ impl Note {
     }
 }
 
-impl crate::db::db_interface::DbOperations for Note {
+impl DbOperations for Note {
     fn add(&self, conn: &Connection) -> Result<&Note, DbOperationsError> {
         let date_str = self.date.to_string();
 
@@ -291,7 +291,7 @@ impl crate::db::db_interface::DbOperations for Note {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
             }
-            Err(_) => return Err(crate::db::db_interface::DbOperationsError::QueryError),
+            Err(_) => return Err(DbOperationsError::QueryError),
         }
 
         let id = &conn.last_insert_rowid();
@@ -313,7 +313,7 @@ impl crate::db::db_interface::DbOperations for Note {
                 Ok(updated) => {
                     println!("[DEBUG] {} rows were updated", updated);
                 }
-                Err(_) => return Err(crate::db::db_interface::DbOperationsError::QueryError),
+                Err(_) => return Err(DbOperationsError::QueryError),
             }
         }
 
@@ -337,7 +337,7 @@ impl crate::db::db_interface::DbOperations for Note {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
             }
-            Err(_) => return Err(crate::db::db_interface::DbOperationsError::QueryError),
+            Err(_) => return Err(DbOperationsError::QueryError),
         }
 
         Ok(self)
@@ -361,7 +361,7 @@ impl crate::db::db_interface::DbOperations for Note {
             Ok(updated) => {
                 println!("[DEBUG] {} rows were updated", updated);
             }
-            Err(_) => return Err(crate::db::db_interface::DbOperationsError::QueryError),
+            Err(_) => return Err(DbOperationsError::QueryError),
         }
 
         for person in self.people.iter() {
@@ -381,7 +381,7 @@ impl crate::db::db_interface::DbOperations for Note {
 
             let mut rows = match stmt.query(params![self.id, person.id]) {
                 Ok(rows) => rows,
-                Err(_) => return Err(crate::db::db_interface::DbOperationsError::QueryError),
+                Err(_) => return Err(DbOperationsError::QueryError),
             };
             let mut results: Vec<u32> = Vec::new();
             loop {
@@ -422,7 +422,7 @@ impl crate::db::db_interface::DbOperations for Note {
                             println!("[DEBUG] {} rows were updated", updated);
                         }
                         Err(_) => {
-                            return Err(crate::db::db_interface::DbOperationsError::QueryError)
+                            return Err(DbOperationsError::QueryError)
                         }
                     }
                 }
@@ -442,7 +442,7 @@ impl crate::db::db_interface::DbOperations for Note {
                 Ok(updated) => {
                     println!("[DEBUG] {} rows were updated", updated);
                 }
-                Err(_) => return Err(crate::db::db_interface::DbOperationsError::QueryError),
+                Err(_) => return Err(DbOperationsError::QueryError),
             }
         }
 

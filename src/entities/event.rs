@@ -31,7 +31,7 @@ impl Event {
             days = 10 * 365; // 10 years
         }
         let mut events: Vec<Event> = vec![];
-        let today = chrono::Local::now().naive_local();
+        let today = Local::now().naive_local();
         let today_str = format!("{}", today.format("%Y-%m-%d"));
         let date_limit = match today.checked_add_days(chrono::Days::new(days)) {
             Some(date) => date,

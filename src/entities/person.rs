@@ -451,7 +451,7 @@ impl crate::db::db_interface::DbOperations for Person {
         }
 
         if !ids.is_empty() {
-            return Err(crate::db::db_interface::DbOperationsError::DuplicateEntry);
+            return Err(DbOperationsError::DuplicateEntry);
         }
 
         // TODO make all db operations atomic
@@ -497,7 +497,7 @@ impl crate::db::db_interface::DbOperations for Person {
             };
             let mut rows = match stmt.query(params![ci_type]) {
                 Ok(rows) => rows,
-                Err(_) => return Err(crate::db::db_interface::DbOperationsError::QueryError),
+                Err(_) => return Err(DbOperationsError::QueryError),
             };
             let mut types: Vec<u32> = Vec::new();
             loop {
@@ -551,7 +551,7 @@ impl crate::db::db_interface::DbOperations for Person {
     fn remove(
         &self,
         conn: &Connection,
-    ) -> Result<&Person, crate::db::db_interface::DbOperationsError> {
+    ) -> Result<&Person, DbOperationsError> {
         let mut stmt = match conn.prepare(
             "UPDATE 
                     people 
@@ -576,7 +576,7 @@ impl crate::db::db_interface::DbOperations for Person {
     fn save(
         &self,
         conn: &Connection,
-    ) -> Result<&Person, crate::db::db_interface::DbOperationsError> {
+    ) -> Result<&Person, DbOperationsError> {
         let birthday_str = match self.birthday {
             Some(birthday) => birthday.to_string(),
             None => "".to_string(),

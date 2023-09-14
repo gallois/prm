@@ -4,7 +4,6 @@ pub mod note;
 pub mod person;
 pub mod reminder;
 
-use crate::db_interface::DbOperationsError;
 use crate::entities::activity::Activity;
 use crate::entities::note::Note;
 use crate::entities::person::Person;

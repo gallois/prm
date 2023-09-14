@@ -932,7 +932,7 @@ impl DbOperations for Activity {
                             println!("[DEBUG] {} rows were updated", updated);
                         }
                         Err(_) => {
-                            return Err(crate::db::db_interface::DbOperationsError::GenericError)
+                            return Err(DbOperationsError::GenericError)
                         }
                     }
                 }
