@@ -3,17 +3,16 @@ use std::fmt;
 use chrono::prelude::*;
 use rusqlite::params;
 
-use crate::db::db_interface::DbOperationsError;
+use crate::db_interface::{DbOperations, DbOperationsError};
 use crate::entities::person::Person;
 use crate::entities::Entities;
 use rusqlite::Connection;
+use crate::{CliError, DateParseSnafu, RecordParseSnafu};
 
 pub static NOTE_TEMPLATE: &str = "Date: {date}
 Content: {content}
 People: {people}
 ";
-
-use snafu::prelude::*;
 
 use super::Entity;
 
@@ -23,15 +22,6 @@ pub struct Note {
     pub date: NaiveDate,
     pub content: String,
     pub people: Vec<Person>,
-}
-
-#[derive(Debug, Snafu)]
-pub enum NoteError {
-    // FIXME this is a duplication of what we have in `CliError` (src/cli/add.rs)
-    #[snafu(display("Invalid date: {}", date))]
-    DateParseError { date: String },
-    #[snafu(display("Invalid record: {}", record))]
-    RecordParseError { record: String },
 }
 
 impl Entity for Note {
@@ -196,7 +186,7 @@ impl Note {
         date: Option<String>,
         content: Option<String>,
         people: Vec<String>,
-    ) -> Result<&Self, NoteError> {
+    ) -> Result<&Self, CliError> {
         if let Some(date) = date {
             let date_obj: Option<NaiveDate>;
             match crate::helpers::parse_from_str_ymd(&date) {
