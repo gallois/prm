@@ -9,8 +9,8 @@ use rusqlite::Connection;
 use std::collections::HashMap;
 use strfmt::strfmt;
 
-use crate::cli::CliError;
-use crate::cli::{EditSnafu, EditorParseSnafu, EntitySnafu, NotFoundSnafu, TemplateSnafu};
+use prm::CliError;
+use prm::{EditSnafu, EditorParseSnafu, EntitySnafu, NotFoundSnafu, TemplateSnafu};
 
 pub fn person(
     conn: &Connection,
@@ -37,7 +37,6 @@ pub fn person(
                         .fail()
                     }
                 };
-                // TODO allow this to be consumed from args like the args below
                 let contact_info_field = person
                     .contact_info
                     .iter()

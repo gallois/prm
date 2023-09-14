@@ -6,9 +6,8 @@ use strum_macros::{AsRefStr, EnumString};
 use crate::db_interface::{DbOperations, DbOperationsError};
 use crate::entities::person::Person;
 use crate::entities::Entities;
+use crate::{ActivityTypeParseSnafu, CliError, DateParseSnafu, RecordParseSnafu};
 use rusqlite::Connection;
-
-use snafu::prelude::*;
 
 use super::Entity;
 
@@ -33,17 +32,6 @@ pub struct ParseActivityFromEditorData {
     pub activity_type: Option<String>,
     pub content: Option<String>,
     pub people: Vec<String>,
-}
-
-#[derive(Debug, Snafu)]
-pub enum ActivityError {
-    #[snafu(display("Invalid activity type: {}", activity_type))]
-    ActivityTypeParseError { activity_type: String },
-    // FIXME this is a duplication of what we have in `CliError` (src/cli/add.rs)
-    #[snafu(display("Invalid date: {}", date))]
-    DateParseError { date: String },
-    #[snafu(display("Invalid record: {}", record))]
-    RecordParseError { record: String },
 }
 
 impl Entity for Activity {
@@ -513,7 +501,7 @@ impl Activity {
         date: Option<String>,
         content: Option<String>,
         people: Vec<String>,
-    ) -> Result<&Self, ActivityError> {
+    ) -> Result<&Self, CliError> {
         // TODO clean up duplication between this and main.rs
         if let Some(name) = name {
             self.name = name;

@@ -267,7 +267,7 @@ fn main() {
 
     match args.command {
         Commands::Init {} => {
-            match prm::db::db_helpers::init_db(&conn) {
+           match prm::db::db_helpers::init_db(&conn) {
                 Ok(_) => println!("Database initialised"),
                 Err(_) => {
                     eprintln!("Error initalising database");

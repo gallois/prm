@@ -8,18 +8,16 @@ use prm::entities::person::{ContactInfo, ContactInfoType, Person, PERSON_TEMPLAT
 use prm::entities::reminder::{
     ParseReminderFromEditorData, RecurringType, Reminder, REMINDER_TEMPLATE,
 };
+use prm::{
+    ActivityTypeParseSnafu, AddSnafu, BirthdayParseSnafu, CliError, ContactInfoParseSnafu,
+    DateParseSnafu, EditorParseSnafu, EntitySnafu, RecurringTypeParseSnafu,
+};
+use prm::{MissingFieldSnafu, TemplateSnafu};
 use rusqlite::Connection;
 
 extern crate strfmt;
 use std::collections::HashMap;
 use strfmt::strfmt;
-
-use crate::cli::{
-    AddSnafu, BirthdayParseSnafu, CliError, ContactInfoParseSnafu, EditorParseSnafu,
-    MissingFieldSnafu, RecurringTypeParseSnafu, TemplateSnafu,
-};
-
-use super::{ActivityTypeParseSnafu, DateParseSnafu, EntitySnafu};
 
 pub fn person(
     conn: &Connection,
