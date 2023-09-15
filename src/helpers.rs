@@ -8,12 +8,21 @@ use std::{
 use snafu::Snafu;
 
 use crate::entities::activity::ActivityType;
-use crate::{ActivityTypeParseSnafu, CliError};
+use crate::{ActivityTypeParseSnafu, CliError, ContactInfoParseSnafu};
+use crate::entities::person::{ContactInfo, ContactInfoType};
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub(crate)))]
 pub struct SelectionError {
     pub message: String,
+}
+
+pub struct ActivityVars {
+    pub name: String,
+    pub date: String,
+    pub activity_type: String,
+    pub content: String,
+    pub people: Vec<String>,
 }
 
 // Helper function to return a comma-separated sequence of `?`.
@@ -68,8 +77,7 @@ where
     let n = match n.trim().parse::<usize>() {
         Ok(n) => n,
         Err(_) => {
-            return Err(SelectionError {
-                message: String::from("Invalid input"),
+            return Err(SelectionError { message: String::from("Invalid input"),
             })
         }
     };
@@ -88,14 +96,6 @@ where
     })
 }
 
-pub struct ActivityVars {
-    pub name: String,
-    pub date: String,
-    pub activity_type: String,
-    pub content: String,
-    pub people: Vec<String>,
-}
-
 pub fn get_activity_type(activity_type: String) -> Result<ActivityType, CliError> {
     let activity_type = match activity_type.as_str() {
         "phone" => ActivityType::Phone,
@@ -108,4 +108,42 @@ pub fn get_activity_type(activity_type: String) -> Result<ActivityType, CliError
         }
     };
     Ok(activity_type)
+}
+
+pub fn get_contact_info(id: u64, splits: Vec<Vec<String>>) -> Result<Vec<ContactInfo>, CliError> {
+    let mut contact_info_vec: Vec<ContactInfo> = Vec::new();
+    let mut invalid_contact_info = vec![];
+    let mut contact_info_type: Option<ContactInfoType>;
+
+    for split in splits.iter() {
+        match split[0].as_str() {
+            "phone" => {
+                contact_info_type =
+                    Some(ContactInfoType::Phone(split[1].clone()))
+            }
+            "whatsapp" => {
+                contact_info_type =
+                    Some(ContactInfoType::WhatsApp(split[1].clone()))
+            }
+            "email" => {
+                contact_info_type =
+                    Some(ContactInfoType::Email(split[1].clone()))
+            }
+            _ => {
+                invalid_contact_info.push(
+                    [split[0].clone(), split[1].clone()]
+                        .join(":"),
+                );
+                return ContactInfoParseSnafu {
+                    contact_info: invalid_contact_info.join(","),
+                }
+                    .fail();
+            }
+        }
+
+        if let Some(contact_info_type) = contact_info_type {
+            contact_info_vec.push(ContactInfo::new(0, id, contact_info_type));
+        }
+    }
+    Ok(contact_info_vec)
 }

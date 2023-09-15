@@ -119,6 +119,7 @@ pub fn person(
         }
     }
 
+    // TODO extract to helpers.rs
     let mut invalid_contact_info = vec![];
     if !contact_info_splits.is_empty() {
         contact_info_splits

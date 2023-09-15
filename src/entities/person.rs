@@ -9,7 +9,8 @@ use crate::entities::note::Note;
 use crate::entities::reminder::Reminder;
 use crate::entities::Entities;
 use rusqlite::Connection;
-use crate::{CliError, BirthdayParseSnafu, ContactInfoParseSnafu};
+use crate::{CliError, BirthdayParseSnafu};
+use crate::helpers::get_contact_info;
 
 use super::Entity;
 
@@ -321,7 +322,6 @@ impl Person {
         }
 
         let mut contact_info_splits: Vec<Vec<String>> = vec![];
-        let mut contact_info_type: Option<ContactInfoType>;
         let mut contact_info_vec: Vec<ContactInfo> = Vec::new();
         match contact_info {
             Some(contact_info_vec) => {
@@ -333,39 +333,8 @@ impl Person {
             None => contact_info_splits = vec![],
         }
 
-        // FIXME duplication in src/cli/add.rs
-        let mut invalid_contact_info = vec![];
         if !contact_info_splits.is_empty() {
-            for contact_info_split in contact_info_splits.iter() {
-                match contact_info_split[0].as_str() {
-                    "phone" => {
-                        contact_info_type =
-                            Some(ContactInfoType::Phone(contact_info_split[1].clone()))
-                    }
-                    "whatsapp" => {
-                        contact_info_type =
-                            Some(ContactInfoType::WhatsApp(contact_info_split[1].clone()))
-                    }
-                    "email" => {
-                        contact_info_type =
-                            Some(ContactInfoType::Email(contact_info_split[1].clone()))
-                    }
-                    _ => {
-                        invalid_contact_info.push(
-                            [contact_info_split[0].clone(), contact_info_split[1].clone()]
-                                .join(":"),
-                        );
-                        return ContactInfoParseSnafu {
-                            contact_info: invalid_contact_info.join(","),
-                        }
-                        .fail();
-                    }
-                }
-
-                if let Some(contact_info_type) = contact_info_type {
-                    contact_info_vec.push(ContactInfo::new(0, self.id, contact_info_type));
-                }
-            }
+            contact_info_vec = get_contact_info(self.id, contact_info_splits)?;
         }
         self.contact_info = contact_info_vec;
 
