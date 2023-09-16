@@ -8,12 +8,11 @@ use crate::entities::activity::Activity;
 use crate::entities::note::Note;
 use crate::entities::reminder::Reminder;
 use crate::entities::Entities;
-use rusqlite::Connection;
-use crate::{CliError, BirthdayParseSnafu};
 use crate::helpers::get_contact_info;
+use crate::{BirthdayParseSnafu, CliError};
+use rusqlite::Connection;
 
 use super::Entity;
-
 
 pub static PERSON_TEMPLATE: &str = "Name: {name}
 Birthday: {birthday}
@@ -508,10 +507,7 @@ impl crate::db::db_interface::DbOperations for Person {
         Ok(self)
     }
 
-    fn remove(
-        &self,
-        conn: &Connection,
-    ) -> Result<&Person, DbOperationsError> {
+    fn remove(&self, conn: &Connection) -> Result<&Person, DbOperationsError> {
         let mut stmt = match conn.prepare(
             "UPDATE 
                     people 
@@ -533,10 +529,7 @@ impl crate::db::db_interface::DbOperations for Person {
         Ok(self)
     }
 
-    fn save(
-        &self,
-        conn: &Connection,
-    ) -> Result<&Person, DbOperationsError> {
+    fn save(&self, conn: &Connection) -> Result<&Person, DbOperationsError> {
         let birthday_str = match self.birthday {
             Some(birthday) => birthday.to_string(),
             None => "".to_string(),
@@ -562,6 +555,23 @@ impl crate::db::db_interface::DbOperations for Person {
         }
 
         if !self.contact_info.is_empty() {
+            let mut stmt = match conn.prepare(
+                "UPDATE
+                            contact_info
+                         SET
+                            deleted = 1
+                         WHERE
+                            person_id = ?1",
+            ) {
+                Ok(stmt) => stmt,
+                Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
+            };
+            match stmt.execute(params![self.id]) {
+                Ok(updated) => {
+                    println!("[DEBUG] {} rows were updated", updated);
+                }
+                Err(_) => return Err(DbOperationsError::QueryError),
+            };
             for ci in self.contact_info.iter() {
                 let (ci_type, ci_value): (String, &str) = match &ci.contact_info_type {
                     ContactInfoType::Phone(value) => (
@@ -612,57 +622,28 @@ impl crate::db::db_interface::DbOperations for Person {
                     }
                 }
 
-                let mut stmt = match conn.prepare("SELECT id FROM contact_info WHERE person_id = ?1 AND contact_info_type_id = ?2 AND deleted = 0") {
-                    Ok(stmt) => stmt,
-                    Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
-                };
-                let mut rows = match stmt.query(params![self.id, types[0]]) {
-                    Ok(rows) => rows,
-                    Err(_) => return Err(DbOperationsError::QueryError),
-                };
-                let mut ci_ids: Vec<u32> = Vec::new();
-                loop {
-                    match rows.next() {
-                        Ok(row) => match row {
-                            Some(row) => match row.get(0) {
-                                Ok(row) => ci_ids.push(row),
-                                Err(e) => {
-                                    return Err(DbOperationsError::RecordError {
-                                        sqlite_error: Some(e),
-                                        strum_error: None,
-                                    })
-                                }
-                            },
-                            None => break,
-                        },
-                        Err(e) => {
-                            return Err(DbOperationsError::RecordError {
-                                sqlite_error: Some(e),
-                                strum_error: None,
-                            })
-                        }
-                    }
-                }
-
                 let mut stmt = match conn.prepare(
-                    "UPDATE
-                    contact_info 
-                SET
-                    person_id = ?1,
-                    contact_info_type_id = ?2,
-                    contact_info_details = ?3
-                WHERE
-                    id = ?4",
+                    "INSERT
+                        INTO
+                     contact_info
+                        (
+                            person_id,
+                            contact_info_type_id,
+                            contact_info_details,
+                            deleted
+                        )
+                     VALUES
+                        (?1, ?2, ?3, 0)",
                 ) {
                     Ok(stmt) => stmt,
                     Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
                 };
-                match stmt.execute(params![self.id, types[0], ci_value, ci_ids[0]]) {
+                match stmt.execute(params![self.id, types[0], ci_value]) {
                     Ok(updated) => {
                         println!("[DEBUG] {} rows were updated", updated);
                     }
                     Err(_) => return Err(DbOperationsError::QueryError),
-                }
+                };
             }
         }
 

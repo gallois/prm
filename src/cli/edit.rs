@@ -160,8 +160,6 @@ pub fn person(
                         }
                     }
                 };
-                // FIXME changing the contact info type breaks because we don't keep
-                //       the previous value, so we can't backreference it
                 match person.save(conn) {
                     Ok(person) => println!("Updated person: {}", person),
                     Err(_) => {
