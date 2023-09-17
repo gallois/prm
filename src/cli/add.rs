@@ -2,22 +2,25 @@ use chrono::NaiveDate;
 use edit;
 
 use prm::db_interface::DbOperations;
-use prm::entities::activity::{Activity};
+use prm::entities::activity::Activity;
 use prm::entities::note::{Note, NOTE_TEMPLATE};
 use prm::entities::person::{ContactInfo, ContactInfoType, Person, PERSON_TEMPLATE};
 use prm::entities::reminder::{
     ParseReminderFromEditorData, RecurringType, Reminder, REMINDER_TEMPLATE,
 };
 use prm::{
-    AddSnafu, BirthdayParseSnafu, CliError, ContactInfoParseSnafu,
-    DateParseSnafu, EditorParseSnafu, EntitySnafu, RecurringTypeParseSnafu, MissingFieldSnafu, TemplateSnafu
+    AddSnafu, BirthdayParseSnafu, CliError, ContactInfoParseSnafu, DateParseSnafu,
+    EditorParseSnafu, EntitySnafu, MissingFieldSnafu, RecurringTypeParseSnafu, TemplateSnafu,
 };
 use rusqlite::Connection;
 
 extern crate strfmt;
+use prm::helpers::{
+    get_activity_type, parse_from_str_md, parse_from_str_ymd, unwrap_arg_or_empty_string,
+    ActivityVars,
+};
 use std::collections::HashMap;
 use strfmt::strfmt;
-use prm::helpers::{ActivityVars, get_activity_type, parse_from_str_md, parse_from_str_ymd, unwrap_arg_or_empty_string};
 
 pub fn person(
     conn: &Connection,
@@ -33,10 +36,7 @@ pub fn person(
         editor = true;
 
         let mut vars = HashMap::new();
-        vars.insert(
-            "name".to_string(),
-            unwrap_arg_or_empty_string(name.clone()),
-        );
+        vars.insert("name".to_string(), unwrap_arg_or_empty_string(name.clone()));
         vars.insert(
             "birthday".to_string(),
             unwrap_arg_or_empty_string(birthday.clone()),
@@ -174,14 +174,8 @@ pub fn activity(
     people: Vec<String>,
 ) -> Result<Activity, CliError> {
     let mut vars = HashMap::new();
-    vars.insert(
-        "name".to_string(),
-        unwrap_arg_or_empty_string(name.clone()),
-    );
-    vars.insert(
-        "date".to_string(),
-        unwrap_arg_or_empty_string(date.clone()),
-    );
+    vars.insert("name".to_string(), unwrap_arg_or_empty_string(name.clone()));
+    vars.insert("date".to_string(), unwrap_arg_or_empty_string(date.clone()));
     vars.insert(
         "activity_type".to_string(),
         unwrap_arg_or_empty_string(activity_type.clone()),
@@ -319,14 +313,8 @@ pub fn reminder(
         editor = true;
 
         let mut vars = HashMap::new();
-        vars.insert(
-            "name".to_string(),
-            unwrap_arg_or_empty_string(name.clone()),
-        );
-        vars.insert(
-            "date".to_string(),
-            unwrap_arg_or_empty_string(date.clone()),
-        );
+        vars.insert("name".to_string(), unwrap_arg_or_empty_string(name.clone()));
+        vars.insert("date".to_string(), unwrap_arg_or_empty_string(date.clone()));
         vars.insert(
             "recurring_type".to_string(),
             unwrap_arg_or_empty_string(recurring.clone()),
