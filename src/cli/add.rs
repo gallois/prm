@@ -4,20 +4,20 @@ use edit;
 use prm::db_interface::DbOperations;
 use prm::entities::activity::Activity;
 use prm::entities::note::{Note, NOTE_TEMPLATE};
-use prm::entities::person::{ContactInfo, ContactInfoType, Person, PERSON_TEMPLATE};
+use prm::entities::person::{ContactInfo, Person, PERSON_TEMPLATE};
 use prm::entities::reminder::{
     ParseReminderFromEditorData, RecurringType, Reminder, REMINDER_TEMPLATE,
 };
 use prm::{
-    AddSnafu, BirthdayParseSnafu, CliError, ContactInfoParseSnafu, DateParseSnafu,
-    EditorParseSnafu, EntitySnafu, MissingFieldSnafu, RecurringTypeParseSnafu, TemplateSnafu,
+    AddSnafu, BirthdayParseSnafu, CliError, DateParseSnafu, EditorParseSnafu, EntitySnafu,
+    MissingFieldSnafu, RecurringTypeParseSnafu, TemplateSnafu,
 };
 use rusqlite::Connection;
 
 extern crate strfmt;
 use prm::helpers::{
-    get_activity_type, parse_from_str_md, parse_from_str_ymd, unwrap_arg_or_empty_string,
-    ActivityVars,
+    get_activity_type, get_contact_info, parse_from_str_md, parse_from_str_ymd,
+    unwrap_arg_or_empty_string, ActivityVars,
 };
 use std::collections::HashMap;
 use strfmt::strfmt;
@@ -104,7 +104,6 @@ pub fn person(
     }
 
     let mut contact_info_splits: Vec<Vec<String>> = vec![];
-    let mut contact_info_types: Vec<ContactInfoType> = vec![];
 
     match contact_info {
         Some(mut contact_info_vec) => {
@@ -119,42 +118,7 @@ pub fn person(
         }
     }
 
-    // TODO extract to helpers.rs
-    let mut invalid_contact_info = vec![];
-    if !contact_info_splits.is_empty() {
-        contact_info_splits
-            .into_iter()
-            .for_each(|contact_info_split| match contact_info_split[0].as_str() {
-                "phone" => {
-                    contact_info_types.push(ContactInfoType::Phone(contact_info_split[1].clone()))
-                }
-                "whatsapp" => contact_info_types
-                    .push(ContactInfoType::WhatsApp(contact_info_split[1].clone())),
-                "email" => {
-                    contact_info_types.push(ContactInfoType::Email(contact_info_split[1].clone()))
-                }
-                _ => {
-                    invalid_contact_info.push(
-                        [contact_info_split[0].clone(), contact_info_split[1].clone()].join(":"),
-                    );
-                }
-            });
-    }
-    if !invalid_contact_info.is_empty() {
-        return ContactInfoParseSnafu {
-            contact_info: invalid_contact_info.join(","),
-        }
-        .fail();
-    }
-
-    let mut contact_info: Vec<ContactInfo> = Vec::new();
-    if !contact_info_types.is_empty() {
-        contact_info_types
-            .into_iter()
-            .for_each(|contact_info_type| {
-                contact_info.push(ContactInfo::new(0, 0, contact_info_type));
-            });
-    }
+    let contact_info = get_contact_info(0, contact_info_splits)?;
 
     assert!(!name_str.is_empty(), "Name cannot be empty");
     let person = Person::new(0, name_str, birthday_obj, contact_info);

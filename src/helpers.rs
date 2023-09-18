@@ -8,8 +8,8 @@ use std::{
 use snafu::Snafu;
 
 use crate::entities::activity::ActivityType;
-use crate::{ActivityTypeParseSnafu, CliError, ContactInfoParseSnafu};
 use crate::entities::person::{ContactInfo, ContactInfoType};
+use crate::{ActivityTypeParseSnafu, CliError, ContactInfoParseSnafu};
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub(crate)))]
@@ -77,7 +77,8 @@ where
     let n = match n.trim().parse::<usize>() {
         Ok(n) => n,
         Err(_) => {
-            return Err(SelectionError { message: String::from("Invalid input"),
+            return Err(SelectionError {
+                message: String::from("Invalid input"),
             })
         }
     };
@@ -104,10 +105,11 @@ pub fn get_activity_type(activity_type: String) -> Result<ActivityType, CliError
         _ => {
             return ActivityTypeParseSnafu {
                 activity_type: activity_type.to_string(),
-            }.fail()
+            }
+            .fail()
         }
     };
-    Ok(activity_type)
+   get_contact_info
 }
 
 pub fn get_contact_info(id: u64, splits: Vec<Vec<String>>) -> Result<Vec<ContactInfo>, CliError> {
@@ -117,27 +119,15 @@ pub fn get_contact_info(id: u64, splits: Vec<Vec<String>>) -> Result<Vec<Contact
 
     for split in splits.iter() {
         match split[0].as_str() {
-            "phone" => {
-                contact_info_type =
-                    Some(ContactInfoType::Phone(split[1].clone()))
-            }
-            "whatsapp" => {
-                contact_info_type =
-                    Some(ContactInfoType::WhatsApp(split[1].clone()))
-            }
-            "email" => {
-                contact_info_type =
-                    Some(ContactInfoType::Email(split[1].clone()))
-            }
+            "phone" => contact_info_type = Some(ContactInfoType::Phone(split[1].clone())),
+            "whatsapp" => contact_info_type = Some(ContactInfoType::WhatsApp(split[1].clone())),
+            "email" => contact_info_type = Some(ContactInfoType::Email(split[1].clone())),
             _ => {
-                invalid_contact_info.push(
-                    [split[0].clone(), split[1].clone()]
-                        .join(":"),
-                );
+                invalid_contact_info.push([split[0].clone(), split[1].clone()].join(":"));
                 return ContactInfoParseSnafu {
                     contact_info: invalid_contact_info.join(","),
                 }
-                    .fail();
+                .fail();
             }
         }
 
