@@ -1,6 +1,5 @@
 mod cli;
 
-use std::fmt::Display;
 use clap::builder::ArgAction;
 use clap::{Args, Parser, Subcommand};
 use ics::properties::{Comment, DtStart, Due, RRule, Status, Summary};
@@ -13,12 +12,13 @@ use prm::entities::person::Person;
 use prm::entities::reminder::Reminder;
 use prm::helpers::handle_id_selection;
 use rusqlite::Connection;
+use std::fmt::Display;
 use std::io;
 use std::io::Write;
 use uuid::Uuid;
 
-use std::process::exit;
 use prm::entities::Entity;
+use std::process::exit;
 
 #[derive(Parser)]
 struct Cli {
@@ -279,7 +279,7 @@ fn main() {
 
     match args.command {
         Commands::Init {} => {
-           match prm::db::db_helpers::init_db(&conn) {
+            match prm::db::db_helpers::init_db(&conn) {
                 Ok(_) => println!("Database initialised"),
                 Err(_) => {
                     eprintln!("Error initalising database");
@@ -305,7 +305,6 @@ fn main() {
                 content,
                 people,
             } => {
-                // FIXME people should not be empty
                 if let Err(e) =
                     cli::add::activity(&conn, name, activity_type, date, content, people)
                 {

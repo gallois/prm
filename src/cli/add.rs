@@ -212,6 +212,16 @@ pub fn activity(
                 .fail()
             }
         };
+        let people = match people {
+            Some(people) => people,
+            None => {
+                return MissingFieldSnafu {
+                    entity: String::from(entity),
+                    field: "People",
+                }
+                .fail()
+            }
+        };
         ActivityVars {
             name,
             date,
