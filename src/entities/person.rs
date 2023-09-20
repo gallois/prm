@@ -300,14 +300,10 @@ impl Person {
     // TODO might be a good idea to edit activities, reminders and notes vectors
     pub fn update(
         &mut self,
-        name: Option<String>,
+        name: String,
         birthday: Option<String>,
         contact_info: Option<String>,
     ) -> Result<&Self, CliError> {
-        // TODO clean up duplication between this and main.rs
-        if let Some(name) = name {
-            self.name = name;
-        }
         if let Some(birthday) = birthday {
             let birthday_obj: Option<NaiveDate>;
             match crate::helpers::parse_from_str_ymd(&birthday) {

@@ -19,7 +19,7 @@ pub fn person(
     birthday: Option<String>,
     contact_info: Option<String>,
 ) -> Result<Person, CliError> {
-    let name_str: Option<String>;
+    let name_str: String;
     let birthday_str: Option<String>;
     let contact_info_str: Option<String>;
 
@@ -145,7 +145,7 @@ pub fn person(
                         }
                     }
                 };
-                name_str = Some(n);
+                name_str = n;
                 birthday_str = b;
                 contact_info_str = Some(c.join(","));
 
