@@ -304,6 +304,7 @@ impl Person {
         birthday: Option<String>,
         contact_info: Option<String>,
     ) -> Result<&Self, CliError> {
+        self.name = name;
         if let Some(birthday) = birthday {
             let birthday_obj: Option<NaiveDate>;
             match crate::helpers::parse_from_str_ymd(&birthday) {
@@ -738,11 +739,25 @@ impl fmt::Display for Person {
                 .join(",");
             activities_str.push_str(format!("people: {}\n\t", people).as_ref());
         }
-        // TODO implement remaining fields
+        let mut reminders_str = String::new();
+        for reminder in self.reminders.iter() {
+            reminders_str.push_str("\n\t");
+            reminders_str.push_str(format!("name: {}\n\t", reminder.name).as_ref());
+            reminders_str.push_str(format!("date: {}\n\t", reminder.date.to_string()).as_ref());
+            if let Some(description) = reminder.clone().description {
+                reminders_str.push_str(format!("description: {}\n\t", description).as_ref());
+            }
+        }
+        let mut notes_str = String::new();
+        for note in self.notes.iter() {
+            notes_str.push_str("\n\t");
+            notes_str.push_str(format!("date: {}\n\t", note.date.to_string()).as_ref());
+            notes_str.push_str(format!("content: {}\n\t", note.content).as_ref());
+        }
         write!(
             f,
-            "person id: {}\nname: {}\nbirthday: {}\ncontact_info: {}\nactivities: {}\n",
-            &self.id, &self.name, birthday, contact_info_str, activities_str
+            "person id: {}\nname: {}\nbirthday: {}\ncontact_info: {}\nactivities: {}\nreminders: {}\nnotes: {}\n",
+            &self.id, &self.name, birthday, contact_info_str, activities_str, reminders_str, notes_str,
         )
     }
 }

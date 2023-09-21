@@ -109,7 +109,7 @@ pub fn get_activity_type(activity_type: String) -> Result<ActivityType, CliError
             .fail()
         }
     };
-   get_contact_info
+    Ok(activity_type)
 }
 
 pub fn get_contact_info(id: u64, splits: Vec<Vec<String>>) -> Result<Vec<ContactInfo>, CliError> {
