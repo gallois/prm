@@ -339,7 +339,7 @@ impl Person {
 
     pub fn parse_from_editor(
         content: &str,
-    ) -> Result<(String, Option<String>, Vec<String>), crate::editor::ParseError> {
+    ) -> Result<(String, Option<String>, Vec<String>), CliError> {
         let mut error = false;
         let mut name: String = String::new();
         let mut birthday: Option<String> = None;
@@ -362,7 +362,7 @@ impl Person {
         });
 
         if error {
-            return Err(crate::editor::ParseError::FormatError);
+            return Err(CliError::FormatError);
         }
 
         Ok((name, birthday, contact_info))

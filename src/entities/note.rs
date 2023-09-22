@@ -6,8 +6,8 @@ use rusqlite::params;
 use crate::db_interface::{DbOperations, DbOperationsError};
 use crate::entities::person::Person;
 use crate::entities::Entities;
-use rusqlite::Connection;
 use crate::{CliError, DateParseSnafu, RecordParseSnafu};
+use rusqlite::Connection;
 
 pub static NOTE_TEMPLATE: &str = "Date: {date}
 Content: {content}
@@ -229,9 +229,7 @@ impl Note {
         Ok(self)
     }
 
-    pub fn parse_from_editor(
-        content: &str,
-    ) -> Result<(String, String, Vec<String>), crate::editor::ParseError> {
+    pub fn parse_from_editor(content: &str) -> Result<(String, String, Vec<String>), CliError> {
         let mut error = false;
         let mut date: String = String::new();
         let mut note_contents: String = String::new();
@@ -256,7 +254,7 @@ impl Note {
         });
 
         if error {
-            return Err(crate::editor::ParseError::FormatError);
+            return Err(CliError::FormatError);
         }
 
         Ok((date, note_contents, people))
@@ -411,9 +409,7 @@ impl DbOperations for Note {
                         Ok(updated) => {
                             println!("[DEBUG] {} rows were updated", updated);
                         }
-                        Err(_) => {
-                            return Err(DbOperationsError::QueryError)
-                        }
+                        Err(_) => return Err(DbOperationsError::QueryError),
                     }
                 }
             }

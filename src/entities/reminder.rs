@@ -6,11 +6,10 @@ use strum_macros::{AsRefStr, EnumString};
 use crate::db::db_interface::DbOperationsError;
 use crate::entities::person::Person;
 use crate::entities::Entities;
-use rusqlite::Connection;
 use crate::{CliError, DateParseSnafu, RecordParseSnafu, RecurringTypeParseSnafu};
+use rusqlite::Connection;
 
 use super::Entity;
-
 
 pub struct ParseReminderFromEditorData {
     pub name: String,
@@ -519,9 +518,7 @@ impl Reminder {
         Ok(self)
     }
 
-    pub fn parse_from_editor(
-        content: &str,
-    ) -> Result<ParseReminderFromEditorData, crate::editor::ParseError> {
+    pub fn parse_from_editor(content: &str) -> Result<ParseReminderFromEditorData, CliError> {
         let mut error = false;
         let mut name: String = String::new();
         let mut date: Option<String> = None;
@@ -556,7 +553,7 @@ impl Reminder {
         });
 
         if error {
-            return Err(crate::editor::ParseError::FormatError);
+            return Err(CliError::FormatError);
         }
 
         Ok(ParseReminderFromEditorData {

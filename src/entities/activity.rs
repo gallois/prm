@@ -560,9 +560,7 @@ impl Activity {
         Ok(self)
     }
 
-    pub fn parse_from_editor(
-        content: &str,
-    ) -> Result<ParseActivityFromEditorData, crate::editor::ParseError> {
+    pub fn parse_from_editor(content: &str) -> Result<ParseActivityFromEditorData, CliError> {
         let mut error = false;
         let mut name: String = String::new();
         let mut date: Option<String> = None;
@@ -597,7 +595,7 @@ impl Activity {
         });
 
         if error {
-            return Err(crate::editor::ParseError::FormatError);
+            return Err(CliError::FormatError);
         }
 
         Ok(ParseActivityFromEditorData {
@@ -919,9 +917,7 @@ impl DbOperations for Activity {
                         Ok(updated) => {
                             println!("[DEBUG] {} rows were updated", updated);
                         }
-                        Err(_) => {
-                            return Err(DbOperationsError::GenericError)
-                        }
+                        Err(_) => return Err(DbOperationsError::GenericError),
                     }
                 }
             }
