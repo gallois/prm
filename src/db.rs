@@ -29,7 +29,7 @@ pub mod db_interface {
             conn: &Connection,
             id: u64,
         ) -> Result<Option<crate::entities::Entities>, DbOperationsError>;
-        // TODO get_all
+        fn get_all(&self, conn: &Connection) -> Result<&Self, DbOperationsError>;
     }
 }
 
@@ -504,19 +504,17 @@ pub mod db_helpers {
                     return Err(sqlite_error);
                 }
             };
-            let contact_info =
-                match get_contact_info_by_person(conn, person_id) {
-                    Ok(contact_info) => contact_info,
-                    Err(e) => {
-                        let sqlite_error = match e {
-                            DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
-                            other => panic!("Unexpected error type: {:#?}", other),
-                        };
-                        return Err(sqlite_error);
-                    }
-                };
-            let activities = match get_activities_by_person(conn, person_id)
-            {
+            let contact_info = match get_contact_info_by_person(conn, person_id) {
+                Ok(contact_info) => contact_info,
+                Err(e) => {
+                    let sqlite_error = match e {
+                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                        other => panic!("Unexpected error type: {:#?}", other),
+                    };
+                    return Err(sqlite_error);
+                }
+            };
+            let activities = match get_activities_by_person(conn, person_id) {
                 Ok(activities) => activities,
                 Err(e) => {
                     let sqlite_error = match e {
@@ -646,21 +644,19 @@ pub mod db_helpers {
                     return Err(sqlite_error);
                 }
             };
-            let contact_info =
-                match get_contact_info_by_person(conn, person_id) {
-                    Ok(contact_info) => contact_info,
-                    Err(e) => {
-                        let sqlite_error = match e {
-                            DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
-                            other => panic!("Unexpected error type: {:#?}", other),
-                        };
-                        return Err(sqlite_error);
-                    }
-                };
+            let contact_info = match get_contact_info_by_person(conn, person_id) {
+                Ok(contact_info) => contact_info,
+                Err(e) => {
+                    let sqlite_error = match e {
+                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                        other => panic!("Unexpected error type: {:#?}", other),
+                    };
+                    return Err(sqlite_error);
+                }
+            };
             let mut activities: Vec<crate::entities::activity::Activity> = vec![];
             if recurse {
-                activities = match get_activities_by_person(conn, person_id)
-                {
+                activities = match get_activities_by_person(conn, person_id) {
                     Ok(activities) => activities,
                     Err(e) => {
                         let sqlite_error = match e {
@@ -789,19 +785,17 @@ pub mod db_helpers {
                     return Err(sqlite_error);
                 }
             };
-            let contact_info =
-                match get_contact_info_by_person(conn, person_id) {
-                    Ok(contact_info) => contact_info,
-                    Err(e) => {
-                        let sqlite_error = match e {
-                            DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
-                            other => panic!("Unexpected error type: {:#?}", other),
-                        };
-                        return Err(sqlite_error);
-                    }
-                };
-            let activities = match get_activities_by_person(conn, person_id)
-            {
+            let contact_info = match get_contact_info_by_person(conn, person_id) {
+                Ok(contact_info) => contact_info,
+                Err(e) => {
+                    let sqlite_error = match e {
+                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                        other => panic!("Unexpected error type: {:#?}", other),
+                    };
+                    return Err(sqlite_error);
+                }
+            };
+            let activities = match get_activities_by_person(conn, person_id) {
                 Ok(activities) => activities,
                 Err(e) => {
                     let sqlite_error = match e {

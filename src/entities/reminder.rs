@@ -854,6 +854,10 @@ impl crate::db::db_interface::DbOperations for Reminder {
             }),
         }
     }
+    fn get_all(&self, conn: &Connection) -> Result<&Self, DbOperationsError> {
+        // TODO implement get all
+        todo!()
+    }
 }
 
 impl fmt::Display for Reminder {

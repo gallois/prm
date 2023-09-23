@@ -48,7 +48,6 @@ pub enum CliError {
     },
     EditorError,
     FormatError,
-    // TODO evaluate if this is necessary or can be merged into a different error
     #[snafu(display("Error while parsing activity: {}", activity))]
     ActivityParseError {
         activity: String,

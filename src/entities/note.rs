@@ -484,6 +484,10 @@ impl DbOperations for Note {
             }),
         }
     }
+    fn get_all(&self, conn: &Connection) -> Result<&Self, DbOperationsError> {
+        // TODO implement get all
+        todo!()
+    }
 }
 
 impl fmt::Display for Note {

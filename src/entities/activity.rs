@@ -1026,6 +1026,11 @@ impl DbOperations for Activity {
             Err(_) => Err(DbOperationsError::GenericError),
         }
     }
+
+    fn get_all(&self, conn: &Connection) -> Result<&Self, DbOperationsError> {
+        // TODO implement get all
+        todo!()
+    }
 }
 
 #[derive(Debug, AsRefStr, EnumString, Clone, PartialEq)]
