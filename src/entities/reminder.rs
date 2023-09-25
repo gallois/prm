@@ -854,7 +854,7 @@ impl crate::db::db_interface::DbOperations for Reminder {
             }),
         }
     }
-    fn get_all(&self, conn: &Connection) -> Result<&Self, DbOperationsError> {
+    fn get_all(conn: &Connection) -> Result<Vec<Box<Self>>, DbOperationsError> {
         // TODO implement get all
         todo!()
     }

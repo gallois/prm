@@ -652,7 +652,7 @@ fn main() {
                 content,
                 activity_type,
             } => {
-                let activities: Vec<Activity> = if [
+                let activities = if [
                     name.clone(),
                     person.clone(),
                     content.clone(),
@@ -662,7 +662,9 @@ fn main() {
                 .all(Option::is_none)
                 {
                     match Activity::get_all(&conn) {
-                        Ok(activities) => activities,
+                        Ok(activities) => {
+                            activities.iter().map(|a| *a.to_owned()).collect::<Vec<_>>()
+                        }
                         Err(e) => {
                             eprintln!("Error while fetching activities: {:#?}", e);
                             exit(exitcode::DATAERR);

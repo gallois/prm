@@ -29,7 +29,7 @@ pub mod db_interface {
             conn: &Connection,
             id: u64,
         ) -> Result<Option<crate::entities::Entities>, DbOperationsError>;
-        fn get_all(&self, conn: &Connection) -> Result<&Self, DbOperationsError>;
+        fn get_all(conn: &Connection) -> Result<Vec<Box<Self>>, DbOperationsError>;
     }
 }
 

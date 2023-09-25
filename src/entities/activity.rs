@@ -427,72 +427,6 @@ impl Activity {
         Ok(activities)
     }
 
-    pub fn get_all(conn: &Connection) -> Result<Vec<Activity>, DbOperationsError> {
-        let mut stmt = match conn.prepare("SELECT * FROM activities WHERE deleted = 0") {
-            Ok(stmt) => stmt,
-            Err(_) => return Err(DbOperationsError::GenericError),
-        };
-
-        let rows = match stmt.query_map([], |row| {
-            let activity_id = row.get(0)?;
-            let people =
-                match crate::db::db_helpers::get_people_by_activity(conn, activity_id, true) {
-                    Ok(people) => people,
-                    Err(e) => {
-                        let sqlite_error = match e {
-                            DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
-                            other => panic!("Unexpected error type: {:#?}", other),
-                        };
-                        return Err(sqlite_error);
-                    }
-                };
-            let activity_type = match ActivityType::get_by_id(conn, row.get(2)?) {
-                Ok(activity_type) => match activity_type {
-                    Some(activity_type) => activity_type,
-                    None => panic!("Activity type cannot be None"),
-                },
-                Err(e) => {
-                    let sqlite_error = match e {
-                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
-                        other => panic!("Unexpected error type: {:#?}", other),
-                    };
-                    return Err(sqlite_error);
-                }
-            };
-            Ok(Activity {
-                id: activity_id,
-                name: row.get(1)?,
-                activity_type,
-                date: crate::helpers::parse_from_str_ymd(
-                    row.get::<usize, String>(3).unwrap_or_default().as_str(),
-                )
-                .unwrap_or_default(),
-                content: row.get(4)?,
-                people,
-            })
-        }) {
-            Ok(rows) => rows,
-            Err(_) => return Err(DbOperationsError::GenericError),
-        };
-
-        let mut activities = Vec::new();
-
-        for activity in rows.into_iter() {
-            let activity = match activity {
-                Ok(activity) => activity,
-                Err(e) => {
-                    return Err(DbOperationsError::RecordError {
-                        sqlite_error: Some(e),
-                        strum_error: None,
-                    })
-                }
-            };
-            activities.push(activity);
-        }
-
-        Ok(activities)
-    }
-
     pub fn update(
         &mut self,
         conn: &Connection,
@@ -1027,9 +961,70 @@ impl DbOperations for Activity {
         }
     }
 
-    fn get_all(&self, conn: &Connection) -> Result<&Self, DbOperationsError> {
-        // TODO implement get all
-        todo!()
+    fn get_all(conn: &Connection) -> Result<Vec<Box<Self>>, DbOperationsError> {
+        let mut stmt = match conn.prepare("SELECT * FROM activities WHERE deleted = 0") {
+            Ok(stmt) => stmt,
+            Err(_) => return Err(DbOperationsError::GenericError),
+        };
+
+        let rows = match stmt.query_map([], |row| {
+            let activity_id = row.get(0)?;
+            let people =
+                match crate::db::db_helpers::get_people_by_activity(conn, activity_id, true) {
+                    Ok(people) => people,
+                    Err(e) => {
+                        let sqlite_error = match e {
+                            DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                            other => panic!("Unexpected error type: {:#?}", other),
+                        };
+                        return Err(sqlite_error);
+                    }
+                };
+            let activity_type = match ActivityType::get_by_id(conn, row.get(2)?) {
+                Ok(activity_type) => match activity_type {
+                    Some(activity_type) => activity_type,
+                    None => panic!("Activity type cannot be None"),
+                },
+                Err(e) => {
+                    let sqlite_error = match e {
+                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                        other => panic!("Unexpected error type: {:#?}", other),
+                    };
+                    return Err(sqlite_error);
+                }
+            };
+            Ok(Activity {
+                id: activity_id,
+                name: row.get(1)?,
+                activity_type,
+                date: crate::helpers::parse_from_str_ymd(
+                    row.get::<usize, String>(3).unwrap_or_default().as_str(),
+                )
+                .unwrap_or_default(),
+                content: row.get(4)?,
+                people,
+            })
+        }) {
+            Ok(rows) => rows,
+            Err(_) => return Err(DbOperationsError::GenericError),
+        };
+
+        let mut activities = Vec::new();
+
+        for activity in rows.into_iter() {
+            let activity = match activity {
+                Ok(activity) => activity,
+                Err(e) => {
+                    return Err(DbOperationsError::RecordError {
+                        sqlite_error: Some(e),
+                        strum_error: None,
+                    })
+                }
+            };
+            activities.push(Box::new(activity));
+        }
+
+        Ok(activities)
     }
 }
 
