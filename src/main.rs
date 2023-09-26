@@ -719,7 +719,7 @@ fn main() {
                     }
                 } else {
                     notes = match Note::get_all(&conn) {
-                        Ok(notes) => notes,
+                        Ok(notes) => notes.iter().map(|n| *n.to_owned()).collect::<Vec<_>>(),
                         Err(e) => {
                             eprintln!("Error while fetching notes: {:#?}", e);
                             exit(exitcode::DATAERR);

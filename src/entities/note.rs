@@ -130,56 +130,6 @@ impl Note {
         }
     }
 
-    pub fn get_all(conn: &Connection) -> Result<Vec<Note>, DbOperationsError> {
-        let mut stmt = match conn.prepare("SELECT * FROM notes WHERE deleted = 0") {
-            Ok(stmt) => stmt,
-            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
-        };
-
-        let rows = match stmt.query_map([], |row| {
-            let note_id = row.get(0)?;
-            let people = match crate::db::db_helpers::get_people_by_note(conn, note_id) {
-                Ok(people) => people,
-                Err(e) => {
-                    let sqlite_error = match e {
-                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
-                        other => panic!("Unexpected error type: {:#?}", other),
-                    };
-                    return Err(sqlite_error);
-                }
-            };
-            Ok(Note {
-                id: note_id,
-                date: crate::helpers::parse_from_str_ymd(
-                    row.get::<usize, String>(1).unwrap_or_default().as_str(),
-                )
-                .unwrap_or_default(),
-                content: row.get(2)?,
-                people,
-            })
-        }) {
-            Ok(rows) => rows,
-            Err(_) => return Err(DbOperationsError::QueryError),
-        };
-
-        let mut notes = Vec::new();
-
-        for note in rows.into_iter() {
-            let note = match note {
-                Ok(note) => note,
-                Err(e) => {
-                    return Err(DbOperationsError::RecordError {
-                        sqlite_error: Some(e),
-                        strum_error: None,
-                    })
-                }
-            };
-            notes.push(note);
-        }
-
-        Ok(notes)
-    }
-
     pub fn update(
         &mut self,
         conn: &Connection,
@@ -485,8 +435,53 @@ impl DbOperations for Note {
         }
     }
     fn get_all(conn: &Connection) -> Result<Vec<Box<Self>>, DbOperationsError> {
-        // TODO implement get all
-        todo!()
+        let mut stmt = match conn.prepare("SELECT * FROM notes WHERE deleted = 0") {
+            Ok(stmt) => stmt,
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
+        };
+
+        let rows = match stmt.query_map([], |row| {
+            let note_id = row.get(0)?;
+            let people = match crate::db::db_helpers::get_people_by_note(conn, note_id) {
+                Ok(people) => people,
+                Err(e) => {
+                    let sqlite_error = match e {
+                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                        other => panic!("Unexpected error type: {:#?}", other),
+                    };
+                    return Err(sqlite_error);
+                }
+            };
+            Ok(Note {
+                id: note_id,
+                date: crate::helpers::parse_from_str_ymd(
+                    row.get::<usize, String>(1).unwrap_or_default().as_str(),
+                )
+                .unwrap_or_default(),
+                content: row.get(2)?,
+                people,
+            })
+        }) {
+            Ok(rows) => rows,
+            Err(_) => return Err(DbOperationsError::QueryError),
+        };
+
+        let mut notes = Vec::new();
+
+        for note in rows.into_iter() {
+            let note = match note {
+                Ok(note) => note,
+                Err(e) => {
+                    return Err(DbOperationsError::RecordError {
+                        sqlite_error: Some(e),
+                        strum_error: None,
+                    })
+                }
+            };
+            notes.push(Box::new(note));
+        }
+
+        Ok(notes)
     }
 }
 
