@@ -634,7 +634,7 @@ fn main() {
                     }
                 } else {
                     people = match Person::get_all(&conn) {
-                        Ok(people) => people,
+                        Ok(people) => people.iter().map(|p| *p.to_owned()).collect(),
                         Err(e) => {
                             eprintln!("Error while fetching person: {:#?}", e);
                             exit(exitcode::DATAERR);

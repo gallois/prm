@@ -210,93 +210,6 @@ impl Person {
         Ok(people)
     }
 
-    pub fn get_all(conn: &Connection) -> Result<Vec<Person>, DbOperationsError> {
-        let mut stmt = match conn.prepare("SELECT * FROM people WHERE deleted = 0 COLLATE NOCASE") {
-            Ok(stmt) => stmt,
-            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
-        };
-
-        let rows = match stmt.query_map([], |row| {
-            let person_id = row.get(0)?;
-            let notes = match crate::db::db_helpers::get_notes_by_person(conn, person_id) {
-                Ok(notes) => notes,
-                Err(e) => {
-                    let sqlite_error = match e {
-                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
-                        other => panic!("Unexpected error type: {:#?}", other),
-                    };
-                    return Err(sqlite_error);
-                }
-            };
-            let reminders = match crate::db::db_helpers::get_reminders_by_person(conn, person_id) {
-                Ok(reminders) => reminders,
-                Err(e) => {
-                    let sqlite_error = match e {
-                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
-                        other => panic!("Unexpected error type: {:#?}", other),
-                    };
-                    return Err(sqlite_error);
-                }
-            };
-            let contact_info =
-                match crate::db::db_helpers::get_contact_info_by_person(conn, person_id) {
-                    Ok(contact_info) => contact_info,
-                    Err(e) => {
-                        let sqlite_error = match e {
-                            DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
-                            other => panic!("Unexpected error type: {:#?}", other),
-                        };
-                        return Err(sqlite_error);
-                    }
-                };
-            let activities = match crate::db::db_helpers::get_activities_by_person(conn, person_id)
-            {
-                Ok(activities) => activities,
-                Err(e) => {
-                    let sqlite_error = match e {
-                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
-                        other => panic!("Unexpected error type: {:#?}", other),
-                    };
-                    return Err(sqlite_error);
-                }
-            };
-            Ok(Person {
-                id: person_id,
-                name: row.get(1)?,
-                birthday: Some(
-                    crate::helpers::parse_from_str_ymd(
-                        row.get::<usize, String>(2).unwrap_or_default().as_str(),
-                    )
-                    .unwrap_or_default(),
-                ),
-                contact_info,
-                activities,
-                reminders,
-                notes,
-            })
-        }) {
-            Ok(rows) => rows,
-            Err(_) => return Err(DbOperationsError::QueryError),
-        };
-
-        let mut people = Vec::new();
-
-        for person in rows.into_iter() {
-            let person = match person {
-                Ok(person) => person,
-                Err(e) => {
-                    return Err(DbOperationsError::RecordError {
-                        sqlite_error: Some(e),
-                        strum_error: None,
-                    })
-                }
-            };
-            people.push(person);
-        }
-
-        Ok(people)
-    }
-
     // TODO might be a good idea to edit activities, reminders and notes vectors
     pub fn update(
         &mut self,
@@ -708,8 +621,90 @@ impl crate::db::db_interface::DbOperations for Person {
         }
     }
     fn get_all(conn: &Connection) -> Result<Vec<Box<Self>>, DbOperationsError> {
-        // TODO implement get all
-        todo!()
+        let mut stmt = match conn.prepare("SELECT * FROM people WHERE deleted = 0 COLLATE NOCASE") {
+            Ok(stmt) => stmt,
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
+        };
+
+        let rows = match stmt.query_map([], |row| {
+            let person_id = row.get(0)?;
+            let notes = match crate::db::db_helpers::get_notes_by_person(conn, person_id) {
+                Ok(notes) => notes,
+                Err(e) => {
+                    let sqlite_error = match e {
+                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                        other => panic!("Unexpected error type: {:#?}", other),
+                    };
+                    return Err(sqlite_error);
+                }
+            };
+            let reminders = match crate::db::db_helpers::get_reminders_by_person(conn, person_id) {
+                Ok(reminders) => reminders,
+                Err(e) => {
+                    let sqlite_error = match e {
+                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                        other => panic!("Unexpected error type: {:#?}", other),
+                    };
+                    return Err(sqlite_error);
+                }
+            };
+            let contact_info =
+                match crate::db::db_helpers::get_contact_info_by_person(conn, person_id) {
+                    Ok(contact_info) => contact_info,
+                    Err(e) => {
+                        let sqlite_error = match e {
+                            DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                            other => panic!("Unexpected error type: {:#?}", other),
+                        };
+                        return Err(sqlite_error);
+                    }
+                };
+            let activities = match crate::db::db_helpers::get_activities_by_person(conn, person_id)
+            {
+                Ok(activities) => activities,
+                Err(e) => {
+                    let sqlite_error = match e {
+                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                        other => panic!("Unexpected error type: {:#?}", other),
+                    };
+                    return Err(sqlite_error);
+                }
+            };
+            Ok(Person {
+                id: person_id,
+                name: row.get(1)?,
+                birthday: Some(
+                    crate::helpers::parse_from_str_ymd(
+                        row.get::<usize, String>(2).unwrap_or_default().as_str(),
+                    )
+                    .unwrap_or_default(),
+                ),
+                contact_info,
+                activities,
+                reminders,
+                notes,
+            })
+        }) {
+            Ok(rows) => rows,
+            Err(_) => return Err(DbOperationsError::QueryError),
+        };
+
+        let mut people = Vec::new();
+
+        for person in rows.into_iter() {
+            let person = match person {
+                Ok(person) => person,
+                Err(e) => {
+                    return Err(DbOperationsError::RecordError {
+                        sqlite_error: Some(e),
+                        strum_error: None,
+                    })
+                }
+            };
+            people.push(Box::new(person));
+        }
+
+        Ok(people)
     }
 }
 
@@ -747,7 +742,7 @@ impl fmt::Display for Person {
         for reminder in self.reminders.iter() {
             reminders_str.push_str("\n\t");
             reminders_str.push_str(format!("name: {}\n\t", reminder.name).as_ref());
-            reminders_str.push_str(format!("date: {}\n\t", reminder.date.to_string()).as_ref());
+            reminders_str.push_str(format!("date: {}\n\t", reminder.date).as_ref());
             if let Some(description) = reminder.clone().description {
                 reminders_str.push_str(format!("description: {}\n\t", description).as_ref());
             }
@@ -755,7 +750,7 @@ impl fmt::Display for Person {
         let mut notes_str = String::new();
         for note in self.notes.iter() {
             notes_str.push_str("\n\t");
-            notes_str.push_str(format!("date: {}\n\t", note.date.to_string()).as_ref());
+            notes_str.push_str(format!("date: {}\n\t", note.date).as_ref());
             notes_str.push_str(format!("content: {}\n\t", note.content).as_ref());
         }
         write!(
