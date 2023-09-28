@@ -694,7 +694,7 @@ fn main() {
                         }
                     }
                 } else {
-                    reminders = match Reminder::get_all(&conn, include_past) {
+                    reminders = match Reminder::get_all_filtered(&conn, include_past) {
                         Ok(reminders) => reminders,
                         Err(e) => {
                             eprintln!("Error while fetching reminders: {:#?}", e);
