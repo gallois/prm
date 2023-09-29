@@ -421,7 +421,6 @@ pub mod db_helpers {
         Ok(activities)
     }
 
-    // TODO remove duplication with similar functions
     pub fn get_people_by_reminder(
         conn: &Connection,
         reminder_id: u64,
@@ -560,7 +559,6 @@ pub mod db_helpers {
         Ok(activities)
     }
 
-    // TODO remove duplication with similar functions
     pub fn get_people_by_activity(
         conn: &Connection,
         activity_id: u64,

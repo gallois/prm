@@ -137,10 +137,21 @@ impl Event {
             }
         }
 
-        // TODO handle periodic events
-        let mut stmt = match conn
-            .prepare("SELECT * FROM reminders WHERE date BETWEEN ?1 AND ?2 AND deleted = 0")
-        {
+        let mut stmt = match conn.prepare(
+            "
+                SELECT
+                    *
+                FROM
+                    reminders
+                WHERE
+                    (
+                        date BETWEEN ?1 AND ?2
+                        OR
+                        recurring < 8
+                    )
+                AND deleted = 0
+                ",
+        ) {
             Ok(stmt) => stmt,
             Err(e) => {
                 return Err(EventError::DbError(DbOperationsError::InvalidStatement {
@@ -227,7 +238,7 @@ impl fmt::Display for Event {
             EventType::Reminder(reminder) => {
                 write!(
                     f,
-                    "name: {}\ndate: {}\nkind: {}\ndescription: {}\npeople: {}\n",
+                    "name: {}\ndate: {}\nkind: {}\ndescription: {}\npeople: {}\nrecurring: {}\n",
                     reminder.name,
                     &self.date.to_string(),
                     &self.kind,
@@ -241,6 +252,7 @@ impl fmt::Display for Event {
                         .map(|p| p.name.as_str())
                         .collect::<Vec<&str>>()
                         .join(", "),
+                    reminder.recurring.as_ref(),
                 )
             }
         }

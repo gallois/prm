@@ -302,7 +302,6 @@ impl Reminder {
         let mut reminders: Vec<Reminder> = vec![];
 
         if let Some(name) = name {
-            // FIXME this is almost a duplication of get_by_name(conn, name)
             reminders = Self::get_by_name(conn, &name, person.clone())?;
             return Ok(reminders);
         }
