@@ -342,7 +342,7 @@ fn main() {
                     eprintln!("No name or birthday provided");
                     exit(exitcode::DATAERR);
                 }
-                let people = match Person::get_by_name(&conn, name, birthday) {
+                let people = match Person::get_by_name_and_birthday(&conn, name, birthday) {
                     Ok(people) => people,
                     Err(e) => {
                         eprintln!("Error while fetching person: {:#?}", e);
@@ -488,7 +488,7 @@ fn main() {
         },
         Commands::Remove(remove) => match remove.entity {
             RemoveEntity::Person { name } => {
-                let mut people = match Person::get_by_name(&conn, Some(name), None) {
+                let mut people = match Person::get_by_name(&conn, name) {
                     Ok(people) => people,
                     Err(e) => {
                         eprintln!("Error while fetching person: {:#?}", e);
@@ -625,7 +625,7 @@ fn main() {
             ListEntity::People { name } => {
                 let people: Vec<Person>;
                 if let Some(name) = name {
-                    people = match Person::get_by_name(&conn, Some(name), None) {
+                    people = match Person::get_by_name(&conn, name) {
                         Ok(people) => people,
                         Err(e) => {
                             eprintln!("Error while fetching person: {:#?}", e);

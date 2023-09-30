@@ -117,7 +117,7 @@ impl Note {
     }
 
     fn get_by_person(conn: &Connection, person: String) -> Result<Vec<Note>, DbOperationsError> {
-        let person = Person::get_by_name(conn, Some(person), None);
+        let person = Person::get_by_name(conn, person);
         match person {
             Ok(person) => {
                 if person.len() > 1 {

@@ -418,7 +418,6 @@ impl Reminder {
             self.description = None;
         }
 
-        // TODO remove duplication between here and main.rs
         let recurring_type = match recurring {
             Some(recurring_type_str) => match recurring_type_str.as_str() {
                 "daily" => Some(RecurringType::Daily),
