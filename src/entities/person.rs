@@ -89,7 +89,7 @@ impl Person {
                                 })
                             }
                         };
-                        let notes = crate::db::db_helpers::get_notes_by_person(conn, person_id)?;
+                        let notes = crate::db::db_helpers::notes::get_by_person(conn, person_id)?;
                         let reminders =
                             crate::db::db_helpers::get_reminders_by_person(conn, person_id)?;
                         let contact_info =
@@ -192,7 +192,7 @@ impl Person {
                                 })
                             }
                         };
-                        let notes = crate::db::db_helpers::get_notes_by_person(conn, person_id)?;
+                        let notes = crate::db::db_helpers::notes::get_by_person(conn, person_id)?;
                         let reminders =
                             crate::db::db_helpers::get_reminders_by_person(conn, person_id)?;
                         let contact_info =
@@ -659,7 +659,7 @@ impl crate::db::db_interface::DbOperations for Person {
                             })
                         }
                     };
-                    let notes = crate::db::db_helpers::get_notes_by_person(conn, person_id)?;
+                    let notes = crate::db::db_helpers::notes::get_by_person(conn, person_id)?;
                     let reminders =
                         crate::db::db_helpers::get_reminders_by_person(conn, person_id)?;
                     let contact_info =
@@ -697,7 +697,7 @@ impl crate::db::db_interface::DbOperations for Person {
 
         let rows = match stmt.query_map([], |row| {
             let person_id = row.get(0)?;
-            let notes = match crate::db::db_helpers::get_notes_by_person(conn, person_id) {
+            let notes = match crate::db::db_helpers::notes::get_by_person(conn, person_id) {
                 Ok(notes) => notes,
                 Err(e) => {
                     let sqlite_error = match e {

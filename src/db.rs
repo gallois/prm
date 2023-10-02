@@ -39,12 +39,17 @@ pub mod db_helpers {
     use crate::entities::person::ContactInfoType;
     use crate::entities::reminder::RecurringType;
 
-    pub fn get_notes_by_person(
-        conn: &Connection,
-        person_id: u64,
-    ) -> Result<Vec<crate::entities::note::Note>, DbOperationsError> {
-        let mut stmt = match conn.prepare(
-            "SELECT
+    pub mod notes {
+        use rusqlite::{params, params_from_iter, Connection};
+
+        use crate::db_interface::DbOperationsError;
+
+        pub fn get_by_person(
+            conn: &Connection,
+            person_id: u64,
+        ) -> Result<Vec<crate::entities::note::Note>, DbOperationsError> {
+            let mut stmt = match conn.prepare(
+                "SELECT
             *
         FROM
             people_notes
@@ -52,80 +57,81 @@ pub mod db_helpers {
             person_id = ?
             AND deleted = 0
         ",
-        ) {
-            Ok(stmt) => stmt,
-            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
-        };
+            ) {
+                Ok(stmt) => stmt,
+                Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
+            };
 
-        let mut rows = match stmt.query(params![person_id]) {
-            Ok(rows) => rows,
-            Err(_) => return Err(DbOperationsError::QueryError),
-        };
-        let mut note_ids: Vec<u64> = vec![];
-        loop {
-            match rows.next() {
-                Ok(row) => match row {
-                    Some(row) => match row.get(0) {
-                        Ok(row) => note_ids.push(row),
-                        Err(e) => {
-                            return Err(DbOperationsError::RecordError {
-                                sqlite_error: Some(e),
-                                strum_error: None,
-                            })
-                        }
+            let mut rows = match stmt.query(params![person_id]) {
+                Ok(rows) => rows,
+                Err(_) => return Err(DbOperationsError::QueryError),
+            };
+            let mut note_ids: Vec<u64> = vec![];
+            loop {
+                match rows.next() {
+                    Ok(row) => match row {
+                        Some(row) => match row.get(0) {
+                            Ok(row) => note_ids.push(row),
+                            Err(e) => {
+                                return Err(DbOperationsError::RecordError {
+                                    sqlite_error: Some(e),
+                                    strum_error: None,
+                                })
+                            }
+                        },
+                        None => break,
                     },
-                    None => break,
-                },
-                Err(e) => {
-                    return Err(DbOperationsError::RecordError {
-                        sqlite_error: Some(e),
-                        strum_error: None,
-                    })
+                    Err(e) => {
+                        return Err(DbOperationsError::RecordError {
+                            sqlite_error: Some(e),
+                            strum_error: None,
+                        })
+                    }
                 }
             }
-        }
 
-        if note_ids.is_empty() {
-            return Ok(vec![]);
-        }
+            if note_ids.is_empty() {
+                return Ok(vec![]);
+            }
 
-        let vars = crate::helpers::repeat_vars(note_ids.len());
-        let sql = format!("SELECT * FROM notes WHERE id IN ({}) AND deleted = 0", vars);
-        let mut stmt = match conn.prepare(&sql) {
-            Ok(stmt) => stmt,
-            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
-        };
-
-        let rows = match stmt.query_map(params_from_iter(note_ids.iter()), |row| {
-            Ok(crate::entities::note::Note::new(
-                row.get(0)?,
-                crate::helpers::parse_from_str_ymd(
-                    row.get::<usize, String>(1).unwrap_or_default().as_str(),
-                )
-                .unwrap_or_default(),
-                row.get(2)?,
-                vec![],
-            ))
-        }) {
-            Ok(rows) => rows,
-            Err(_) => return Err(DbOperationsError::QueryError),
-        };
-
-        let mut notes = vec![];
-        for note in rows {
-            let note = match note {
-                Ok(note) => note,
-                Err(e) => {
-                    return Err(DbOperationsError::RecordError {
-                        sqlite_error: Some(e),
-                        strum_error: None,
-                    })
-                }
+            let vars = crate::helpers::repeat_vars(note_ids.len());
+            let sql = format!("SELECT * FROM notes WHERE id IN ({}) AND deleted = 0", vars);
+            let mut stmt = match conn.prepare(&sql) {
+                Ok(stmt) => stmt,
+                Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
             };
-            notes.push(note);
-        }
 
-        Ok(notes)
+            let rows = match stmt.query_map(params_from_iter(note_ids.iter()), |row| {
+                Ok(crate::entities::note::Note::new(
+                    row.get(0)?,
+                    crate::helpers::parse_from_str_ymd(
+                        row.get::<usize, String>(1).unwrap_or_default().as_str(),
+                    )
+                    .unwrap_or_default(),
+                    row.get(2)?,
+                    vec![],
+                ))
+            }) {
+                Ok(rows) => rows,
+                Err(_) => return Err(DbOperationsError::QueryError),
+            };
+
+            let mut notes = vec![];
+            for note in rows {
+                let note = match note {
+                    Ok(note) => note,
+                    Err(e) => {
+                        return Err(DbOperationsError::RecordError {
+                            sqlite_error: Some(e),
+                            strum_error: None,
+                        })
+                    }
+                };
+                notes.push(note);
+            }
+
+            Ok(notes)
+        }
     }
 
     pub fn get_reminders_by_person(
@@ -483,7 +489,7 @@ pub mod db_helpers {
 
         let rows = match stmt.query_map(params_from_iter(people_ids.iter()), |row| {
             let person_id = row.get(0)?;
-            let notes = match get_notes_by_person(conn, person_id) {
+            let notes = match notes::get_by_person(conn, person_id) {
                 Ok(notes) => notes,
                 Err(e) => {
                     let sqlite_error = match e {
@@ -622,7 +628,7 @@ pub mod db_helpers {
 
         let rows = match stmt.query_map(params_from_iter(people_ids.iter()), |row| {
             let person_id = row.get(0)?;
-            let notes = match get_notes_by_person(conn, person_id) {
+            let notes = match notes::get_by_person(conn, person_id) {
                 Ok(notes) => notes,
                 Err(e) => {
                     let sqlite_error = match e {
@@ -763,7 +769,7 @@ pub mod db_helpers {
 
         let rows = match stmt.query_map(params_from_iter(people_ids.iter()), |row| {
             let person_id = row.get(0)?;
-            let notes = match get_notes_by_person(conn, person_id) {
+            let notes = match notes::get_by_person(conn, person_id) {
                 Ok(notes) => notes,
                 Err(e) => {
                     let sqlite_error = match e {

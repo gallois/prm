@@ -63,7 +63,7 @@ impl Event {
 
         let rows = match stmt.query_map(params![days], |row| {
             let person_id = row.get(0)?;
-            let notes = match crate::db::db_helpers::get_notes_by_person(conn, person_id) {
+            let notes = match crate::db::db_helpers::notes::get_by_person(conn, person_id) {
                 Ok(notes) => notes,
                 Err(e) => {
                     let sqlite_error = match e {
