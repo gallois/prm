@@ -91,7 +91,7 @@ impl Person {
                         };
                         let notes = crate::db::db_helpers::notes::get_by_person(conn, person_id)?;
                         let reminders =
-                            crate::db::db_helpers::get_reminders_by_person(conn, person_id)?;
+                            crate::db::db_helpers::reminders::get_by_person(conn, person_id)?;
                         let contact_info =
                             crate::db::db_helpers::get_contact_info_by_person(conn, person_id)?;
                         let activities =
@@ -194,7 +194,7 @@ impl Person {
                         };
                         let notes = crate::db::db_helpers::notes::get_by_person(conn, person_id)?;
                         let reminders =
-                            crate::db::db_helpers::get_reminders_by_person(conn, person_id)?;
+                            crate::db::db_helpers::reminders::get_by_person(conn, person_id)?;
                         let contact_info =
                             crate::db::db_helpers::get_contact_info_by_person(conn, person_id)?;
                         let activities =
@@ -661,7 +661,7 @@ impl crate::db::db_interface::DbOperations for Person {
                     };
                     let notes = crate::db::db_helpers::notes::get_by_person(conn, person_id)?;
                     let reminders =
-                        crate::db::db_helpers::get_reminders_by_person(conn, person_id)?;
+                        crate::db::db_helpers::reminders::get_by_person(conn, person_id)?;
                     let contact_info =
                         crate::db::db_helpers::get_contact_info_by_person(conn, person_id)?;
                     let activities =
@@ -707,7 +707,7 @@ impl crate::db::db_interface::DbOperations for Person {
                     return Err(sqlite_error);
                 }
             };
-            let reminders = match crate::db::db_helpers::get_reminders_by_person(conn, person_id) {
+            let reminders = match crate::db::db_helpers::reminders::get_by_person(conn, person_id) {
                 Ok(reminders) => reminders,
                 Err(e) => {
                     let sqlite_error = match e {

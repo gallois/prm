@@ -37,7 +37,6 @@ pub mod db_helpers {
     use crate::db::{params, params_from_iter, Connection};
     use crate::db_interface::DbOperationsError;
     use crate::entities::person::ContactInfoType;
-    use crate::entities::reminder::RecurringType;
 
     pub mod notes {
         use rusqlite::{params, params_from_iter, Connection};
@@ -134,12 +133,17 @@ pub mod db_helpers {
         }
     }
 
-    pub fn get_reminders_by_person(
-        conn: &Connection,
-        person_id: u64,
-    ) -> Result<Vec<crate::entities::reminder::Reminder>, DbOperationsError> {
-        let mut stmt = match conn.prepare(
-            "SELECT
+    pub mod reminders {
+        use rusqlite::{params, params_from_iter, Connection};
+
+        use crate::{db_interface::DbOperationsError, entities::reminder::RecurringType};
+
+        pub fn get_by_person(
+            conn: &Connection,
+            person_id: u64,
+        ) -> Result<Vec<crate::entities::reminder::Reminder>, DbOperationsError> {
+            let mut stmt = match conn.prepare(
+                "SELECT
             reminder_id
         FROM
             people_reminders
@@ -147,98 +151,99 @@ pub mod db_helpers {
             person_id = ?
             AND deleted = 0
         ",
-        ) {
-            Ok(stmt) => stmt,
-            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
-        };
+            ) {
+                Ok(stmt) => stmt,
+                Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
+            };
 
-        let mut rows = match stmt.query(params![person_id]) {
-            Ok(rows) => rows,
-            Err(_) => return Err(DbOperationsError::QueryError),
-        };
-        let mut reminder_ids: Vec<u64> = vec![];
-        loop {
-            match rows.next() {
-                Ok(row) => match row {
-                    Some(row) => match row.get(0) {
-                        Ok(row) => reminder_ids.push(row),
-                        Err(e) => {
-                            return Err(DbOperationsError::RecordError {
-                                sqlite_error: Some(e),
-                                strum_error: None,
-                            })
-                        }
+            let mut rows = match stmt.query(params![person_id]) {
+                Ok(rows) => rows,
+                Err(_) => return Err(DbOperationsError::QueryError),
+            };
+            let mut reminder_ids: Vec<u64> = vec![];
+            loop {
+                match rows.next() {
+                    Ok(row) => match row {
+                        Some(row) => match row.get(0) {
+                            Ok(row) => reminder_ids.push(row),
+                            Err(e) => {
+                                return Err(DbOperationsError::RecordError {
+                                    sqlite_error: Some(e),
+                                    strum_error: None,
+                                })
+                            }
+                        },
+                        None => break,
                     },
-                    None => break,
-                },
-                Err(e) => {
-                    return Err(DbOperationsError::RecordError {
-                        sqlite_error: Some(e),
-                        strum_error: None,
-                    })
+                    Err(e) => {
+                        return Err(DbOperationsError::RecordError {
+                            sqlite_error: Some(e),
+                            strum_error: None,
+                        })
+                    }
                 }
             }
-        }
 
-        if reminder_ids.is_empty() {
-            return Ok(vec![]);
-        }
+            if reminder_ids.is_empty() {
+                return Ok(vec![]);
+            }
 
-        let vars = crate::helpers::repeat_vars(reminder_ids.len());
-        let sql = format!(
-            "SELECT * FROM reminders WHERE id IN ({}) AND deleted = FALSE",
-            vars
-        );
-        let mut stmt = match conn.prepare(&sql) {
-            Ok(stmt) => stmt,
-            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
-        };
-
-        let rows = match stmt.query_map(params_from_iter(reminder_ids.iter()), |row| {
-            let recurring_type = match RecurringType::get_by_id(conn, row.get(4)?) {
-                Ok(recurring_type) => match recurring_type {
-                    Some(recurring_type) => recurring_type,
-                    None => panic!("Recurring Type cannot be None"),
-                },
-                Err(e) => {
-                    let sqlite_error = match e {
-                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
-                        other => panic!("Unexpected error type: {:#?}", other),
-                    };
-                    return Err(sqlite_error);
-                }
+            let vars = crate::helpers::repeat_vars(reminder_ids.len());
+            let sql = format!(
+                "SELECT * FROM reminders WHERE id IN ({}) AND deleted = FALSE",
+                vars
+            );
+            let mut stmt = match conn.prepare(&sql) {
+                Ok(stmt) => stmt,
+                Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
             };
-            Ok(crate::entities::reminder::Reminder::new(
-                row.get(0)?,
-                row.get(1)?,
-                crate::helpers::parse_from_str_ymd(
-                    row.get::<usize, String>(2).unwrap_or_default().as_str(),
-                )
-                .unwrap_or_default(),
-                row.get(3)?,
-                recurring_type,
-                vec![],
-            ))
-        }) {
-            Ok(rows) => rows,
-            Err(_) => return Err(DbOperationsError::QueryError),
-        };
 
-        let mut reminders = vec![];
-        for reminder in rows {
-            let reminder = match reminder {
-                Ok(reminder) => reminder,
-                Err(e) => {
-                    return Err(DbOperationsError::RecordError {
-                        sqlite_error: Some(e),
-                        strum_error: None,
-                    })
-                }
+            let rows = match stmt.query_map(params_from_iter(reminder_ids.iter()), |row| {
+                let recurring_type = match RecurringType::get_by_id(conn, row.get(4)?) {
+                    Ok(recurring_type) => match recurring_type {
+                        Some(recurring_type) => recurring_type,
+                        None => panic!("Recurring Type cannot be None"),
+                    },
+                    Err(e) => {
+                        let sqlite_error = match e {
+                            DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                            other => panic!("Unexpected error type: {:#?}", other),
+                        };
+                        return Err(sqlite_error);
+                    }
+                };
+                Ok(crate::entities::reminder::Reminder::new(
+                    row.get(0)?,
+                    row.get(1)?,
+                    crate::helpers::parse_from_str_ymd(
+                        row.get::<usize, String>(2).unwrap_or_default().as_str(),
+                    )
+                    .unwrap_or_default(),
+                    row.get(3)?,
+                    recurring_type,
+                    vec![],
+                ))
+            }) {
+                Ok(rows) => rows,
+                Err(_) => return Err(DbOperationsError::QueryError),
             };
-            reminders.push(reminder);
-        }
 
-        Ok(reminders)
+            let mut reminders = vec![];
+            for reminder in rows {
+                let reminder = match reminder {
+                    Ok(reminder) => reminder,
+                    Err(e) => {
+                        return Err(DbOperationsError::RecordError {
+                            sqlite_error: Some(e),
+                            strum_error: None,
+                        })
+                    }
+                };
+                reminders.push(reminder);
+            }
+
+            Ok(reminders)
+        }
     }
 
     pub fn get_contact_info_by_person(
@@ -499,7 +504,7 @@ pub mod db_helpers {
                     return Err(sqlite_error);
                 }
             };
-            let reminders = match get_reminders_by_person(conn, person_id) {
+            let reminders = match reminders::get_by_person(conn, person_id) {
                 Ok(reminders) => reminders,
                 Err(e) => {
                     let sqlite_error = match e {
@@ -638,7 +643,7 @@ pub mod db_helpers {
                     return Err(sqlite_error);
                 }
             };
-            let reminders = match get_reminders_by_person(conn, person_id) {
+            let reminders = match reminders::get_by_person(conn, person_id) {
                 Ok(reminders) => reminders,
                 Err(e) => {
                     let sqlite_error = match e {
@@ -779,7 +784,7 @@ pub mod db_helpers {
                     return Err(sqlite_error);
                 }
             };
-            let reminders = match get_reminders_by_person(conn, person_id) {
+            let reminders = match reminders::get_by_person(conn, person_id) {
                 Ok(reminders) => reminders,
                 Err(e) => {
                     let sqlite_error = match e {

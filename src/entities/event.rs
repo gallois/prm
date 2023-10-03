@@ -73,7 +73,7 @@ impl Event {
                     return Err(sqlite_error);
                 }
             };
-            let reminders = match crate::db::db_helpers::get_reminders_by_person(conn, person_id) {
+            let reminders = match crate::db::db_helpers::reminders::get_by_person(conn, person_id) {
                 Ok(reminders) => reminders,
                 Err(e) => {
                     let sqlite_error = match e {
