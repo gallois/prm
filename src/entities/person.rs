@@ -93,7 +93,7 @@ impl Person {
                         let reminders =
                             crate::db::db_helpers::reminders::get_by_person(conn, person_id)?;
                         let contact_info =
-                            crate::db::db_helpers::get_contact_info_by_person(conn, person_id)?;
+                            crate::db::db_helpers::contact_info::get_by_person(conn, person_id)?;
                         let activities =
                             crate::db::db_helpers::get_activities_by_person(conn, person_id)?;
 
@@ -196,7 +196,7 @@ impl Person {
                         let reminders =
                             crate::db::db_helpers::reminders::get_by_person(conn, person_id)?;
                         let contact_info =
-                            crate::db::db_helpers::get_contact_info_by_person(conn, person_id)?;
+                            crate::db::db_helpers::contact_info::get_by_person(conn, person_id)?;
                         let activities =
                             crate::db::db_helpers::get_activities_by_person(conn, person_id)?;
 
@@ -663,7 +663,7 @@ impl crate::db::db_interface::DbOperations for Person {
                     let reminders =
                         crate::db::db_helpers::reminders::get_by_person(conn, person_id)?;
                     let contact_info =
-                        crate::db::db_helpers::get_contact_info_by_person(conn, person_id)?;
+                        crate::db::db_helpers::contact_info::get_by_person(conn, person_id)?;
                     let activities =
                         crate::db::db_helpers::get_activities_by_person(conn, person_id)?;
                     Ok(Some(Entities::Person(Person {
@@ -718,7 +718,7 @@ impl crate::db::db_interface::DbOperations for Person {
                 }
             };
             let contact_info =
-                match crate::db::db_helpers::get_contact_info_by_person(conn, person_id) {
+                match crate::db::db_helpers::contact_info::get_by_person(conn, person_id) {
                     Ok(contact_info) => contact_info,
                     Err(e) => {
                         let sqlite_error = match e {

@@ -36,7 +36,6 @@ pub mod db_interface {
 pub mod db_helpers {
     use crate::db::{params, params_from_iter, Connection};
     use crate::db_interface::DbOperationsError;
-    use crate::entities::person::ContactInfoType;
 
     pub mod notes {
         use rusqlite::{params, params_from_iter, Connection};
@@ -246,12 +245,17 @@ pub mod db_helpers {
         }
     }
 
-    pub fn get_contact_info_by_person(
-        conn: &Connection,
-        person_id: u64,
-    ) -> Result<Vec<crate::entities::person::ContactInfo>, DbOperationsError> {
-        let mut stmt = match conn.prepare(
-            "SELECT 
+    pub mod contact_info {
+        use rusqlite::{params, Connection};
+
+        use crate::{db_interface::DbOperationsError, entities::person::ContactInfoType};
+
+        pub fn get_by_person(
+            conn: &Connection,
+            person_id: u64,
+        ) -> Result<Vec<crate::entities::person::ContactInfo>, DbOperationsError> {
+            let mut stmt = match conn.prepare(
+                "SELECT 
                 * 
             FROM
                 contact_info
@@ -259,58 +263,59 @@ pub mod db_helpers {
                 person_id = ?
                 AND deleted = FALSE
             ",
-        ) {
-            Ok(stmt) => stmt,
-            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
-        };
-
-        let mut contact_info_vec: Vec<crate::entities::person::ContactInfo> = vec![];
-        let rows = match stmt.query_map(params![person_id], |row| {
-            let contact_info_type = match ContactInfoType::get_by_id(conn, row.get(2)?) {
-                Ok(contact_info_type) => match contact_info_type {
-                    Some(contact_info_type) => contact_info_type,
-                    None => panic!("Contact Info Type cannot be None"),
-                },
-                Err(e) => {
-                    let sqlite_error = match e {
-                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
-                        other => panic!("Unexpected error type: {:#?}", other),
-                    };
-                    return Err(sqlite_error);
-                }
+            ) {
+                Ok(stmt) => stmt,
+                Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
             };
 
-            let contact_info_details: String = row.get(3)?;
-            let contact_info = match contact_info_type {
-                ContactInfoType::Phone(_) => ContactInfoType::Phone(contact_info_details),
-                ContactInfoType::WhatsApp(_) => ContactInfoType::WhatsApp(contact_info_details),
-                ContactInfoType::Email(_) => ContactInfoType::Email(contact_info_details),
+            let mut contact_info_vec: Vec<crate::entities::person::ContactInfo> = vec![];
+            let rows = match stmt.query_map(params![person_id], |row| {
+                let contact_info_type = match ContactInfoType::get_by_id(conn, row.get(2)?) {
+                    Ok(contact_info_type) => match contact_info_type {
+                        Some(contact_info_type) => contact_info_type,
+                        None => panic!("Contact Info Type cannot be None"),
+                    },
+                    Err(e) => {
+                        let sqlite_error = match e {
+                            DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                            other => panic!("Unexpected error type: {:#?}", other),
+                        };
+                        return Err(sqlite_error);
+                    }
+                };
+
+                let contact_info_details: String = row.get(3)?;
+                let contact_info = match contact_info_type {
+                    ContactInfoType::Phone(_) => ContactInfoType::Phone(contact_info_details),
+                    ContactInfoType::WhatsApp(_) => ContactInfoType::WhatsApp(contact_info_details),
+                    ContactInfoType::Email(_) => ContactInfoType::Email(contact_info_details),
+                };
+
+                Ok(crate::entities::person::ContactInfo::new(
+                    row.get(0)?,
+                    row.get(1)?,
+                    contact_info,
+                ))
+            }) {
+                Ok(rows) => rows,
+                Err(_) => return Err(DbOperationsError::QueryError),
             };
 
-            Ok(crate::entities::person::ContactInfo::new(
-                row.get(0)?,
-                row.get(1)?,
-                contact_info,
-            ))
-        }) {
-            Ok(rows) => rows,
-            Err(_) => return Err(DbOperationsError::QueryError),
-        };
+            for contact_info in rows {
+                let contact_info = match contact_info {
+                    Ok(contact_info) => contact_info,
+                    Err(e) => {
+                        return Err(DbOperationsError::RecordError {
+                            sqlite_error: Some(e),
+                            strum_error: None,
+                        })
+                    }
+                };
+                contact_info_vec.push(contact_info);
+            }
 
-        for contact_info in rows {
-            let contact_info = match contact_info {
-                Ok(contact_info) => contact_info,
-                Err(e) => {
-                    return Err(DbOperationsError::RecordError {
-                        sqlite_error: Some(e),
-                        strum_error: None,
-                    })
-                }
-            };
-            contact_info_vec.push(contact_info);
+            Ok(contact_info_vec)
         }
-
-        Ok(contact_info_vec)
     }
 
     pub fn get_activities_by_person(
@@ -514,7 +519,7 @@ pub mod db_helpers {
                     return Err(sqlite_error);
                 }
             };
-            let contact_info = match get_contact_info_by_person(conn, person_id) {
+            let contact_info = match contact_info::get_by_person(conn, person_id) {
                 Ok(contact_info) => contact_info,
                 Err(e) => {
                     let sqlite_error = match e {
@@ -653,7 +658,7 @@ pub mod db_helpers {
                     return Err(sqlite_error);
                 }
             };
-            let contact_info = match get_contact_info_by_person(conn, person_id) {
+            let contact_info = match contact_info::get_by_person(conn, person_id) {
                 Ok(contact_info) => contact_info,
                 Err(e) => {
                     let sqlite_error = match e {
@@ -794,7 +799,7 @@ pub mod db_helpers {
                     return Err(sqlite_error);
                 }
             };
-            let contact_info = match get_contact_info_by_person(conn, person_id) {
+            let contact_info = match contact_info::get_by_person(conn, person_id) {
                 Ok(contact_info) => contact_info,
                 Err(e) => {
                     let sqlite_error = match e {

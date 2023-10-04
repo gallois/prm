@@ -84,7 +84,7 @@ impl Event {
                 }
             };
             let contact_info =
-                match crate::db::db_helpers::get_contact_info_by_person(conn, person_id) {
+                match crate::db::db_helpers::contact_info::get_by_person(conn, person_id) {
                     Ok(contact_info) => contact_info,
                     Err(e) => {
                         let sqlite_error = match e {
