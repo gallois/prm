@@ -95,7 +95,7 @@ impl Person {
                         let contact_info =
                             crate::db::db_helpers::contact_info::get_by_person(conn, person_id)?;
                         let activities =
-                            crate::db::db_helpers::get_activities_by_person(conn, person_id)?;
+                            crate::db::db_helpers::activities::get_by_person(conn, person_id)?;
 
                         people.push(Person {
                             id: person_id,
@@ -198,7 +198,7 @@ impl Person {
                         let contact_info =
                             crate::db::db_helpers::contact_info::get_by_person(conn, person_id)?;
                         let activities =
-                            crate::db::db_helpers::get_activities_by_person(conn, person_id)?;
+                            crate::db::db_helpers::activities::get_by_person(conn, person_id)?;
 
                         people.push(Person {
                             id: person_id,
@@ -665,7 +665,7 @@ impl crate::db::db_interface::DbOperations for Person {
                     let contact_info =
                         crate::db::db_helpers::contact_info::get_by_person(conn, person_id)?;
                     let activities =
-                        crate::db::db_helpers::get_activities_by_person(conn, person_id)?;
+                        crate::db::db_helpers::activities::get_by_person(conn, person_id)?;
                     Ok(Some(Entities::Person(Person {
                         id: person_id,
                         name,
@@ -728,7 +728,7 @@ impl crate::db::db_interface::DbOperations for Person {
                         return Err(sqlite_error);
                     }
                 };
-            let activities = match crate::db::db_helpers::get_activities_by_person(conn, person_id)
+            let activities = match crate::db::db_helpers::activities::get_by_person(conn, person_id)
             {
                 Ok(activities) => activities,
                 Err(e) => {

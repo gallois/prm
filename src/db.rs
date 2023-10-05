@@ -318,12 +318,17 @@ pub mod db_helpers {
         }
     }
 
-    pub fn get_activities_by_person(
-        conn: &Connection,
-        person_id: u64,
-    ) -> Result<Vec<crate::entities::activity::Activity>, DbOperationsError> {
-        let mut stmt = match conn.prepare(
-            "SELECT 
+    pub mod activities {
+        use rusqlite::{params, params_from_iter, Connection};
+
+        use crate::db_interface::DbOperationsError;
+
+        pub fn get_by_person(
+            conn: &Connection,
+            person_id: u64,
+        ) -> Result<Vec<crate::entities::activity::Activity>, DbOperationsError> {
+            let mut stmt = match conn.prepare(
+                "SELECT 
                 activity_id 
             FROM
                 people_activities
@@ -331,71 +336,57 @@ pub mod db_helpers {
                 person_id = ?
                 AND deleted = 0
             ",
-        ) {
-            Ok(stmt) => stmt,
-            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
-        };
+            ) {
+                Ok(stmt) => stmt,
+                Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
+            };
 
-        let mut rows = match stmt.query(params![person_id]) {
-            Ok(rows) => rows,
-            Err(_) => return Err(DbOperationsError::QueryError),
-        };
-        let mut activity_ids: Vec<u64> = vec![];
-        loop {
-            match rows.next() {
-                Ok(row) => match row {
-                    Some(row) => match row.get(0) {
-                        Ok(row) => activity_ids.push(row),
-                        Err(e) => {
-                            return Err(DbOperationsError::RecordError {
-                                sqlite_error: Some(e),
-                                strum_error: None,
-                            })
-                        }
+            let mut rows = match stmt.query(params![person_id]) {
+                Ok(rows) => rows,
+                Err(_) => return Err(DbOperationsError::QueryError),
+            };
+            let mut activity_ids: Vec<u64> = vec![];
+            loop {
+                match rows.next() {
+                    Ok(row) => match row {
+                        Some(row) => match row.get(0) {
+                            Ok(row) => activity_ids.push(row),
+                            Err(e) => {
+                                return Err(DbOperationsError::RecordError {
+                                    sqlite_error: Some(e),
+                                    strum_error: None,
+                                })
+                            }
+                        },
+                        None => break,
                     },
-                    None => break,
-                },
-                Err(e) => {
-                    return Err(DbOperationsError::RecordError {
-                        sqlite_error: Some(e),
-                        strum_error: None,
-                    })
+                    Err(e) => {
+                        return Err(DbOperationsError::RecordError {
+                            sqlite_error: Some(e),
+                            strum_error: None,
+                        })
+                    }
                 }
             }
-        }
 
-        if activity_ids.is_empty() {
-            return Ok(vec![]);
-        }
+            if activity_ids.is_empty() {
+                return Ok(vec![]);
+            }
 
-        let vars = crate::helpers::repeat_vars(activity_ids.len());
-        let sql = format!(
-            "SELECT * FROM activities WHERE id IN ({}) AND deleted = 0",
-            vars
-        );
-        let mut stmt = match conn.prepare(&sql) {
-            Ok(stmt) => stmt,
-            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
-        };
-
-        let rows = match stmt.query_map(params_from_iter(activity_ids.iter()), |row| {
-            let activity_id = row.get(0)?;
-            let people = match get_people_by_activity(conn, activity_id, false) {
-                Ok(people) => people,
-                Err(e) => {
-                    let sqlite_error = match e {
-                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
-                        other => panic!("Unexpected error type: {:#?}", other),
-                    };
-                    return Err(sqlite_error);
-                }
+            let vars = crate::helpers::repeat_vars(activity_ids.len());
+            let sql = format!(
+                "SELECT * FROM activities WHERE id IN ({}) AND deleted = 0",
+                vars
+            );
+            let mut stmt = match conn.prepare(&sql) {
+                Ok(stmt) => stmt,
+                Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
             };
-            let activity_type =
-                match crate::entities::activity::ActivityType::get_by_id(conn, row.get(2)?) {
-                    Ok(activity_type) => match activity_type {
-                        Some(activity_type) => activity_type,
-                        None => panic!("Activity type cannot be None"),
-                    },
+
+            let rows = match stmt.query_map(params_from_iter(activity_ids.iter()), |row| {
+                let activity_id = row.get(0)?;
+                let people = match super::get_people_by_activity(conn, activity_id, false) {
+                    Ok(people) => people,
                     Err(e) => {
                         let sqlite_error = match e {
                             DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
@@ -404,37 +395,54 @@ pub mod db_helpers {
                         return Err(sqlite_error);
                     }
                 };
-            Ok(crate::entities::activity::Activity::new(
-                activity_id,
-                row.get(1)?,
-                activity_type,
-                crate::helpers::parse_from_str_ymd(
-                    row.get::<usize, String>(3).unwrap_or_default().as_str(),
-                )
-                .unwrap_or_default(),
-                row.get(4)?,
-                people,
-            ))
-        }) {
-            Ok(rows) => rows,
-            Err(_) => return Err(DbOperationsError::QueryError),
-        };
-
-        let mut activities = vec![];
-        for activity in rows {
-            let activity = match activity {
-                Ok(activity) => activity,
-                Err(e) => {
-                    return Err(DbOperationsError::RecordError {
-                        sqlite_error: Some(e),
-                        strum_error: None,
-                    })
-                }
+                let activity_type =
+                    match crate::entities::activity::ActivityType::get_by_id(conn, row.get(2)?) {
+                        Ok(activity_type) => match activity_type {
+                            Some(activity_type) => activity_type,
+                            None => panic!("Activity type cannot be None"),
+                        },
+                        Err(e) => {
+                            let sqlite_error = match e {
+                                DbOperationsError::InvalidStatement { sqlite_error } => {
+                                    sqlite_error
+                                }
+                                other => panic!("Unexpected error type: {:#?}", other),
+                            };
+                            return Err(sqlite_error);
+                        }
+                    };
+                Ok(crate::entities::activity::Activity::new(
+                    activity_id,
+                    row.get(1)?,
+                    activity_type,
+                    crate::helpers::parse_from_str_ymd(
+                        row.get::<usize, String>(3).unwrap_or_default().as_str(),
+                    )
+                    .unwrap_or_default(),
+                    row.get(4)?,
+                    people,
+                ))
+            }) {
+                Ok(rows) => rows,
+                Err(_) => return Err(DbOperationsError::QueryError),
             };
-            activities.push(activity);
-        }
 
-        Ok(activities)
+            let mut activities = vec![];
+            for activity in rows {
+                let activity = match activity {
+                    Ok(activity) => activity,
+                    Err(e) => {
+                        return Err(DbOperationsError::RecordError {
+                            sqlite_error: Some(e),
+                            strum_error: None,
+                        })
+                    }
+                };
+                activities.push(activity);
+            }
+
+            Ok(activities)
+        }
     }
 
     pub fn get_people_by_reminder(
@@ -529,7 +537,7 @@ pub mod db_helpers {
                     return Err(sqlite_error);
                 }
             };
-            let activities = match get_activities_by_person(conn, person_id) {
+            let activities = match activities::get_by_person(conn, person_id) {
                 Ok(activities) => activities,
                 Err(e) => {
                     let sqlite_error = match e {
@@ -670,7 +678,7 @@ pub mod db_helpers {
             };
             let mut activities: Vec<crate::entities::activity::Activity> = vec![];
             if recurse {
-                activities = match get_activities_by_person(conn, person_id) {
+                activities = match activities::get_by_person(conn, person_id) {
                     Ok(activities) => activities,
                     Err(e) => {
                         let sqlite_error = match e {
@@ -809,7 +817,7 @@ pub mod db_helpers {
                     return Err(sqlite_error);
                 }
             };
-            let activities = match get_activities_by_person(conn, person_id) {
+            let activities = match activities::get_by_person(conn, person_id) {
                 Ok(activities) => activities,
                 Err(e) => {
                     let sqlite_error = match e {

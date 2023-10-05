@@ -94,7 +94,7 @@ impl Event {
                         return Err(sqlite_error);
                     }
                 };
-            let activities = match crate::db::db_helpers::get_activities_by_person(conn, person_id)
+            let activities = match crate::db::db_helpers::activities::get_by_person(conn, person_id)
             {
                 Ok(activities) => activities,
                 Err(e) => {
