@@ -161,7 +161,7 @@ impl Event {
         };
         let rows = match stmt.query_map(params![today_str, date_limit_str], |row| {
             let reminder_id = row.get(0)?;
-            let people = match crate::db_helpers::get_people_by_reminder(conn, reminder_id) {
+            let people = match crate::db_helpers::people::get_by_reminder(conn, reminder_id) {
                 Ok(people) => people,
                 Err(e) => {
                     let sqlite_error = match e {

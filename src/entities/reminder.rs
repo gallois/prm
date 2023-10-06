@@ -107,7 +107,7 @@ impl Reminder {
                 })
             }
         };
-        let people = crate::db_helpers::get_people_by_reminder(conn, id)?;
+        let people = crate::db_helpers::people::get_by_reminder(conn, id)?;
         let recurring_type = match RecurringType::get_by_id(conn, recurring_type_id) {
             Ok(recurring_type) => match recurring_type {
                 Some(recurring_type) => recurring_type,
@@ -741,7 +741,7 @@ impl crate::db::db_interface::DbOperations for Reminder {
                             })
                         }
                     };
-                    let people = crate::db_helpers::get_people_by_reminder(conn, reminder_id)?;
+                    let people = crate::db_helpers::people::get_by_reminder(conn, reminder_id)?;
                     let description: Option<String> = match row.get(4) {
                         Ok(description) => description,
                         Err(e) => {
@@ -800,7 +800,7 @@ impl crate::db::db_interface::DbOperations for Reminder {
         };
         let rows = match stmt.query_map([], |row| {
             let reminder_id = row.get(0)?;
-            let people = match crate::db_helpers::get_people_by_reminder(conn, reminder_id) {
+            let people = match crate::db_helpers::people::get_by_reminder(conn, reminder_id) {
                 Ok(people) => people,
                 Err(e) => {
                     let sqlite_error = match e {
