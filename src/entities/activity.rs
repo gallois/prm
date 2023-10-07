@@ -117,7 +117,7 @@ impl Activity {
         };
         let date = crate::helpers::parse_from_str_ymd(date.unwrap_or_default().as_str())
             .unwrap_or_default();
-        let people = crate::db::db_helpers::get_people_by_activity(conn, id, true)?;
+        let people = crate::db::db_helpers::people::get_by_activity(conn, id, true)?;
         Ok(Activity {
             id,
             name,
@@ -935,7 +935,7 @@ impl DbOperations for Activity {
                         }
                     };
                     let people =
-                        crate::db::db_helpers::get_people_by_activity(conn, activity_id, true)?;
+                        crate::db::db_helpers::people::get_by_activity(conn, activity_id, true)?;
                     let activity_type = match ActivityType::get_by_id(conn, activity_type_id) {
                         Ok(activity_type) => match activity_type {
                             Some(activity_type) => activity_type,
@@ -970,7 +970,7 @@ impl DbOperations for Activity {
         let rows = match stmt.query_map([], |row| {
             let activity_id = row.get(0)?;
             let people =
-                match crate::db::db_helpers::get_people_by_activity(conn, activity_id, true) {
+                match crate::db::db_helpers::people::get_by_activity(conn, activity_id, true) {
                     Ok(people) => people,
                     Err(e) => {
                         let sqlite_error = match e {
