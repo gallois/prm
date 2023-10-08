@@ -106,7 +106,7 @@ impl Note {
                                 })
                             }
                         };
-                        let people = crate::db::db_helpers::get_people_by_note(conn, id)?;
+                        let people = crate::db::db_helpers::people::get_by_note(conn, id)?;
                         notes.push(Note::new(id, date, content, people))
                     }
                     None => return Ok(notes),
@@ -406,7 +406,7 @@ impl DbOperations for Note {
                             })
                         }
                     };
-                    let people = crate::db::db_helpers::get_people_by_note(conn, note_id)?;
+                    let people = crate::db::db_helpers::people::get_by_note(conn, note_id)?;
                     let content = match row.get(2) {
                         Ok(content) => content,
                         Err(e) => {
@@ -442,7 +442,7 @@ impl DbOperations for Note {
 
         let rows = match stmt.query_map([], |row| {
             let note_id = row.get(0)?;
-            let people = match crate::db::db_helpers::get_people_by_note(conn, note_id) {
+            let people = match crate::db::db_helpers::people::get_by_note(conn, note_id) {
                 Ok(people) => people,
                 Err(e) => {
                     let sqlite_error = match e {

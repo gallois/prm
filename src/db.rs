@@ -1,4 +1,4 @@
-use rusqlite::{params, params_from_iter, Connection};
+use rusqlite::{params, Connection};
 
 pub mod db_interface {
     use crate::db::Connection;
@@ -34,7 +34,7 @@ pub mod db_interface {
 }
 
 pub mod db_helpers {
-    use crate::db::{params, params_from_iter, Connection};
+    use crate::db::{params, Connection};
     use crate::db_interface::DbOperationsError;
 
     pub mod notes {
@@ -736,14 +736,13 @@ pub mod db_helpers {
 
             Ok(people)
         }
-    }
 
-    pub fn get_people_by_note(
-        conn: &Connection,
-        note_id: u64,
-    ) -> Result<Vec<crate::entities::person::Person>, DbOperationsError> {
-        let mut stmt = match conn.prepare(
-            "SELECT
+        pub fn get_by_note(
+            conn: &Connection,
+            note_id: u64,
+        ) -> Result<Vec<crate::entities::person::Person>, DbOperationsError> {
+            let mut stmt = match conn.prepare(
+                "SELECT
                         person_id
                     FROM
                         people_notes
@@ -751,129 +750,130 @@ pub mod db_helpers {
                         note_id = ?
                         AND deleted = 0
                     ",
-        ) {
-            Ok(stmt) => stmt,
-            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
-        };
+            ) {
+                Ok(stmt) => stmt,
+                Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
+            };
 
-        let mut rows = match stmt.query(params![note_id]) {
-            Ok(rows) => rows,
-            Err(_) => return Err(DbOperationsError::QueryError),
-        };
-        let mut people_ids: Vec<u64> = vec![];
-        loop {
-            match rows.next() {
-                Ok(row) => match row {
-                    Some(row) => match row.get(0) {
-                        Ok(row) => people_ids.push(row),
-                        Err(e) => {
-                            return Err(DbOperationsError::RecordError {
-                                sqlite_error: Some(e),
-                                strum_error: None,
-                            })
-                        }
+            let mut rows = match stmt.query(params![note_id]) {
+                Ok(rows) => rows,
+                Err(_) => return Err(DbOperationsError::QueryError),
+            };
+            let mut people_ids: Vec<u64> = vec![];
+            loop {
+                match rows.next() {
+                    Ok(row) => match row {
+                        Some(row) => match row.get(0) {
+                            Ok(row) => people_ids.push(row),
+                            Err(e) => {
+                                return Err(DbOperationsError::RecordError {
+                                    sqlite_error: Some(e),
+                                    strum_error: None,
+                                })
+                            }
+                        },
+                        None => break,
                     },
-                    None => break,
-                },
-                Err(e) => {
-                    return Err(DbOperationsError::RecordError {
-                        sqlite_error: Some(e),
-                        strum_error: None,
-                    })
+                    Err(e) => {
+                        return Err(DbOperationsError::RecordError {
+                            sqlite_error: Some(e),
+                            strum_error: None,
+                        })
+                    }
                 }
             }
+
+            if people_ids.is_empty() {
+                return Ok(vec![]);
+            }
+
+            let vars = crate::helpers::repeat_vars(people_ids.len());
+            let sql = format!(
+                "SELECT * FROM people WHERE id IN ({}) AND deleted = 0",
+                vars
+            );
+            let mut stmt = match conn.prepare(&sql) {
+                Ok(stmt) => stmt,
+                Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
+            };
+
+            let rows = match stmt.query_map(params_from_iter(people_ids.iter()), |row| {
+                let person_id = row.get(0)?;
+                let notes = match notes::get_by_person(conn, person_id) {
+                    Ok(notes) => notes,
+                    Err(e) => {
+                        let sqlite_error = match e {
+                            DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                            other => panic!("Unexpected error type: {:#?}", other),
+                        };
+                        return Err(sqlite_error);
+                    }
+                };
+                let reminders = match reminders::get_by_person(conn, person_id) {
+                    Ok(reminders) => reminders,
+                    Err(e) => {
+                        let sqlite_error = match e {
+                            DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                            other => panic!("Unexpected error type: {:#?}", other),
+                        };
+                        return Err(sqlite_error);
+                    }
+                };
+                let contact_info = match contact_info::get_by_person(conn, person_id) {
+                    Ok(contact_info) => contact_info,
+                    Err(e) => {
+                        let sqlite_error = match e {
+                            DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                            other => panic!("Unexpected error type: {:#?}", other),
+                        };
+                        return Err(sqlite_error);
+                    }
+                };
+                let activities = match activities::get_by_person(conn, person_id) {
+                    Ok(activities) => activities,
+                    Err(e) => {
+                        let sqlite_error = match e {
+                            DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                            other => panic!("Unexpected error type: {:#?}", other),
+                        };
+                        return Err(sqlite_error);
+                    }
+                };
+                Ok(crate::entities::person::Person {
+                    id: person_id,
+                    name: row.get(1)?,
+                    birthday: Some(
+                        crate::helpers::parse_from_str_ymd(
+                            row.get::<usize, String>(2).unwrap_or_default().as_str(),
+                        )
+                        .unwrap_or_default(),
+                    ),
+                    contact_info,
+                    activities,
+                    reminders,
+                    notes,
+                })
+            }) {
+                Ok(rows) => rows,
+                Err(_) => return Err(DbOperationsError::QueryError),
+            };
+
+            let mut notes = vec![];
+            for note in rows {
+                let note = match note {
+                    Ok(note) => note,
+                    Err(e) => {
+                        return Err(DbOperationsError::RecordError {
+                            sqlite_error: Some(e),
+                            strum_error: None,
+                        })
+                    }
+                };
+                notes.push(note);
+            }
+
+            Ok(notes)
         }
-
-        if people_ids.is_empty() {
-            return Ok(vec![]);
-        }
-
-        let vars = crate::helpers::repeat_vars(people_ids.len());
-        let sql = format!(
-            "SELECT * FROM people WHERE id IN ({}) AND deleted = 0",
-            vars
-        );
-        let mut stmt = match conn.prepare(&sql) {
-            Ok(stmt) => stmt,
-            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
-        };
-
-        let rows = match stmt.query_map(params_from_iter(people_ids.iter()), |row| {
-            let person_id = row.get(0)?;
-            let notes = match notes::get_by_person(conn, person_id) {
-                Ok(notes) => notes,
-                Err(e) => {
-                    let sqlite_error = match e {
-                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
-                        other => panic!("Unexpected error type: {:#?}", other),
-                    };
-                    return Err(sqlite_error);
-                }
-            };
-            let reminders = match reminders::get_by_person(conn, person_id) {
-                Ok(reminders) => reminders,
-                Err(e) => {
-                    let sqlite_error = match e {
-                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
-                        other => panic!("Unexpected error type: {:#?}", other),
-                    };
-                    return Err(sqlite_error);
-                }
-            };
-            let contact_info = match contact_info::get_by_person(conn, person_id) {
-                Ok(contact_info) => contact_info,
-                Err(e) => {
-                    let sqlite_error = match e {
-                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
-                        other => panic!("Unexpected error type: {:#?}", other),
-                    };
-                    return Err(sqlite_error);
-                }
-            };
-            let activities = match activities::get_by_person(conn, person_id) {
-                Ok(activities) => activities,
-                Err(e) => {
-                    let sqlite_error = match e {
-                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
-                        other => panic!("Unexpected error type: {:#?}", other),
-                    };
-                    return Err(sqlite_error);
-                }
-            };
-            Ok(crate::entities::person::Person {
-                id: person_id,
-                name: row.get(1)?,
-                birthday: Some(
-                    crate::helpers::parse_from_str_ymd(
-                        row.get::<usize, String>(2).unwrap_or_default().as_str(),
-                    )
-                    .unwrap_or_default(),
-                ),
-                contact_info,
-                activities,
-                reminders,
-                notes,
-            })
-        }) {
-            Ok(rows) => rows,
-            Err(_) => return Err(DbOperationsError::QueryError),
-        };
-
-        let mut notes = vec![];
-        for note in rows {
-            let note = match note {
-                Ok(note) => note,
-                Err(e) => {
-                    return Err(DbOperationsError::RecordError {
-                        sqlite_error: Some(e),
-                        strum_error: None,
-                    })
-                }
-            };
-            notes.push(note);
-        }
-
-        Ok(notes)
     }
 
     pub fn init_db(conn: &Connection) -> Result<(), DbOperationsError> {
