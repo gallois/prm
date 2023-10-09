@@ -1,5 +1,5 @@
 use chrono::prelude::*;
-use rusqlite::{params, params_from_iter};
+use rusqlite::params;
 use std::{convert::AsRef, fmt, str::FromStr};
 use strum_macros::{AsRefStr, EnumString};
 
@@ -59,7 +59,7 @@ impl Activity {
         }
     }
 
-    fn build_from_sql(
+    pub fn build_from_sql(
         conn: &Connection,
         id: Result<u64, rusqlite::Error>,
         name: Result<String, rusqlite::Error>,
@@ -126,149 +126,6 @@ impl Activity {
             content,
             people,
         })
-    }
-
-    // TODO perhaps worth moving parts of it to db.rs, like get_activities_by_person?
-    fn get_by_name(
-        conn: &Connection,
-        name: String,
-        person: Option<String>,
-    ) -> Result<Vec<Activity>, DbOperationsError> {
-        let mut activities: Vec<Activity> = vec![];
-        let mut stmt = match conn.prepare(
-            "
-                SELECT 
-                    * 
-                FROM 
-                    activities 
-                WHERE 
-                    name LIKE '%' || ?1 || '%' AND 
-                    deleted = 0 
-                COLLATE NOCASE",
-        ) {
-            Ok(stmt) => stmt,
-            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
-        };
-        let mut rows = match stmt.query(params![name]) {
-            Ok(rows) => rows,
-            Err(_) => return Err(DbOperationsError::QueryError),
-        };
-        loop {
-            match rows.next() {
-                Ok(row) => match row {
-                    Some(row) => {
-                        let activity = Self::build_from_sql(
-                            conn,
-                            row.get(0),
-                            row.get(1),
-                            row.get(2),
-                            row.get::<usize, String>(3),
-                            row.get(4),
-                        )?;
-                        if let Some(person) = person.clone() {
-                            let people_name: Vec<String> =
-                                activity.people.iter().map(|p| p.name.to_owned()).collect();
-                            if people_name.contains(&person) {
-                                activities.push(activity);
-                            }
-                        } else {
-                            activities.push(activity);
-                        }
-                    }
-                    None => return Ok(activities),
-                },
-                Err(_) => return Err(DbOperationsError::GenericError),
-            }
-        }
-    }
-
-    // TODO perhaps worth moving parts of it to db.rs, like get_activities_by_person?
-    fn get_by_person(
-        conn: &Connection,
-        person: String,
-    ) -> Result<Vec<Activity>, DbOperationsError> {
-        let mut activities: Vec<Activity> = vec![];
-        let mut stmt = match conn.prepare(
-            "
-                SELECT 
-                    id 
-                FROM 
-                    people 
-                WHERE 
-                    name = ?1 AND 
-                    deleted = 0 
-                COLLATE NOCASE",
-        ) {
-            Ok(stmt) => stmt,
-            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
-        };
-        let mut rows = match stmt.query(params![person]) {
-            Ok(rows) => rows,
-            Err(_) => return Err(DbOperationsError::QueryError),
-        };
-        let person_id: u64;
-        match rows.next() {
-            Ok(row) => {
-                if let Some(row) = row {
-                    person_id = match row.get(0) {
-                        Ok(person_id) => person_id,
-                        Err(e) => {
-                            return Err(DbOperationsError::RecordError {
-                                sqlite_error: Some(e),
-                                strum_error: None,
-                            })
-                        }
-                    };
-                    let activity_ids = Self::get_ids_by_person_id(conn, person_id)?;
-
-                    let vars = crate::helpers::repeat_vars(activity_ids.len());
-                    let sql = format!(
-                        "SELECT 
-                            * 
-                        FROM 
-                            activities 
-                        WHERE 
-                            id IN ({}) AND 
-                        deleted = 0",
-                        vars
-                    );
-                    let mut stmt = match conn.prepare(&sql) {
-                        Ok(stmt) => stmt,
-                        Err(e) => {
-                            return Err(DbOperationsError::InvalidStatement { sqlite_error: e })
-                        }
-                    };
-
-                    let mut rows = match stmt.query(params_from_iter(activity_ids.iter())) {
-                        Ok(rows) => rows,
-                        Err(_) => return Err(DbOperationsError::QueryError),
-                    };
-
-                    loop {
-                        match rows.next() {
-                            Ok(row) => match row {
-                                Some(row) => {
-                                    let activity = Self::build_from_sql(
-                                        conn,
-                                        row.get(0),
-                                        row.get(1),
-                                        row.get(2),
-                                        row.get::<usize, String>(3),
-                                        row.get(4),
-                                    )?;
-                                    activities.push(activity);
-                                }
-                                None => break,
-                            },
-                            Err(_) => return Err(DbOperationsError::GenericError),
-                        }
-                    }
-                }
-            }
-            Err(_) => return Err(DbOperationsError::GenericError),
-        }
-
-        Ok(activities)
     }
 
     fn get_by_content(
@@ -409,11 +266,13 @@ impl Activity {
     ) -> Result<Vec<Activity>, DbOperationsError> {
         let mut activities: Vec<Activity> = vec![];
         if let Some(name) = name {
-            activities = Self::get_by_name(conn, name, person.clone())?;
+            activities =
+                crate::db::db_helpers::activities::get_by_name(conn, name, person.clone())?;
             return Ok(activities);
         }
         if let Some(person) = person {
-            activities = Self::get_by_person(conn, person.clone())?;
+            activities =
+                crate::db::db_helpers::activities::get_by_person_name(conn, person.clone())?;
             return Ok(activities);
         }
         if let Some(content) = content {
@@ -541,7 +400,7 @@ impl Activity {
         })
     }
 
-    fn get_ids_by_person_id(
+    pub fn get_ids_by_person_id(
         conn: &Connection,
         person_id: u64,
     ) -> Result<Vec<u8>, DbOperationsError> {
