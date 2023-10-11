@@ -638,6 +638,50 @@ pub mod db_helpers {
             }
             Ok(ids)
         }
+
+        pub fn get_by_content(
+            conn: &Connection,
+            content: String,
+        ) -> Result<Vec<Activity>, DbOperationsError> {
+            let mut activities: Vec<Activity> = vec![];
+            let mut stmt = match conn.prepare(
+                "
+                    SELECT 
+                        * 
+                    FROM 
+                        activities 
+                    WHERE 
+                        content LIKE '%' || ?1 || '%' AND 
+                        deleted = 0 
+                    COLLATE NOCASE",
+            ) {
+                Ok(stmt) => stmt,
+                Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
+            };
+            let mut rows = match stmt.query(params![content]) {
+                Ok(rows) => rows,
+                Err(_) => return Err(DbOperationsError::QueryError),
+            };
+            loop {
+                match rows.next() {
+                    Ok(row) => match row {
+                        Some(row) => {
+                            let activity = crate::entities::activity::Activity::build_from_sql(
+                                conn,
+                                row.get(0),
+                                row.get(1),
+                                row.get(2),
+                                row.get::<usize, String>(3),
+                                row.get(4),
+                            )?;
+                            activities.push(activity);
+                        }
+                        None => return Ok(activities),
+                    },
+                    Err(_) => return Err(DbOperationsError::GenericError),
+                }
+            }
+        }
     }
 
     pub mod people {
