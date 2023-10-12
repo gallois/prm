@@ -233,7 +233,7 @@ pub fn activity(
         }
     };
 
-    let people = match Person::get_by_names(conn, activity_vars.people) {
+    let people = match prm::db::db_helpers::people::get_by_names(conn, activity_vars.people) {
         Ok(people) => people,
         Err(_) => {
             return EntitySnafu {
@@ -416,7 +416,7 @@ pub fn reminder(
         }
     };
 
-    let people = match Person::get_by_names(conn, people) {
+    let people = match prm::db::db_helpers::people::get_by_names(conn, people) {
         Ok(people) => people,
         Err(_) => {
             return EntitySnafu {
@@ -480,7 +480,7 @@ pub fn note(
         };
         date_string = d;
         content_string = c;
-        people_vec = match Person::get_by_names(conn, p) {
+        people_vec = match prm::db::db_helpers::people::get_by_names(conn, p) {
             Ok(people) => people,
             Err(_) => {
                 return EntitySnafu {
