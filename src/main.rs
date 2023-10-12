@@ -17,7 +17,7 @@ use std::io;
 use std::io::Write;
 use uuid::Uuid;
 
-use prm::db::db_helpers::{notes, people};
+use prm::db::db_helpers::{notes, people, reminders};
 
 use prm::entities::Entity;
 use std::process::exit;
@@ -558,7 +558,7 @@ fn main() {
                 remove_entity(&conn, activity);
             }
             RemoveEntity::Reminder { name } => {
-                let mut reminders = match Reminder::get_by_name(&conn, &name, None) {
+                let mut reminders = match reminders::get_by_name(&conn, &name, None) {
                     Ok(reminders) => reminders,
                     Err(e) => {
                         eprintln!("Error fetching reminder: {:#?}", e);
@@ -688,7 +688,7 @@ fn main() {
             ListEntity::Reminders { name, include_past } => {
                 let reminders: Vec<Reminder>;
                 if let Some(name) = name {
-                    reminders = match Reminder::get_by_name(&conn, &name, None) {
+                    reminders = match reminders::get_by_name(&conn, &name, None) {
                         Ok(reminders) => reminders,
                         Err(e) => {
                             eprintln!("Error while fetching reminders: {:#?}", e);
