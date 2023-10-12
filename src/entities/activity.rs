@@ -128,91 +128,6 @@ impl Activity {
         })
     }
 
-    fn get_by_activity_type(
-        conn: &Connection,
-        activity_type: String,
-    ) -> Result<Vec<Activity>, DbOperationsError> {
-        let mut stmt = match conn.prepare(
-            "
-            SELECT 
-                id 
-            FROM 
-                activity_types 
-            WHERE 
-                type = ?
-            COLLATE NOCASE",
-        ) {
-            Ok(stmt) => stmt,
-            Err(_) => return Err(DbOperationsError::GenericError),
-        };
-        let mut rows = match stmt.query(params![activity_type]) {
-            Ok(rows) => rows,
-            Err(_) => return Err(DbOperationsError::QueryError),
-        };
-        let mut types: Vec<u32> = Vec::new();
-        loop {
-            match rows.next() {
-                Ok(row) => match row {
-                    Some(row) => match row.get(0) {
-                        Ok(row) => types.push(row),
-                        Err(e) => {
-                            return Err(DbOperationsError::RecordError {
-                                sqlite_error: Some(e),
-                                strum_error: None,
-                            })
-                        }
-                    },
-                    None => break,
-                },
-                Err(e) => {
-                    return Err(DbOperationsError::RecordError {
-                        sqlite_error: Some(e),
-                        strum_error: None,
-                    })
-                }
-            }
-        }
-
-        let mut activities: Vec<Activity> = vec![];
-        let mut stmt = match conn.prepare(
-            "
-                SELECT 
-                    * 
-                FROM 
-                    activities 
-                WHERE 
-                    type = ?1 AND 
-                    deleted = 0 
-                COLLATE NOCASE",
-        ) {
-            Ok(stmt) => stmt,
-            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
-        };
-        let mut rows = match stmt.query(params![types[0]]) {
-            Ok(rows) => rows,
-            Err(_) => return Err(DbOperationsError::QueryError),
-        };
-        loop {
-            match rows.next() {
-                Ok(row) => match row {
-                    Some(row) => {
-                        let activity = Self::build_from_sql(
-                            conn,
-                            row.get(0),
-                            row.get(1),
-                            row.get(2),
-                            row.get::<usize, String>(3),
-                            row.get(4),
-                        )?;
-                        activities.push(activity);
-                    }
-                    None => return Ok(activities),
-                },
-                Err(_) => return Err(DbOperationsError::GenericError),
-            }
-        }
-    }
-
     pub fn get(
         conn: &Connection,
         name: Option<String>,
@@ -236,7 +151,8 @@ impl Activity {
             return Ok(activities);
         }
         if let Some(activity_type) = activity_type {
-            activities = Self::get_by_activity_type(conn, activity_type)?;
+            activities =
+                crate::db::db_helpers::activities::get_by_activity_type(conn, activity_type)?;
             return Ok(activities);
         }
         Ok(activities)
@@ -383,11 +299,11 @@ impl DbOperations for Activity {
 
         let mut stmt = match conn.prepare(
             "
-            SELECT 
-                id 
-            FROM 
-                activity_types 
-            WHERE 
+            SELECT
+                id
+            FROM
+                activity_types
+            WHERE
                 type = ?",
         ) {
             Ok(stmt) => stmt,
@@ -422,7 +338,7 @@ impl DbOperations for Activity {
         }
 
         let mut stmt = match conn.prepare(
-            "INSERT INTO 
+            "INSERT INTO
                 activities (name, type, date, content, deleted)
                 VALUES (?1, ?2, ?3, ?4, FALSE)
             ",
@@ -443,7 +359,7 @@ impl DbOperations for Activity {
         for person in &self.people {
             let mut stmt = match conn.prepare(
                 "INSERT INTO people_activities (
-                    person_id, 
+                    person_id,
                     activity_id,
                     deleted
                 )
@@ -465,8 +381,8 @@ impl DbOperations for Activity {
 
     fn remove(&self, conn: &Connection) -> Result<&Self, DbOperationsError> {
         let mut stmt = match conn.prepare(
-            "UPDATE 
-                    activities 
+            "UPDATE
+                    activities
                 SET
                     deleted = TRUE
                 WHERE
@@ -493,8 +409,8 @@ impl DbOperations for Activity {
             SELECT
                 id
             FROM
-                activity_types 
-            WHERE 
+                activity_types
+            WHERE
                 type = ?",
         ) {
             Ok(stmt) => stmt,
@@ -557,12 +473,12 @@ impl DbOperations for Activity {
 
         for person in self.people.iter() {
             let mut stmt = match conn.prepare(
-                "SELECT 
+                "SELECT
                         id
                     FROM
                         people_activities
                     WHERE
-                        activity_id = ?1 
+                        activity_id = ?1
                         AND person_id = ?2
                     AND
                         deleted = 0",
@@ -602,11 +518,11 @@ impl DbOperations for Activity {
                 for id in results {
                     let mut stmt = match conn.prepare(
                         "
-                            UPDATE 
-                                people_activities 
-                            SET 
-                                deleted = TRUE 
-                            WHERE 
+                            UPDATE
+                                people_activities
+                            SET
+                                deleted = TRUE
+                            WHERE
                                 id = ?1",
                     ) {
                         Ok(stmt) => stmt,
@@ -645,12 +561,12 @@ impl DbOperations for Activity {
     fn get_by_id(conn: &Connection, id: u64) -> Result<Option<Entities>, DbOperationsError> {
         let mut stmt = match conn.prepare(
             "
-            SELECT 
-                * 
-            FROM 
-                activities 
-            WHERE 
-                id = ?1 AND 
+            SELECT
+                *
+            FROM
+                activities
+            WHERE
+                id = ?1 AND
             deleted = 0",
         ) {
             Ok(stmt) => stmt,
@@ -807,11 +723,11 @@ impl ActivityType {
     ) -> Result<Option<ActivityType>, DbOperationsError> {
         let mut stmt = match conn.prepare(
             "
-            SELECT 
-                type 
-            FROM 
-                activity_types 
-            WHERE 
+            SELECT
+                type
+            FROM
+                activity_types
+            WHERE
                 id = ?",
         ) {
             Ok(stmt) => stmt,

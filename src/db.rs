@@ -255,8 +255,8 @@ pub mod db_helpers {
             person_id: u64,
         ) -> Result<Vec<crate::entities::person::ContactInfo>, DbOperationsError> {
             let mut stmt = match conn.prepare(
-                "SELECT 
-                * 
+                "SELECT
+                *
             FROM
                 contact_info
             WHERE
@@ -328,8 +328,8 @@ pub mod db_helpers {
             person_id: u64,
         ) -> Result<Vec<crate::entities::activity::Activity>, DbOperationsError> {
             let mut stmt = match conn.prepare(
-                "SELECT 
-                activity_id 
+                "SELECT
+                activity_id
             FROM
                 people_activities
             WHERE
@@ -455,13 +455,13 @@ pub mod db_helpers {
             let mut activities: Vec<Activity> = vec![];
             let mut stmt = match conn.prepare(
                 "
-                    SELECT 
-                        * 
-                    FROM 
-                        activities 
-                    WHERE 
-                        name LIKE '%' || ?1 || '%' AND 
-                        deleted = 0 
+                    SELECT
+                        *
+                    FROM
+                        activities
+                    WHERE
+                        name LIKE '%' || ?1 || '%' AND
+                        deleted = 0
                     COLLATE NOCASE",
             ) {
                 Ok(stmt) => stmt,
@@ -507,13 +507,13 @@ pub mod db_helpers {
             let mut activities: Vec<Activity> = vec![];
             let mut stmt = match conn.prepare(
                 "
-                    SELECT 
-                        id 
-                    FROM 
-                        people 
-                    WHERE 
-                        name = ?1 AND 
-                        deleted = 0 
+                    SELECT
+                        id
+                    FROM
+                        people
+                    WHERE
+                        name = ?1 AND
+                        deleted = 0
                     COLLATE NOCASE",
             ) {
                 Ok(stmt) => stmt,
@@ -540,12 +540,12 @@ pub mod db_helpers {
 
                         let vars = crate::helpers::repeat_vars(activity_ids.len());
                         let sql = format!(
-                            "SELECT 
-                                * 
-                            FROM 
-                                activities 
-                            WHERE 
-                                id IN ({}) AND 
+                            "SELECT
+                                *
+                            FROM
+                                activities
+                            WHERE
+                                id IN ({}) AND
                             deleted = 0",
                             vars
                         );
@@ -596,12 +596,12 @@ pub mod db_helpers {
             let mut ids: Vec<u8> = vec![];
             let mut stmt = match conn.prepare(
                 "
-                    SELECT 
-                        activity_id 
-                    FROM 
-                        people_activities 
-                    WHERE 
-                        person_id = ?1 AND 
+                    SELECT
+                        activity_id
+                    FROM
+                        people_activities
+                    WHERE
+                        person_id = ?1 AND
                     deleted = 0",
             ) {
                 Ok(stmt) => stmt,
@@ -646,19 +646,104 @@ pub mod db_helpers {
             let mut activities: Vec<Activity> = vec![];
             let mut stmt = match conn.prepare(
                 "
-                    SELECT 
-                        * 
-                    FROM 
-                        activities 
-                    WHERE 
-                        content LIKE '%' || ?1 || '%' AND 
-                        deleted = 0 
+                    SELECT
+                        *
+                    FROM
+                        activities
+                    WHERE
+                        content LIKE '%' || ?1 || '%' AND
+                        deleted = 0
                     COLLATE NOCASE",
             ) {
                 Ok(stmt) => stmt,
                 Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
             };
             let mut rows = match stmt.query(params![content]) {
+                Ok(rows) => rows,
+                Err(_) => return Err(DbOperationsError::QueryError),
+            };
+            loop {
+                match rows.next() {
+                    Ok(row) => match row {
+                        Some(row) => {
+                            let activity = crate::entities::activity::Activity::build_from_sql(
+                                conn,
+                                row.get(0),
+                                row.get(1),
+                                row.get(2),
+                                row.get::<usize, String>(3),
+                                row.get(4),
+                            )?;
+                            activities.push(activity);
+                        }
+                        None => return Ok(activities),
+                    },
+                    Err(_) => return Err(DbOperationsError::GenericError),
+                }
+            }
+        }
+
+        pub fn get_by_activity_type(
+            conn: &Connection,
+            activity_type: String,
+        ) -> Result<Vec<Activity>, DbOperationsError> {
+            let mut stmt = match conn.prepare(
+                "
+                SELECT
+                    id
+                FROM
+                    activity_types
+                WHERE
+                    type = ?
+                COLLATE NOCASE",
+            ) {
+                Ok(stmt) => stmt,
+                Err(_) => return Err(DbOperationsError::GenericError),
+            };
+            let mut rows = match stmt.query(params![activity_type]) {
+                Ok(rows) => rows,
+                Err(_) => return Err(DbOperationsError::QueryError),
+            };
+            let mut types: Vec<u32> = Vec::new();
+            loop {
+                match rows.next() {
+                    Ok(row) => match row {
+                        Some(row) => match row.get(0) {
+                            Ok(row) => types.push(row),
+                            Err(e) => {
+                                return Err(DbOperationsError::RecordError {
+                                    sqlite_error: Some(e),
+                                    strum_error: None,
+                                })
+                            }
+                        },
+                        None => break,
+                    },
+                    Err(e) => {
+                        return Err(DbOperationsError::RecordError {
+                            sqlite_error: Some(e),
+                            strum_error: None,
+                        })
+                    }
+                }
+            }
+
+            let mut activities: Vec<Activity> = vec![];
+            let mut stmt = match conn.prepare(
+                "
+                    SELECT
+                        *
+                    FROM
+                        activities
+                    WHERE
+                        type = ?1 AND
+                        deleted = 0
+                    COLLATE NOCASE",
+            ) {
+                Ok(stmt) => stmt,
+                Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
+            };
+            let mut rows = match stmt.query(params![types[0]]) {
                 Ok(rows) => rows,
                 Err(_) => return Err(DbOperationsError::QueryError),
             };
@@ -1137,7 +1222,7 @@ pub mod db_helpers {
             deleted INTEGER NOT NULL
         );",
             "CREATE TABLE notes (
-            id INTEGER PRIMARY KEY, 
+            id INTEGER PRIMARY KEY,
             date TEXT NOT NULL,
             content TEXT NOT NULL,
             deleted INTEGER NOT NULL
@@ -1200,13 +1285,13 @@ pub mod db_helpers {
         }
         let sql_populate_statements = vec![
             "INSERT INTO contact_info_types (type, deleted)
-         VALUES 
+         VALUES
             ('Phone', FALSE),
             ('WhatsApp', FALSE),
             ('Email', FALSE)
         ",
             "INSERT INTO activity_types (type, deleted)
-         VALUES 
+         VALUES
             ('Phone', FALSE),
             ('InPerson', FALSE),
             ('Online', FALSE)
