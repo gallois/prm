@@ -436,7 +436,7 @@ impl crate::db::db_interface::DbOperations for Person {
                     };
                     let notes = crate::db::db_helpers::notes::get_by_person(conn, person_id)?;
                     let reminders =
-                        crate::db::db_helpers::reminders::get_by_person(conn, person_id)?;
+                        crate::db::db_helpers::reminders::get_by_person_reminders(conn, person_id)?;
                     let contact_info =
                         crate::db::db_helpers::contact_info::get_by_person(conn, person_id)?;
                     let activities =
@@ -482,16 +482,17 @@ impl crate::db::db_interface::DbOperations for Person {
                     return Err(sqlite_error);
                 }
             };
-            let reminders = match crate::db::db_helpers::reminders::get_by_person(conn, person_id) {
-                Ok(reminders) => reminders,
-                Err(e) => {
-                    let sqlite_error = match e {
-                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
-                        other => panic!("Unexpected error type: {:#?}", other),
-                    };
-                    return Err(sqlite_error);
-                }
-            };
+            let reminders =
+                match crate::db::db_helpers::reminders::get_by_person_reminders(conn, person_id) {
+                    Ok(reminders) => reminders,
+                    Err(e) => {
+                        let sqlite_error = match e {
+                            DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                            other => panic!("Unexpected error type: {:#?}", other),
+                        };
+                        return Err(sqlite_error);
+                    }
+                };
             let contact_info =
                 match crate::db::db_helpers::contact_info::get_by_person(conn, person_id) {
                     Ok(contact_info) => contact_info,

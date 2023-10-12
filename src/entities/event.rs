@@ -73,16 +73,17 @@ impl Event {
                     return Err(sqlite_error);
                 }
             };
-            let reminders = match crate::db::db_helpers::reminders::get_by_person(conn, person_id) {
-                Ok(reminders) => reminders,
-                Err(e) => {
-                    let sqlite_error = match e {
-                        DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
-                        other => panic!("Unexpected error type: {:#?}", other),
-                    };
-                    return Err(sqlite_error);
-                }
-            };
+            let reminders =
+                match crate::db::db_helpers::reminders::get_by_person_reminders(conn, person_id) {
+                    Ok(reminders) => reminders,
+                    Err(e) => {
+                        let sqlite_error = match e {
+                            DbOperationsError::InvalidStatement { sqlite_error } => sqlite_error,
+                            other => panic!("Unexpected error type: {:#?}", other),
+                        };
+                        return Err(sqlite_error);
+                    }
+                };
             let contact_info =
                 match crate::db::db_helpers::contact_info::get_by_person(conn, person_id) {
                     Ok(contact_info) => contact_info,
