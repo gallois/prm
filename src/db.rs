@@ -353,6 +353,49 @@ pub mod db_helpers {
             }
         }
 
+        pub fn get_by_description(
+            conn: &Connection,
+            description: String,
+        ) -> Result<Vec<Reminder>, DbOperationsError> {
+            let mut reminders: Vec<Reminder> = vec![];
+            let mut stmt = match conn.prepare(
+                "SELECT
+                *
+            FROM
+                reminders
+            WHERE
+                description LIKE '%' || ?1 || '%'
+                AND deleted = 0
+            COLLATE NOCASE",
+            ) {
+                Ok(stmt) => stmt,
+                Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
+            };
+            let mut rows = match stmt.query(params![description]) {
+                Ok(rows) => rows,
+                Err(_) => return Err(DbOperationsError::QueryError),
+            };
+            loop {
+                match rows.next() {
+                    Ok(row) => match row {
+                        Some(row) => {
+                            let reminder = crate::entities::reminder::Reminder::build_from_sql(
+                                conn,
+                                row.get(0),
+                                row.get(1),
+                                row.get(2),
+                                row.get(3),
+                                row.get(4),
+                            )?;
+                            reminders.push(reminder);
+                        }
+                        None => return Ok(reminders),
+                    },
+                    Err(_) => return Err(DbOperationsError::GenericError),
+                }
+            }
+        }
+
         pub fn get_ids_by_person_id(
             conn: &Connection,
             person_id: u64,
