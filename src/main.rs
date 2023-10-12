@@ -17,7 +17,7 @@ use std::io;
 use std::io::Write;
 use uuid::Uuid;
 
-use prm::db::db_helpers::notes;
+use prm::db::db_helpers::{notes, people};
 
 use prm::entities::Entity;
 use std::process::exit;
@@ -490,7 +490,7 @@ fn main() {
         },
         Commands::Remove(remove) => match remove.entity {
             RemoveEntity::Person { name } => {
-                let mut people = match Person::get_by_name(&conn, name) {
+                let mut people = match people::get_by_name(&conn, name) {
                     Ok(people) => people,
                     Err(e) => {
                         eprintln!("Error while fetching person: {:#?}", e);
@@ -627,7 +627,7 @@ fn main() {
             ListEntity::People { name } => {
                 let people: Vec<Person>;
                 if let Some(name) = name {
-                    people = match Person::get_by_name(&conn, name) {
+                    people = match people::get_by_name(&conn, name) {
                         Ok(people) => people,
                         Err(e) => {
                             eprintln!("Error while fetching person: {:#?}", e);

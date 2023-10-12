@@ -57,7 +57,7 @@ impl Note {
     }
 
     fn get_by_person(conn: &Connection, person: String) -> Result<Vec<Note>, DbOperationsError> {
-        let person = Person::get_by_name(conn, person);
+        let person = crate::db::db_helpers::people::get_by_name(conn, person);
         match person {
             Ok(person) => {
                 if person.len() > 1 {
