@@ -106,7 +106,7 @@ impl Note {
             self.content = content;
         }
 
-        self.people = match Person::get_by_names(conn, people) {
+        self.people = match crate::db::db_helpers::people::get_by_names(conn, people) {
             Ok(people) => people,
             Err(_) => {
                 return RecordParseSnafu {

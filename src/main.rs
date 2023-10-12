@@ -344,7 +344,7 @@ fn main() {
                     eprintln!("No name or birthday provided");
                     exit(exitcode::DATAERR);
                 }
-                let people = match Person::get_by_name_and_birthday(&conn, name, birthday) {
+                let people = match people::get_by_name_and_birthday(&conn, name, birthday) {
                     Ok(people) => people,
                     Err(e) => {
                         eprintln!("Error while fetching person: {:#?}", e);

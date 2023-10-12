@@ -442,7 +442,7 @@ impl Reminder {
             self.recurring = recurring_type;
         }
 
-        let people = match Person::get_by_names(conn, people) {
+        let people = match crate::db::db_helpers::people::get_by_names(conn, people) {
             Ok(people) => people,
             Err(_) => {
                 return RecordParseSnafu {
@@ -580,7 +580,7 @@ impl crate::db::db_interface::DbOperations for Reminder {
         }
 
         let mut stmt = match conn.prepare(
-            "INSERT INTO 
+            "INSERT INTO
                 reminders (name, date, recurring, description, deleted)
                 VALUES (?1, ?2, ?3, ?4, FALSE)
             ",
@@ -600,7 +600,7 @@ impl crate::db::db_interface::DbOperations for Reminder {
         for person in &self.people {
             let mut stmt = match conn.prepare(
                 "INSERT INTO people_reminders (
-                    person_id, 
+                    person_id,
                     reminder_id,
                     deleted
                 )
@@ -622,8 +622,8 @@ impl crate::db::db_interface::DbOperations for Reminder {
 
     fn remove(&self, conn: &Connection) -> Result<&Self, DbOperationsError> {
         let mut stmt = match conn.prepare(
-            "UPDATE 
-                    reminders 
+            "UPDATE
+                    reminders
                 SET
                     deleted = TRUE
                 WHERE
@@ -681,7 +681,7 @@ impl crate::db::db_interface::DbOperations for Reminder {
 
         let mut stmt = match conn.prepare(
             "UPDATE
-                reminders 
+                reminders
             SET
                 name = ?1,
                 date = ?2,

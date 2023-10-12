@@ -209,7 +209,7 @@ impl Activity {
             self.content = content;
         }
 
-        let people = Person::get_by_names(conn, people);
+        let people = crate::db::db_helpers::people::get_by_names(conn, people);
         self.people = match people {
             Ok(people) => people,
             Err(_) => {
