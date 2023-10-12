@@ -160,7 +160,8 @@ impl Reminder {
                             })
                         }
                     };
-                    let reminder_ids: Vec<u8> = Self::get_ids_by_person_id(conn, person_id)?;
+                    let reminder_ids: Vec<u8> =
+                        crate::db::db_helpers::reminders::get_ids_by_person_id(conn, person_id)?;
 
                     let vars = crate::helpers::repeat_vars(reminder_ids.len());
                     let sql = format!(
@@ -269,50 +270,6 @@ impl Reminder {
             reminders = Self::get_by_description(conn, description)?;
         }
         Ok(reminders)
-    }
-
-    fn get_ids_by_person_id(
-        conn: &Connection,
-        person_id: u64,
-    ) -> Result<Vec<u8>, DbOperationsError> {
-        let mut ids: Vec<u8> = vec![];
-        let mut stmt = match conn
-            .prepare("SELECT reminder_id FROM people_reminders WHERE person_id = ?1 AND deleted = 0 COLLATE NOCASE")
-        {
-            Ok(stmt) => stmt,
-            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
-        };
-        let mut rows = match stmt.query(params![person_id]) {
-            Ok(rows) => rows,
-            Err(_) => return Err(DbOperationsError::QueryError),
-        };
-
-        loop {
-            match rows.next() {
-                Ok(row) => match row {
-                    Some(row) => {
-                        match row.get(0) {
-                            Ok(id) => ids.push(id),
-                            Err(e) => {
-                                return Err(DbOperationsError::RecordError {
-                                    sqlite_error: Some(e),
-                                    strum_error: None,
-                                })
-                            }
-                        };
-                    }
-                    None => break,
-                },
-                Err(e) => {
-                    return Err(DbOperationsError::RecordError {
-                        sqlite_error: Some(e),
-                        strum_error: None,
-                    })
-                }
-            }
-        }
-
-        Ok(ids)
     }
 
     pub fn get_all_filtered(
