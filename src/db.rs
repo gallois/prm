@@ -40,7 +40,68 @@ pub mod db_helpers {
     pub mod notes {
         use rusqlite::{params, params_from_iter, Connection};
 
-        use crate::db_interface::DbOperationsError;
+        use crate::{db_interface::DbOperationsError, entities::note::Note};
+
+        pub fn get_by_content(
+            conn: &Connection,
+            content: String,
+        ) -> Result<Vec<Note>, DbOperationsError> {
+            let mut stmt = match conn.prepare(
+                "SELECT
+                    *
+                FROM
+                    notes
+                WHERE
+                    content LIKE '%' || ?1 || '%'
+                    AND deleted = 0
+                COLLATE NOCASE",
+            ) {
+                Ok(stmt) => stmt,
+                Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
+            };
+
+            let mut notes: Vec<Note> = vec![];
+
+            let mut rows = match stmt.query([content]) {
+                Ok(rows) => rows,
+                Err(_) => return Err(DbOperationsError::QueryError),
+            };
+            loop {
+                match rows.next() {
+                    Ok(row) => match row {
+                        Some(row) => {
+                            let id = match row.get(0) {
+                                Ok(id) => id,
+                                Err(e) => {
+                                    return Err(DbOperationsError::RecordError {
+                                        sqlite_error: Some(e),
+                                        strum_error: None,
+                                    })
+                                }
+                            };
+                            let date = row.get::<usize, String>(1);
+                            let date = crate::helpers::parse_from_str_ymd(
+                                date.unwrap_or_default().as_str(),
+                            )
+                            .unwrap_or_default();
+                            let content = match row.get(2) {
+                                Ok(content) => content,
+                                Err(e) => {
+                                    return Err(DbOperationsError::RecordError {
+                                        sqlite_error: Some(e),
+                                        strum_error: None,
+                                    })
+                                }
+                            };
+                            let people = crate::db::db_helpers::people::get_by_note(conn, id)?;
+                            notes.push(Note::new(id, date, content, people))
+                        }
+                        None => return Ok(notes),
+                    },
+                    Err(_) => return Err(DbOperationsError::GenericError),
+                }
+            }
+        }
 
         pub fn get_by_person(
             conn: &Connection,

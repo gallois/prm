@@ -17,6 +17,8 @@ use std::io;
 use std::io::Write;
 use uuid::Uuid;
 
+use prm::db::db_helpers::notes;
+
 use prm::entities::Entity;
 use std::process::exit;
 
@@ -588,7 +590,7 @@ fn main() {
                 remove_entity(&conn, reminders);
             }
             RemoveEntity::Note { content } => {
-                let mut notes = match Note::get_by_content(&conn, content) {
+                let mut notes = match notes::get_by_content(&conn, content) {
                     Ok(notes) => notes,
                     Err(e) => {
                         eprintln!("Error while fetching notes: {:#?}", e);
@@ -710,7 +712,7 @@ fn main() {
             ListEntity::Notes { content } => {
                 let notes: Vec<Note>;
                 if let Some(content) = content {
-                    notes = match Note::get_by_content(&conn, content) {
+                    notes = match notes::get_by_content(&conn, content) {
                         Ok(notes) => notes,
                         Err(e) => {
                             eprintln!("Error while fetching notes: {:#?}", e);

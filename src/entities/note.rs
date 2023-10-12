@@ -51,69 +51,9 @@ impl Note {
             return Ok(notes);
         }
         if let Some(content) = content {
-            notes = Self::get_by_content(conn, content)?;
+            notes = crate::db::db_helpers::notes::get_by_content(conn, content)?;
         }
         Ok(notes)
-    }
-
-    pub fn get_by_content(
-        conn: &Connection,
-        content: String,
-    ) -> Result<Vec<Note>, DbOperationsError> {
-        let mut stmt = match conn.prepare(
-            "SELECT 
-                * 
-            FROM 
-                notes
-            WHERE
-                content LIKE '%' || ?1 || '%'
-                AND deleted = 0
-            COLLATE NOCASE",
-        ) {
-            Ok(stmt) => stmt,
-            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
-        };
-
-        let mut notes: Vec<Note> = vec![];
-
-        let mut rows = match stmt.query([content]) {
-            Ok(rows) => rows,
-            Err(_) => return Err(DbOperationsError::QueryError),
-        };
-        loop {
-            match rows.next() {
-                Ok(row) => match row {
-                    Some(row) => {
-                        let id = match row.get(0) {
-                            Ok(id) => id,
-                            Err(e) => {
-                                return Err(DbOperationsError::RecordError {
-                                    sqlite_error: Some(e),
-                                    strum_error: None,
-                                })
-                            }
-                        };
-                        let date = row.get::<usize, String>(1);
-                        let date =
-                            crate::helpers::parse_from_str_ymd(date.unwrap_or_default().as_str())
-                                .unwrap_or_default();
-                        let content = match row.get(2) {
-                            Ok(content) => content,
-                            Err(e) => {
-                                return Err(DbOperationsError::RecordError {
-                                    sqlite_error: Some(e),
-                                    strum_error: None,
-                                })
-                            }
-                        };
-                        let people = crate::db::db_helpers::people::get_by_note(conn, id)?;
-                        notes.push(Note::new(id, date, content, people))
-                    }
-                    None => return Ok(notes),
-                },
-                Err(_) => return Err(DbOperationsError::GenericError),
-            }
-        }
     }
 
     fn get_by_person(conn: &Connection, person: String) -> Result<Vec<Note>, DbOperationsError> {
@@ -216,7 +156,7 @@ impl DbOperations for Note {
         let date_str = self.date.to_string();
 
         let mut stmt = match conn.prepare(
-            "INSERT INTO 
+            "INSERT INTO
                 notes (date, content, deleted)
                 VALUES (?1, ?2, FALSE)
             ",
@@ -237,7 +177,7 @@ impl DbOperations for Note {
         for person in &self.people {
             let mut stmt = match conn.prepare(
                 "INSERT INTO people_notes (
-                    person_id, 
+                    person_id,
                     note_id,
                     deleted
                 )
@@ -260,8 +200,8 @@ impl DbOperations for Note {
 
     fn remove(&self, conn: &Connection) -> Result<&Self, DbOperationsError> {
         let mut stmt = match conn.prepare(
-            "UPDATE 
-                    notes 
+            "UPDATE
+                    notes
                 SET
                     deleted = TRUE
                 WHERE
@@ -304,12 +244,12 @@ impl DbOperations for Note {
 
         for person in self.people.iter() {
             let mut stmt = match conn.prepare(
-                "SELECT 
+                "SELECT
                         id
                     FROM
                         people_notes
                     WHERE
-                        note_id = ?1 
+                        note_id = ?1
                         AND person_id = ?2
                         AND deleted = 0",
             ) {
