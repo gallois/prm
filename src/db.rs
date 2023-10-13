@@ -106,7 +106,7 @@ pub mod db_helpers {
         pub fn get_by_person(
             conn: &Connection,
             person_id: u64,
-        ) -> Result<Vec<crate::entities::note::Note>, DbOperationsError> {
+        ) -> Result<Vec<Note>, DbOperationsError> {
             let mut stmt = match conn.prepare(
                 "SELECT
             *
@@ -161,7 +161,7 @@ pub mod db_helpers {
             };
 
             let rows = match stmt.query_map(params_from_iter(note_ids.iter()), |row| {
-                Ok(crate::entities::note::Note::new(
+                Ok(Note::new(
                     row.get(0)?,
                     crate::helpers::parse_from_str_ymd(
                         row.get::<usize, String>(1).unwrap_or_default().as_str(),
@@ -229,10 +229,7 @@ pub mod db_helpers {
                                 })
                             }
                         };
-                        let reminder_ids: Vec<u8> =
-                            crate::db::db_helpers::reminders::get_ids_by_person_id(
-                                conn, person_id,
-                            )?;
+                        let reminder_ids: Vec<u8> = get_ids_by_person_id(conn, person_id)?;
 
                         let vars = crate::helpers::repeat_vars(reminder_ids.len());
                         let sql = format!(
@@ -254,15 +251,14 @@ pub mod db_helpers {
                             match rows.next() {
                                 Ok(row) => match row {
                                     Some(row) => {
-                                        let reminder =
-                                            crate::entities::reminder::Reminder::build_from_sql(
-                                                conn,
-                                                row.get(0),
-                                                row.get(1),
-                                                row.get(2),
-                                                row.get(3),
-                                                row.get(4),
-                                            )?;
+                                        let reminder = Reminder::build_from_sql(
+                                            conn,
+                                            row.get(0),
+                                            row.get(1),
+                                            row.get(2),
+                                            row.get(3),
+                                            row.get(4),
+                                        )?;
                                         reminders.push(reminder);
                                     }
                                     None => break,
@@ -281,7 +277,7 @@ pub mod db_helpers {
         pub fn get_by_person_reminders(
             conn: &Connection,
             person_id: u64,
-        ) -> Result<Vec<crate::entities::reminder::Reminder>, DbOperationsError> {
+        ) -> Result<Vec<Reminder>, DbOperationsError> {
             let mut stmt = match conn.prepare(
                 "SELECT
             reminder_id
@@ -352,7 +348,7 @@ pub mod db_helpers {
                         return Err(sqlite_error);
                     }
                 };
-                Ok(crate::entities::reminder::Reminder::new(
+                Ok(Reminder::new(
                     row.get(0)?,
                     row.get(1)?,
                     crate::helpers::parse_from_str_ymd(
@@ -405,7 +401,7 @@ pub mod db_helpers {
                 match rows.next() {
                     Ok(row) => match row {
                         Some(row) => {
-                            let reminder = crate::entities::reminder::Reminder::build_from_sql(
+                            let reminder = Reminder::build_from_sql(
                                 conn,
                                 row.get(0),
                                 row.get(1),
@@ -456,7 +452,7 @@ pub mod db_helpers {
                 match rows.next() {
                     Ok(row) => match row {
                         Some(row) => {
-                            let reminder = crate::entities::reminder::Reminder::build_from_sql(
+                            let reminder = Reminder::build_from_sql(
                                 conn,
                                 row.get(0),
                                 row.get(1),
@@ -599,7 +595,7 @@ pub mod db_helpers {
         pub fn get_by_person(
             conn: &Connection,
             person_id: u64,
-        ) -> Result<Vec<crate::entities::activity::Activity>, DbOperationsError> {
+        ) -> Result<Vec<Activity>, DbOperationsError> {
             let mut stmt = match conn.prepare(
                 "SELECT
                 activity_id
@@ -687,7 +683,7 @@ pub mod db_helpers {
                             return Err(sqlite_error);
                         }
                     };
-                Ok(crate::entities::activity::Activity::new(
+                Ok(Activity::new(
                     activity_id,
                     row.get(1)?,
                     activity_type,
@@ -748,7 +744,7 @@ pub mod db_helpers {
                 match rows.next() {
                     Ok(row) => match row {
                         Some(row) => {
-                            let activity = crate::entities::activity::Activity::build_from_sql(
+                            let activity = Activity::build_from_sql(
                                 conn,
                                 row.get(0),
                                 row.get(1),
@@ -838,15 +834,14 @@ pub mod db_helpers {
                             match rows.next() {
                                 Ok(row) => match row {
                                     Some(row) => {
-                                        let activity =
-                                            crate::entities::activity::Activity::build_from_sql(
-                                                conn,
-                                                row.get(0),
-                                                row.get(1),
-                                                row.get(2),
-                                                row.get::<usize, String>(3),
-                                                row.get(4),
-                                            )?;
+                                        let activity = Activity::build_from_sql(
+                                            conn,
+                                            row.get(0),
+                                            row.get(1),
+                                            row.get(2),
+                                            row.get::<usize, String>(3),
+                                            row.get(4),
+                                        )?;
                                         activities.push(activity);
                                     }
                                     None => break,
@@ -939,7 +934,7 @@ pub mod db_helpers {
                 match rows.next() {
                     Ok(row) => match row {
                         Some(row) => {
-                            let activity = crate::entities::activity::Activity::build_from_sql(
+                            let activity = Activity::build_from_sql(
                                 conn,
                                 row.get(0),
                                 row.get(1),
@@ -1024,7 +1019,7 @@ pub mod db_helpers {
                 match rows.next() {
                     Ok(row) => match row {
                         Some(row) => {
-                            let activity = crate::entities::activity::Activity::build_from_sql(
+                            let activity = Activity::build_from_sql(
                                 conn,
                                 row.get(0),
                                 row.get(1),
@@ -1087,17 +1082,10 @@ pub mod db_helpers {
                                     })
                                 }
                             };
-                            let notes =
-                                crate::db::db_helpers::notes::get_by_person(conn, person_id)?;
-                            let reminders =
-                                crate::db::db_helpers::reminders::get_by_person_reminders(
-                                    conn, person_id,
-                                )?;
-                            let contact_info = crate::db::db_helpers::contact_info::get_by_person(
-                                conn, person_id,
-                            )?;
-                            let activities =
-                                crate::db::db_helpers::activities::get_by_person(conn, person_id)?;
+                            let notes = notes::get_by_person(conn, person_id)?;
+                            let reminders = reminders::get_by_person_reminders(conn, person_id)?;
+                            let contact_info = contact_info::get_by_person(conn, person_id)?;
+                            let activities = activities::get_by_person(conn, person_id)?;
 
                             people.push(Person {
                                 id: person_id,
@@ -1181,7 +1169,7 @@ pub mod db_helpers {
         pub fn get_by_reminder(
             conn: &Connection,
             reminder_id: u64,
-        ) -> Result<Vec<crate::entities::person::Person>, DbOperationsError> {
+        ) -> Result<Vec<Person>, DbOperationsError> {
             let mut stmt = match conn.prepare(
                 "SELECT
                         person_id
@@ -1280,7 +1268,7 @@ pub mod db_helpers {
                         return Err(sqlite_error);
                     }
                 };
-                Ok(crate::entities::person::Person {
+                Ok(Person {
                     id: person_id,
                     name: row.get(1)?,
                     birthday: Some(
@@ -1320,7 +1308,7 @@ pub mod db_helpers {
             conn: &Connection,
             activity_id: u64,
             recurse: bool,
-        ) -> Result<Vec<crate::entities::person::Person>, DbOperationsError> {
+        ) -> Result<Vec<Person>, DbOperationsError> {
             let mut stmt = match conn.prepare(
                 "SELECT
                         person_id
@@ -1424,7 +1412,7 @@ pub mod db_helpers {
                         }
                     };
                 }
-                Ok(crate::entities::person::Person {
+                Ok(Person {
                     id: person_id,
                     name: row.get(1)?,
                     birthday: Some(
@@ -1463,7 +1451,7 @@ pub mod db_helpers {
         pub fn get_by_note(
             conn: &Connection,
             note_id: u64,
-        ) -> Result<Vec<crate::entities::person::Person>, DbOperationsError> {
+        ) -> Result<Vec<Person>, DbOperationsError> {
             let mut stmt = match conn.prepare(
                 "SELECT
                         person_id
@@ -1562,7 +1550,7 @@ pub mod db_helpers {
                         return Err(sqlite_error);
                     }
                 };
-                Ok(crate::entities::person::Person {
+                Ok(Person {
                     id: person_id,
                     name: row.get(1)?,
                     birthday: Some(
@@ -1666,17 +1654,10 @@ pub mod db_helpers {
                                     })
                                 }
                             };
-                            let notes =
-                                crate::db::db_helpers::notes::get_by_person(conn, person_id)?;
-                            let reminders =
-                                crate::db::db_helpers::reminders::get_by_person_reminders(
-                                    conn, person_id,
-                                )?;
-                            let contact_info = crate::db::db_helpers::contact_info::get_by_person(
-                                conn, person_id,
-                            )?;
-                            let activities =
-                                crate::db::db_helpers::activities::get_by_person(conn, person_id)?;
+                            let notes = notes::get_by_person(conn, person_id)?;
+                            let reminders = reminders::get_by_person_reminders(conn, person_id)?;
+                            let contact_info = contact_info::get_by_person(conn, person_id)?;
+                            let activities = activities::get_by_person(conn, person_id)?;
 
                             people.push(Person {
                                 id: person_id,

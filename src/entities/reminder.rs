@@ -299,7 +299,7 @@ impl Reminder {
     }
 }
 
-impl crate::db::db_interface::DbOperations for Reminder {
+impl DbOperations for Reminder {
     fn add(&self, conn: &Connection) -> Result<&Reminder, DbOperationsError> {
         let mut stmt = match conn.prepare("SELECT id FROM reminders WHERE name = ? AND deleted = 0")
         {
