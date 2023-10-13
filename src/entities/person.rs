@@ -17,6 +17,7 @@ use super::Entity;
 pub static PERSON_TEMPLATE: &str = "Name: {name}
 Birthday: {birthday}
 Contact Info: {contact_info}
+Activities: {activities}
 ";
 #[derive(Debug, Clone, PartialEq)]
 pub struct Person {

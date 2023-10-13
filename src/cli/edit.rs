@@ -18,6 +18,7 @@ pub fn person(
     name: Option<String>,
     birthday: Option<String>,
     contact_info: Option<String>,
+    activities: Option<Vec<u64>>,
 ) -> Result<Person, CliError> {
     let name_str: String;
     let birthday_str: Option<String>;
@@ -49,6 +50,15 @@ pub fn person(
                     })
                     .collect::<Vec<String>>()
                     .join(",");
+
+                let activities_field = prm::helpers::join_int_vector(
+                    person
+                        .activities
+                        .iter()
+                        .map(|x| x.id)
+                        .collect::<Vec<u64>>()
+                        .as_slice(),
+                );
 
                 let mut vars = HashMap::new();
                 let name_placeholder: String;
@@ -107,9 +117,26 @@ pub fn person(
                 } else {
                     contact_info_placeholder = "".to_string();
                 }
+                let activities_placeholder: String;
+                if activities.is_some() {
+                    activities_placeholder = match activities {
+                        Some(activities) => prm::helpers::join_int_vector(activities.as_slice()),
+                        None => {
+                            return Err(CliError::MissingField {
+                                entity: "person".to_string(),
+                                field: "activities".to_string(),
+                            })
+                        }
+                    }
+                } else if !activities_field.is_empty() {
+                    activities_placeholder = activities_field;
+                } else {
+                    activities_placeholder = "".to_string();
+                }
                 vars.insert("name".to_string(), name_placeholder);
                 vars.insert("birthday".to_string(), birthday_placeholder);
                 vars.insert("contact_info".to_string(), contact_info_placeholder);
+                vars.insert("activities".to_string(), activities_placeholder);
 
                 let person_str = match strfmt(PERSON_TEMPLATE, &vars) {
                     Ok(person_str) => person_str,

@@ -137,3 +137,12 @@ pub fn get_contact_info(id: u64, splits: Vec<Vec<String>>) -> Result<Vec<Contact
     }
     Ok(contact_info_vec)
 }
+
+pub fn join_int_vector<T: ToString>(vec: &[T]) -> String {
+    vec.iter()
+        .map(|x| x.to_string())
+        .collect::<Vec<String>>()
+        .join(",")
+        .trim_end_matches(',')
+        .to_string()
+}

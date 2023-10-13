@@ -167,6 +167,8 @@ enum EditEntity {
         birthday: Option<String>,
         #[arg(short, long)]
         contact_info: Option<String>,
+        #[arg(short, long)]
+        activities: Option<Vec<u64>>,
     },
     Activity {
         #[arg(short, long)]
@@ -439,8 +441,9 @@ fn main() {
                 name,
                 birthday,
                 contact_info,
+                activities,
             } => {
-                match cli::edit::person(&conn, id, name, birthday, contact_info) {
+                match cli::edit::person(&conn, id, name, birthday, contact_info, activities) {
                     Ok(_) => (),
                     Err(_) => {
                         eprintln!("Error editing person");
