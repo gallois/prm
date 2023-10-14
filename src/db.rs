@@ -1134,6 +1134,7 @@ pub mod db_helpers {
                 Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
             };
             let rows = match stmt.query_map(params_from_iter(names.iter()), |row| {
+                // FIXME populate contact_info and activities
                 Ok(Person::new(
                     row.get(0)?,
                     row.get(1)?,
@@ -1143,6 +1144,7 @@ pub mod db_helpers {
                         )
                         .unwrap_or_default(),
                     ),
+                    vec![],
                     vec![],
                 ))
             }) {

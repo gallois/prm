@@ -23,6 +23,7 @@ pub fn person(
     let name_str: String;
     let birthday_str: Option<String>;
     let contact_info_str: Option<String>;
+    let activity_ids: Vec<u64>;
 
     let person = Person::get_by_id(conn, id);
 
@@ -161,8 +162,8 @@ pub fn person(
                         }
                     }
                 };
-                let (n, b, c) = match Person::parse_from_editor(edited.as_str()) {
-                    Ok((person, birthday, contact_info)) => (person, birthday, contact_info),
+                let (n, b, c, a) = match Person::parse_from_editor(edited.as_str()) {
+                    Ok(d) => (d.name, d.birthday, d.contact_info, d.activities),
                     Err(_) => {
                         return {
                             EditorParseSnafu {
@@ -175,8 +176,21 @@ pub fn person(
                 name_str = n;
                 birthday_str = b;
                 contact_info_str = Some(c.join(","));
+                activity_ids = a;
 
-                match person.update(name_str, birthday_str, contact_info_str) {
+                let activities = match Activity::get_by_ids(conn, activity_ids) {
+                    Ok(activities) => activities,
+                    Err(_) => {
+                        return {
+                            EntitySnafu {
+                                entity: "Activity".to_string(),
+                            }
+                            .fail()
+                        }
+                    }
+                };
+
+                match person.update(name_str, birthday_str, contact_info_str, activities) {
                     Ok(_) => (),
                     Err(_) => {
                         return {

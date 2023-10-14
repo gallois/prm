@@ -30,6 +30,13 @@ pub struct Person {
     pub notes: Vec<Note>,
 }
 
+pub struct EditorData {
+    pub name: String,
+    pub birthday: Option<String>,
+    pub contact_info: Vec<String>,
+    pub activities: Vec<u64>,
+}
+
 impl Entity for Person {
     fn get_id(&self) -> u64 {
         self.id
@@ -43,13 +50,14 @@ impl Person {
         name: String,
         birthday: Option<NaiveDate>,
         contact_info: Vec<ContactInfo>,
+        activities: Vec<Activity>,
     ) -> Person {
         Person {
             id,
             name,
             birthday,
             contact_info,
-            activities: vec![],
+            activities,
             reminders: vec![],
             notes: vec![],
         }
@@ -61,6 +69,7 @@ impl Person {
         name: String,
         birthday: Option<String>,
         contact_info: Option<String>,
+        activities: Vec<Activity>,
     ) -> Result<&Self, CliError> {
         self.name = name;
         if let Some(birthday) = birthday {
@@ -92,20 +101,22 @@ impl Person {
         }
         self.contact_info = contact_info_vec;
 
+        self.activities = activities;
+
         Ok(self)
     }
 
-    pub fn parse_from_editor(
-        content: &str,
-    ) -> Result<(String, Option<String>, Vec<String>), CliError> {
-        let mut error = false;
+    pub fn parse_from_editor(content: &str) -> Result<EditorData, CliError> {
+        let mut error: Option<CliError> = None;
         let mut name: String = String::new();
         let mut birthday: Option<String> = None;
         let mut contact_info: Vec<String> = vec![];
+        let mut activity_ids: Vec<u64> = vec![];
         let name_prefix = "Name: ";
         let birthday_prefix = "Birthday: ";
         let contact_info_prefix = "Contact Info: ";
-        content.lines().for_each(|line| match line {
+        let activities_prefix = "Activities: ";
+        content.lines().for_each(|line: &str| match line {
             s if s.starts_with(name_prefix) => {
                 name = s.trim_start_matches(name_prefix).to_string();
             }
@@ -116,14 +127,27 @@ impl Person {
                 let contact_info_str = s.trim_start_matches(contact_info_prefix);
                 contact_info = contact_info_str.split(',').map(|x| x.to_string()).collect();
             }
-            _ => error = true,
+            s if s.starts_with(activities_prefix) => {
+                let activities_str = s.trim_start_matches(activities_prefix);
+                let ids = activities_str.split(',').map(|x| x.parse()).collect();
+                match ids {
+                    Ok(ids) => activity_ids = ids,
+                    Err(_) => error = Some(CliError::InvalidIdFormat),
+                }
+            }
+            _ => error = Some(CliError::FormatError),
         });
 
-        if error {
-            return Err(CliError::FormatError);
+        if let Some(error) = error {
+            return Err(error);
         }
 
-        Ok((name, birthday, contact_info))
+        Ok(EditorData {
+            name,
+            birthday,
+            contact_info,
+            activities: activity_ids,
+        })
     }
 }
 
@@ -400,6 +424,11 @@ impl crate::db::db_interface::DbOperations for Person {
                     Err(_) => return Err(DbOperationsError::QueryError),
                 };
             }
+        }
+
+        for activity in self.activities.iter() {
+            activity.save(conn)?;
+            todo!("Implement a proper way to save activities");
         }
 
         Ok(self)
@@ -706,7 +735,13 @@ mod tests {
         let reminders: Vec<Reminder> = vec![];
         let notes: Vec<Note> = vec![];
 
-        let person = Person::new(id, name.clone(), Some(birthday), contact_info.clone());
+        let person = Person::new(
+            id,
+            name.clone(),
+            Some(birthday),
+            contact_info.clone(),
+            activities.clone(),
+        );
 
         assert_eq!(
             Person {

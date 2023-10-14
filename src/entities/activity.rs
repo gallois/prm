@@ -6,7 +6,7 @@ use strum_macros::{AsRefStr, EnumString};
 use crate::db_interface::{DbOperations, DbOperationsError};
 use crate::entities::person::Person;
 use crate::entities::Entities;
-use crate::{CliError, DateParseSnafu, RecordParseSnafu};
+use crate::{CliError, DateParseSnafu, EntitySnafu, NotFoundSnafu, RecordParseSnafu};
 use rusqlite::Connection;
 
 use super::Entity;
@@ -270,6 +270,27 @@ impl Activity {
             content: activity_content,
             people,
         })
+    }
+
+    pub fn get_by_ids(conn: &Connection, ids: Vec<u64>) -> Result<Vec<Activity>, CliError> {
+        let mut activities: Vec<Activity> = vec![];
+        for id in ids {
+            match Activity::get_by_id(conn, id) {
+                Ok(entity) => match entity {
+                    Some(Entities::Activity(activity)) => activities.push(activity),
+                    _ => return EntitySnafu { entity: "Activity" }.fail(),
+                },
+                Err(_) => {
+                    return NotFoundSnafu {
+                        entity: "Activity",
+                        id,
+                    }
+                    .fail()
+                }
+            }
+        }
+
+        Ok(activities)
     }
 }
 

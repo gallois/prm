@@ -10,7 +10,7 @@ use prm::entities::reminder::{
 };
 use prm::{
     AddSnafu, BirthdayParseSnafu, CliError, DateParseSnafu, EditorParseSnafu, EntitySnafu,
-    MissingFieldSnafu, RecurringTypeParseSnafu, TemplateSnafu,
+    MissingFieldSnafu, NotFoundSnafu, RecurringTypeParseSnafu, TemplateSnafu,
 };
 use rusqlite::Connection;
 
@@ -32,6 +32,8 @@ pub fn person(
     let mut birthday_str: Option<String> = None;
     let mut contact_info_vec: Vec<String> = vec![];
     let mut editor = false;
+    let mut activity_ids: Vec<u64> = vec![];
+
     if name.is_none() {
         editor = true;
 
@@ -60,13 +62,14 @@ pub fn person(
             Ok(edited) => edited,
             Err(_) => return EditorParseSnafu { entity: "Person" }.fail(),
         };
-        let (n, b, c) = match Person::parse_from_editor(edited.as_str()) {
-            Ok((person, birthday, contact_info)) => (person, birthday, contact_info),
+        let (n, b, c, a) = match Person::parse_from_editor(edited.as_str()) {
+            Ok(d) => (d.name, d.birthday, d.contact_info, d.activities),
             Err(_) => return EditorParseSnafu { entity: "Person" }.fail(),
         };
         name_str = n;
         birthday_str = b;
         contact_info_vec = c;
+        activity_ids = a;
     }
 
     if !editor {
@@ -120,8 +123,25 @@ pub fn person(
 
     let contact_info = get_contact_info(0, contact_info_splits)?;
 
+    let mut activities: Vec<Activity> = vec![];
+    for id in activity_ids {
+        match Activity::get_by_id(conn, id) {
+            Ok(entity) => match entity {
+                Some(prm::entities::Entities::Activity(activity)) => activities.push(activity),
+                _ => return EntitySnafu { entity: "Activity" }.fail(),
+            },
+            Err(_) => {
+                return NotFoundSnafu {
+                    entity: "Activity",
+                    id,
+                }
+                .fail()
+            }
+        }
+    }
+
     assert!(!name_str.is_empty(), "Name cannot be empty");
-    let person = Person::new(0, name_str, birthday_obj, contact_info);
+    let person = Person::new(0, name_str, birthday_obj, contact_info, activities);
     match person.add(conn) {
         Ok(_) => println!("{} added successfully", person),
         Err(_) => return AddSnafu { entity: "Person" }.fail(),

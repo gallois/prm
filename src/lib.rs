@@ -48,6 +48,7 @@ pub enum CliError {
     },
     EditorError,
     FormatError,
+    InvalidIdFormat,
     #[snafu(display("Error while parsing activity: {}", activity))]
     ActivityParseError {
         activity: String,
