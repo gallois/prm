@@ -426,9 +426,49 @@ impl crate::db::db_interface::DbOperations for Person {
             }
         }
 
-        for activity in self.activities.iter() {
-            activity.save(conn)?;
-            todo!("Implement a proper way to save activities");
+        for activity in self.activities.clone().iter_mut() {
+            todo!("Handle removing activities");
+            let mut stmt = match conn.prepare(
+                "SELECT EXISTS(SELECT
+                    *
+                FROM
+                    people_activities
+                WHERE
+                    activity_id = ?1 AND
+                    person_id = ?2)",
+            ) {
+                Ok(stmt) => stmt,
+                Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
+            };
+            let mut rows = match stmt.query(params![activity.id, self.id]) {
+                Ok(rows) => rows,
+                Err(_) => return Err(DbOperationsError::QueryError),
+            };
+
+            match rows.next() {
+                Ok(row) => match row {
+                    Some(row) => {
+                        match row.get::<usize, bool>(0) {
+                            Ok(exists) => {
+                                if !exists {
+                                    activity.people.push(self.clone());
+                                    // FIXME there's some but that seems to be replacing the content
+                                    //       of activities with the date
+                                    activity.save(conn)?;
+                                }
+                            }
+                            Err(e) => {
+                                return Err(DbOperationsError::RecordError {
+                                    sqlite_error: Some(e),
+                                    strum_error: None,
+                                });
+                            }
+                        };
+                    }
+                    None => return Err(DbOperationsError::QueryError),
+                },
+                Err(_) => return Err(DbOperationsError::QueryError),
+            }
         }
 
         Ok(self)
@@ -494,6 +534,7 @@ impl crate::db::db_interface::DbOperations for Person {
             }),
         }
     }
+
     fn get_all(conn: &Connection) -> Result<Vec<Box<Self>>, DbOperationsError> {
         let mut stmt = match conn.prepare("SELECT * FROM people WHERE deleted = 0 COLLATE NOCASE") {
             Ok(stmt) => stmt,
