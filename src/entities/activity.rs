@@ -627,7 +627,7 @@ impl DbOperations for Activity {
                             })
                         }
                     };
-                    let content: String = match row.get(3) {
+                    let content: String = match row.get(4) {
                         Ok(row) => row,
                         Err(e) => {
                             return Err(DbOperationsError::RecordError {

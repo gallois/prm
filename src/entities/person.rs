@@ -452,8 +452,6 @@ impl crate::db::db_interface::DbOperations for Person {
                             Ok(exists) => {
                                 if !exists {
                                     activity.people.push(self.clone());
-                                    // FIXME there's some but that seems to be replacing the content
-                                    //       of activities with the date
                                     activity.save(conn)?;
                                 }
                             }
