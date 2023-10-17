@@ -37,6 +37,7 @@ pub enum CliError {
     #[snafu(display("Error parsing {} from editor", entity))]
     EditorParse {
         entity: String,
+        message: String,
     },
     #[snafu(display("Invalid record: {}", record))]
     RecordParse {
@@ -60,10 +61,12 @@ pub enum CliError {
     #[snafu(display("Entity error {}", entity))]
     Entity {
         entity: String,
+        message: String,
     },
     #[snafu(display("Error editing {}", entity))]
     Edit {
         entity: String,
+        message: String,
     },
     #[snafu(display("Entity not found {} for id {}", entity, id))]
     NotFound {

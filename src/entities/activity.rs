@@ -278,7 +278,13 @@ impl Activity {
             match Activity::get_by_id(conn, id) {
                 Ok(entity) => match entity {
                     Some(Entities::Activity(activity)) => activities.push(activity),
-                    _ => return EntitySnafu { entity: "Activity" }.fail(),
+                    _ => {
+                        return EntitySnafu {
+                            entity: "Activity",
+                            message: format!("Error fecthing activity: {:#?}", entity),
+                        }
+                        .fail()
+                    }
                 },
                 Err(_) => {
                     return NotFoundSnafu {

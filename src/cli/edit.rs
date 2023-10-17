@@ -29,12 +29,13 @@ pub fn person(
 
     match person {
         Ok(person) => match person {
-            Some(person) => {
-                let mut person = match person {
+            Some(entity) => {
+                let mut person = match entity {
                     Entities::Person(person) => person,
                     _ => {
                         return EntitySnafu {
                             entity: "Person".to_string(),
+                            message: format!("Wrong entity type: {:#?}", entity),
                         }
                         .fail()
                     }
@@ -153,10 +154,11 @@ pub fn person(
                 };
                 let edited = match edit::edit(person_str) {
                     Ok(edited) => edited,
-                    Err(_) => {
+                    Err(e) => {
                         return {
                             EditorParseSnafu {
                                 entity: "Person".to_string(),
+                                message: format!("Error editing person: {:#?}", e),
                             }
                             .fail()
                         }
@@ -164,10 +166,11 @@ pub fn person(
                 };
                 let (n, b, c, a) = match Person::parse_from_editor(edited.as_str()) {
                     Ok(d) => (d.name, d.birthday, d.contact_info, d.activities),
-                    Err(_) => {
+                    Err(e) => {
                         return {
                             EditorParseSnafu {
                                 entity: "Person".to_string(),
+                                message: format!("Error editing person: {:#?}", e),
                             }
                             .fail()
                         }
@@ -180,10 +183,11 @@ pub fn person(
 
                 let activities = match Activity::get_by_ids(conn, activity_ids) {
                     Ok(activities) => activities,
-                    Err(_) => {
+                    Err(e) => {
                         return {
                             EntitySnafu {
                                 entity: "Activity".to_string(),
+                                message: format!("Error fetching activities: {:#?}", e),
                             }
                             .fail()
                         }
@@ -192,10 +196,11 @@ pub fn person(
 
                 match person.update(name_str, birthday_str, contact_info_str, activities) {
                     Ok(_) => (),
-                    Err(_) => {
+                    Err(e) => {
                         return {
                             EditSnafu {
                                 entity: "Person".to_string(),
+                                message: format!("Error editing person: {:#?}", e),
                             }
                             .fail()
                         }
@@ -203,10 +208,11 @@ pub fn person(
                 };
                 match person.save(conn) {
                     Ok(person) => println!("Updated person: {}", person),
-                    Err(_) => {
+                    Err(e) => {
                         return {
                             EditSnafu {
                                 entity: "Person".to_string(),
+                                message: format!("Error editing person: {:#?}", e),
                             }
                             .fail()
                         }
@@ -223,8 +229,9 @@ pub fn person(
                 .fail()
             }
         },
-        Err(_) => EntitySnafu {
+        Err(e) => EntitySnafu {
             entity: "Person".to_string(),
+            message: format!("Error fetching person: {:#?}", e),
         }
         .fail(),
     }
@@ -247,13 +254,14 @@ pub fn activity(
 
     match activity {
         Ok(activity) => match activity {
-            Some(activity) => {
-                let mut activity = match activity {
+            Some(entity) => {
+                let mut activity = match entity {
                     Entities::Activity(activity) => activity,
                     _ => {
                         return {
                             EntitySnafu {
                                 entity: "Activity".to_string(),
+                                message: format!("Wrong entity type: {:#?}", entity),
                             }
                             .fail()
                         }
@@ -359,10 +367,11 @@ pub fn activity(
                 };
                 let edited = match edit::edit(activity_str) {
                     Ok(edited) => edited,
-                    Err(_) => {
+                    Err(e) => {
                         return {
                             EditorParseSnafu {
                                 entity: "Activity".to_string(),
+                                message: format!("Error editing activity: {:#?}", e),
                             }
                             .fail()
                         }
@@ -376,10 +385,11 @@ pub fn activity(
                         content,
                         people,
                     }) => (name, date, activity_type, content, people),
-                    Err(_) => {
+                    Err(e) => {
                         return {
                             EditorParseSnafu {
                                 entity: "Activity".to_string(),
+                                message: format!("Error editing activity: {:#?}", e),
                             }
                             .fail()
                         }
@@ -424,10 +434,11 @@ pub fn activity(
                     people,
                 ) {
                     Ok(_) => (),
-                    Err(_) => {
+                    Err(e) => {
                         return {
                             EditSnafu {
                                 entity: "Activity".to_string(),
+                                message: format!("Error editing activity: {:#?}", e),
                             }
                         }
                         .fail()
@@ -435,10 +446,11 @@ pub fn activity(
                 };
                 match activity.save(conn) {
                     Ok(activity) => println!("Updated activity: {:#?}", activity),
-                    Err(_) => {
+                    Err(e) => {
                         return {
                             EditSnafu {
                                 entity: "Activity".to_string(),
+                                message: format!("Error editing activity: {:#?}", e),
                             }
                         }
                         .fail()
@@ -452,8 +464,9 @@ pub fn activity(
             }
             .fail(),
         },
-        Err(_) => EntitySnafu {
+        Err(e) => EntitySnafu {
             entity: "Activity".to_string(),
+            message: format!("Error fetching activity: {:#?}", e),
         }
         .fail(),
     }
@@ -477,13 +490,14 @@ pub fn reminder(
 
     match reminder {
         Ok(reminder) => match reminder {
-            Some(reminder) => {
-                let mut reminder = match reminder {
+            Some(entity) => {
+                let mut reminder = match entity {
                     Entities::Reminder(reminder) => reminder,
                     _ => {
                         return {
                             EntitySnafu {
                                 entity: "Reminder".to_string(),
+                                message: format!("Wrong entity type: {:#?}", entity),
                             }
                             .fail()
                         }
@@ -590,10 +604,11 @@ pub fn reminder(
                 };
                 let edited = match edit::edit(reminder_str) {
                     Ok(edited) => edited,
-                    Err(_) => {
+                    Err(e) => {
                         return {
                             EditorParseSnafu {
                                 entity: "Reminder".to_string(),
+                                message: format!("Error editing reminder: {:#?}", e),
                             }
                             .fail()
                         }
@@ -607,10 +622,11 @@ pub fn reminder(
                         description,
                         people,
                     }) => (name, date, recurring_type, description, people),
-                    Err(_) => {
+                    Err(e) => {
                         return {
                             EditorParseSnafu {
                                 entity: "Reminder".to_string(),
+                                message: format!("Error parsing reminder: {:#?}", e),
                             }
                             .fail()
                         }
@@ -655,10 +671,11 @@ pub fn reminder(
                     people,
                 ) {
                     Ok(_) => (),
-                    Err(_) => {
+                    Err(e) => {
                         return {
                             EditSnafu {
                                 entity: "Reminder".to_string(),
+                                message: format!("Error editing reminder: {:#?}", e),
                             }
                             .fail()
                         }
@@ -666,10 +683,11 @@ pub fn reminder(
                 };
                 match reminder.save(conn) {
                     Ok(reminder) => println!("Updated reminder: {:#?}", reminder),
-                    Err(_) => {
+                    Err(e) => {
                         return {
                             EditSnafu {
                                 entity: "Reminder".to_string(),
+                                message: format!("Error editing reminder: {:#?}", e),
                             }
                             .fail()
                         }
@@ -683,8 +701,9 @@ pub fn reminder(
             }
             .fail(),
         },
-        Err(_) => EntitySnafu {
+        Err(e) => EntitySnafu {
             entity: "Reminder".to_string(),
+            message: format!("Error fetching reminder: {:#?}", e),
         }
         .fail(),
     }
@@ -703,13 +722,14 @@ pub fn note(
 
     match note {
         Ok(note) => match note {
-            Some(note) => {
-                let mut note = match note {
+            Some(entity) => {
+                let mut note = match entity {
                     Entities::Note(note) => note,
                     _ => {
                         return {
                             EntitySnafu {
                                 entity: "Note".to_string(),
+                                message: format!("Wrong entity type: {:#?}", entity),
                             }
                         }
                         .fail()
@@ -777,10 +797,11 @@ pub fn note(
                 };
                 let edited = match edit::edit(note_str) {
                     Ok(edited) => edited,
-                    Err(_) => {
+                    Err(e) => {
                         return {
                             EditorParseSnafu {
                                 entity: "Note".to_string(),
+                                message: format!("Error editing note: {:#?}", e),
                             }
                             .fail()
                         }
@@ -788,10 +809,11 @@ pub fn note(
                 };
                 let (d, c, p) = match Note::parse_from_editor(edited.as_str()) {
                     Ok((date, content, people)) => (date, content, people),
-                    Err(_) => {
+                    Err(e) => {
                         return {
                             EditorParseSnafu {
                                 entity: "Note".to_string(),
+                                message: format!("Error parsing note: {:#?}", e),
                             }
                             .fail()
                         }
@@ -804,10 +826,11 @@ pub fn note(
 
                 match note.update(conn, Some(date_string), Some(content_string), people) {
                     Ok(_) => (),
-                    Err(_) => {
+                    Err(e) => {
                         return {
                             EditSnafu {
                                 entity: "Note".to_string(),
+                                message: format!("Error editing note: {:#?}", e),
                             }
                             .fail()
                         }
@@ -815,10 +838,11 @@ pub fn note(
                 };
                 match note.save(conn) {
                     Ok(note) => println!("Updated note: {:#?}", note),
-                    Err(_) => {
+                    Err(e) => {
                         return {
                             EditSnafu {
                                 entity: "Note".to_string(),
+                                message: format!("Error editing note: {:#?}", e),
                             }
                             .fail()
                         }
@@ -833,8 +857,9 @@ pub fn note(
             }
             .fail(),
         },
-        Err(_) => EntitySnafu {
+        Err(e) => EntitySnafu {
             entity: "Note".to_string(),
+            message: format!("Wrong entity type: {:#?}", e),
         }
         .fail(),
     }

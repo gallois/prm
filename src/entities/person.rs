@@ -333,6 +333,7 @@ impl crate::db::db_interface::DbOperations for Person {
             Err(_) => return Err(DbOperationsError::QueryError),
         }
 
+        // FIXME there are plenty of unecessary updates here when editing person
         if !self.contact_info.is_empty() {
             let mut stmt = match conn.prepare(
                 "UPDATE
@@ -426,8 +427,8 @@ impl crate::db::db_interface::DbOperations for Person {
             }
         }
 
+        // Check if any activity needs to be added
         for activity in self.activities.clone().iter_mut() {
-            todo!("Handle removing activities");
             let mut stmt = match conn.prepare(
                 "SELECT EXISTS(SELECT
                     *
@@ -435,7 +436,8 @@ impl crate::db::db_interface::DbOperations for Person {
                     people_activities
                 WHERE
                     activity_id = ?1 AND
-                    person_id = ?2)",
+                    person_id = ?2 AND
+                    deleted = 0)",
             ) {
                 Ok(stmt) => stmt,
                 Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
@@ -466,6 +468,75 @@ impl crate::db::db_interface::DbOperations for Person {
                     None => return Err(DbOperationsError::QueryError),
                 },
                 Err(_) => return Err(DbOperationsError::QueryError),
+            }
+        }
+
+        // Remove activities
+        let mut stmt = match conn.prepare(
+            "SELECT
+                activity_id
+            FROM
+                people_activities
+            WHERE
+                person_id = ? AND
+                deleted = 0",
+        ) {
+            Ok(stmt) => stmt,
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
+        };
+        let mut rows = match stmt.query(params![self.id]) {
+            Ok(rows) => rows,
+            Err(_) => return Err(DbOperationsError::QueryError),
+        };
+        let mut ids: Vec<u64> = Vec::new();
+        loop {
+            match rows.next() {
+                Ok(row) => match row {
+                    Some(row) => {
+                        let id: u32 = match row.get(0) {
+                            Ok(row) => row,
+                            Err(e) => {
+                                return Err(DbOperationsError::RecordError {
+                                    sqlite_error: Some(e),
+                                    strum_error: None,
+                                })
+                            }
+                        };
+                        ids.push(id.into());
+                    }
+                    None => break,
+                },
+                Err(e) => {
+                    return Err(DbOperationsError::RecordError {
+                        sqlite_error: Some(e),
+                        strum_error: None,
+                    })
+                }
+            }
+        }
+
+        let person_activity_ids: Vec<u64> =
+            self.activities.iter().map(|a| a.id).collect::<Vec<u64>>();
+        for id in ids.iter() {
+            if !person_activity_ids.contains(id) {
+                let mut stmt = match conn.prepare(
+                    "UPDATE
+                        people_activities
+                    SET
+                        deleted = 1
+                    WHERE
+                        activity_id = ?1 AND
+                        person_id = ?2",
+                ) {
+                    Ok(stmt) => stmt,
+                    Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
+                };
+                match stmt.execute(params![id, self.id]) {
+                    Ok(updated) => {
+                        println!("[DEBUG] {} rows were updated", updated);
+                    }
+                    Err(_) => return Err(DbOperationsError::GenericError),
+                }
             }
         }
 

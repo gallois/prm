@@ -445,8 +445,8 @@ fn main() {
             } => {
                 match cli::edit::person(&conn, id, name, birthday, contact_info, activities) {
                     Ok(_) => (),
-                    Err(_) => {
-                        eprintln!("Error editing person");
+                    Err(e) => {
+                        eprintln!("Error editing person: {:#?}", e);
                         exit(exitcode::DATAERR);
                     }
                 };
@@ -460,8 +460,8 @@ fn main() {
             } => {
                 match cli::edit::activity(&conn, id, name, activity_type, date, content) {
                     Ok(_) => (),
-                    Err(_) => {
-                        eprintln!("Error editing activity");
+                    Err(e) => {
+                        eprintln!("Error editing activity: {:#?}", e);
                         exit(exitcode::DATAERR);
                     }
                 };
@@ -475,8 +475,8 @@ fn main() {
             } => {
                 match cli::edit::reminder(&conn, id, name, date, description, recurring) {
                     Ok(_) => (),
-                    Err(_) => {
-                        eprintln!("Error editing reminder");
+                    Err(e) => {
+                        eprintln!("Error editing reminder: {:#?}", e);
                         exit(exitcode::DATAERR);
                     }
                 };
@@ -484,8 +484,8 @@ fn main() {
             EditEntity::Note { id, date, content } => {
                 match cli::edit::note(&conn, id, date, content) {
                     Ok(_) => (),
-                    Err(_) => {
-                        eprintln!("Error editing note");
+                    Err(e) => {
+                        eprintln!("Error editing note: {:#?}", e);
                         exit(exitcode::DATAERR);
                     }
                 };

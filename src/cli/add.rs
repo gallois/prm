@@ -60,11 +60,23 @@ pub fn person(
         };
         let edited = match edit::edit(person_str) {
             Ok(edited) => edited,
-            Err(_) => return EditorParseSnafu { entity: "Person" }.fail(),
+            Err(e) => {
+                return EditorParseSnafu {
+                    entity: "Person",
+                    message: format!("Error editing person: {:#?}", e),
+                }
+                .fail()
+            }
         };
         let (n, b, c, a) = match Person::parse_from_editor(edited.as_str()) {
             Ok(d) => (d.name, d.birthday, d.contact_info, d.activities),
-            Err(_) => return EditorParseSnafu { entity: "Person" }.fail(),
+            Err(e) => {
+                return EditorParseSnafu {
+                    entity: "Person",
+                    message: format!("Error editing person: {:#?}", e),
+                }
+                .fail()
+            }
         };
         name_str = n;
         birthday_str = b;
@@ -128,7 +140,13 @@ pub fn person(
         match Activity::get_by_id(conn, id) {
             Ok(entity) => match entity {
                 Some(prm::entities::Entities::Activity(activity)) => activities.push(activity),
-                _ => return EntitySnafu { entity: "Activity" }.fail(),
+                _ => {
+                    return EntitySnafu {
+                        entity: "Activity",
+                        message: format!("Wrong entity type: {:#?}", entity),
+                    }
+                    .fail()
+                }
             },
             Err(_) => {
                 return NotFoundSnafu {
@@ -186,6 +204,7 @@ pub fn activity(
             Err(err) => {
                 return EditorParseSnafu {
                     entity: err.to_string(),
+                    message: format!("Error editing activity: {:#?}", err),
                 }
                 .fail()
             }
@@ -255,9 +274,10 @@ pub fn activity(
 
     let people = match prm::db::db_helpers::people::get_by_names(conn, activity_vars.people) {
         Ok(people) => people,
-        Err(_) => {
+        Err(e) => {
             return EntitySnafu {
                 entity: String::from("Person"),
+                message: format!("Error fetching person: {:#?}", e),
             }
             .fail()
         }
@@ -328,7 +348,13 @@ pub fn reminder(
         };
         let edited = match edit::edit(reminder_str) {
             Ok(edited) => edited,
-            Err(_) => return EditorParseSnafu { entity: "Reminder" }.fail(),
+            Err(e) => {
+                return EditorParseSnafu {
+                    entity: "Reminder",
+                    message: format!("Error editing reminder: {:#?}", e),
+                }
+                .fail()
+            }
         };
         let (n, da, r, de, p) = match Reminder::parse_from_editor(edited.as_str()) {
             Ok(ParseReminderFromEditorData {
@@ -338,7 +364,13 @@ pub fn reminder(
                 description,
                 people,
             }) => (name, date, recurring_type, description, people),
-            Err(_) => return EditorParseSnafu { entity: "Reminder" }.fail(),
+            Err(e) => {
+                return EditorParseSnafu {
+                    entity: "Reminder",
+                    message: format!("Error editing reminder: {:#?}", e),
+                }
+                .fail()
+            }
         };
         name_string = n;
         date_string = match da {
@@ -438,9 +470,10 @@ pub fn reminder(
 
     let people = match prm::db::db_helpers::people::get_by_names(conn, people) {
         Ok(people) => people,
-        Err(_) => {
+        Err(e) => {
             return EntitySnafu {
                 entity: String::from("people"),
+                message: format!("Error fetching people: {:#?}", e),
             }
             .fail()
         }
@@ -492,19 +525,32 @@ pub fn note(
         };
         let edited = match edit::edit(note_str) {
             Ok(edited) => edited,
-            Err(_) => return EditorParseSnafu { entity }.fail(),
+            Err(e) => {
+                return EditorParseSnafu {
+                    entity,
+                    message: format!("Error editing entity: {:#?}", e),
+                }
+                .fail()
+            }
         };
         let (d, c, p) = match Note::parse_from_editor(edited.as_str()) {
             Ok((date, content, people)) => (date, content, people),
-            Err(_) => return EditorParseSnafu { entity }.fail(),
+            Err(e) => {
+                return EditorParseSnafu {
+                    entity,
+                    message: format!("Error editing entity: {:#?}", e),
+                }
+                .fail()
+            }
         };
         date_string = d;
         content_string = c;
         people_vec = match prm::db::db_helpers::people::get_by_names(conn, p) {
             Ok(people) => people,
-            Err(_) => {
+            Err(e) => {
                 return EntitySnafu {
                     entity: String::from("people"),
+                    message: format!("Error fetching people: {:#?}", e),
                 }
                 .fail()
             }
