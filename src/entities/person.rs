@@ -4,6 +4,7 @@ use std::{convert::AsRef, fmt, str::FromStr};
 use strum_macros::{AsRefStr, EnumString};
 
 use crate::db::db_interface::DbOperationsError;
+use crate::db_interface::DbOperations;
 use crate::entities::activity::Activity;
 use crate::entities::note::Note;
 use crate::entities::reminder::Reminder;
@@ -148,6 +149,123 @@ impl Person {
             contact_info,
             activities: activity_ids,
         })
+    }
+
+    fn update_activities(conn: &Connection, person: &Person) -> Result<(), DbOperationsError> {
+        // Check if any activity needs to be added
+        for activity in person.activities.clone().iter_mut() {
+            let mut stmt = match conn.prepare(
+                "SELECT EXISTS(SELECT
+                    *
+                FROM
+                    people_activities
+                WHERE
+                    activity_id = ?1 AND
+                    person_id = ?2 AND
+                    deleted = 0)",
+            ) {
+                Ok(stmt) => stmt,
+                Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
+            };
+            let mut rows = match stmt.query(params![activity.id, person.id]) {
+                Ok(rows) => rows,
+                Err(_) => return Err(DbOperationsError::QueryError),
+            };
+
+            match rows.next() {
+                Ok(row) => match row {
+                    Some(row) => {
+                        match row.get::<usize, bool>(0) {
+                            Ok(exists) => {
+                                if !exists {
+                                    activity.people.push(person.clone());
+                                    activity.save(conn)?;
+                                }
+                            }
+                            Err(e) => {
+                                return Err(DbOperationsError::RecordError {
+                                    sqlite_error: Some(e),
+                                    strum_error: None,
+                                });
+                            }
+                        };
+                    }
+                    None => return Err(DbOperationsError::QueryError),
+                },
+                Err(_) => return Err(DbOperationsError::QueryError),
+            }
+        }
+
+        // Remove activities
+        let mut stmt = match conn.prepare(
+            "SELECT
+                activity_id
+            FROM
+                people_activities
+            WHERE
+                person_id = ? AND
+                deleted = 0",
+        ) {
+            Ok(stmt) => stmt,
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
+        };
+        let mut rows = match stmt.query(params![person.id]) {
+            Ok(rows) => rows,
+            Err(_) => return Err(DbOperationsError::QueryError),
+        };
+        let mut ids: Vec<u64> = Vec::new();
+        loop {
+            match rows.next() {
+                Ok(row) => match row {
+                    Some(row) => {
+                        let id: u32 = match row.get(0) {
+                            Ok(row) => row,
+                            Err(e) => {
+                                return Err(DbOperationsError::RecordError {
+                                    sqlite_error: Some(e),
+                                    strum_error: None,
+                                })
+                            }
+                        };
+                        ids.push(id.into());
+                    }
+                    None => break,
+                },
+                Err(e) => {
+                    return Err(DbOperationsError::RecordError {
+                        sqlite_error: Some(e),
+                        strum_error: None,
+                    })
+                }
+            }
+        }
+
+        let person_activity_ids: Vec<u64> =
+            person.activities.iter().map(|a| a.id).collect::<Vec<u64>>();
+        for id in ids.iter() {
+            if !person_activity_ids.contains(id) {
+                let mut stmt = match conn.prepare(
+                    "UPDATE
+                        people_activities
+                    SET
+                        deleted = 1
+                    WHERE
+                        activity_id = ?1 AND
+                        person_id = ?2",
+                ) {
+                    Ok(stmt) => stmt,
+                    Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
+                };
+                match stmt.execute(params![id, person.id]) {
+                    Ok(updated) => {
+                        println!("[DEBUG] {} rows were updated", updated);
+                    }
+                    Err(_) => return Err(DbOperationsError::GenericError),
+                }
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -427,118 +545,7 @@ impl crate::db::db_interface::DbOperations for Person {
             }
         }
 
-        // Check if any activity needs to be added
-        for activity in self.activities.clone().iter_mut() {
-            let mut stmt = match conn.prepare(
-                "SELECT EXISTS(SELECT
-                    *
-                FROM
-                    people_activities
-                WHERE
-                    activity_id = ?1 AND
-                    person_id = ?2 AND
-                    deleted = 0)",
-            ) {
-                Ok(stmt) => stmt,
-                Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
-            };
-            let mut rows = match stmt.query(params![activity.id, self.id]) {
-                Ok(rows) => rows,
-                Err(_) => return Err(DbOperationsError::QueryError),
-            };
-
-            match rows.next() {
-                Ok(row) => match row {
-                    Some(row) => {
-                        match row.get::<usize, bool>(0) {
-                            Ok(exists) => {
-                                if !exists {
-                                    activity.people.push(self.clone());
-                                    activity.save(conn)?;
-                                }
-                            }
-                            Err(e) => {
-                                return Err(DbOperationsError::RecordError {
-                                    sqlite_error: Some(e),
-                                    strum_error: None,
-                                });
-                            }
-                        };
-                    }
-                    None => return Err(DbOperationsError::QueryError),
-                },
-                Err(_) => return Err(DbOperationsError::QueryError),
-            }
-        }
-
-        // Remove activities
-        let mut stmt = match conn.prepare(
-            "SELECT
-                activity_id
-            FROM
-                people_activities
-            WHERE
-                person_id = ? AND
-                deleted = 0",
-        ) {
-            Ok(stmt) => stmt,
-            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
-        };
-        let mut rows = match stmt.query(params![self.id]) {
-            Ok(rows) => rows,
-            Err(_) => return Err(DbOperationsError::QueryError),
-        };
-        let mut ids: Vec<u64> = Vec::new();
-        loop {
-            match rows.next() {
-                Ok(row) => match row {
-                    Some(row) => {
-                        let id: u32 = match row.get(0) {
-                            Ok(row) => row,
-                            Err(e) => {
-                                return Err(DbOperationsError::RecordError {
-                                    sqlite_error: Some(e),
-                                    strum_error: None,
-                                })
-                            }
-                        };
-                        ids.push(id.into());
-                    }
-                    None => break,
-                },
-                Err(e) => {
-                    return Err(DbOperationsError::RecordError {
-                        sqlite_error: Some(e),
-                        strum_error: None,
-                    })
-                }
-            }
-        }
-
-        let person_activity_ids: Vec<u64> =
-            self.activities.iter().map(|a| a.id).collect::<Vec<u64>>();
-        for id in ids.iter() {
-            if !person_activity_ids.contains(id) {
-                let mut stmt = match conn.prepare(
-                    "UPDATE
-                        people_activities
-                    SET
-                        deleted = 1
-                    WHERE
-                        activity_id = ?1 AND
-                        person_id = ?2",
-                ) {
-                    Ok(stmt) => stmt,
-                    Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
-                };
-                match stmt.execute(params![id, self.id]) {
-                    Ok(updated) => {
-                        println!("[DEBUG] {} rows were updated", updated);
-                    }
-                    Err(_) => return Err(DbOperationsError::GenericError),
-                }
-            }
-        }
+        Person::update_activities(conn, self)?;
 
         Ok(self)
     }
