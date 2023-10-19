@@ -385,7 +385,7 @@ impl DbOperations for Reminder {
         };
         match stmt.execute(params![self.name, date_str, types[0], self.description]) {
             Ok(updated) => {
-                println!("[DEBUG] {} rows were updated", updated);
+                println!("[DEBUG][reminders][insert] {} rows were updated", updated);
             }
             Err(_) => return Err(DbOperationsError::QueryError),
         }
@@ -406,7 +406,10 @@ impl DbOperations for Reminder {
             };
             match stmt.execute(params![person.id, id]) {
                 Ok(updated) => {
-                    println!("[DEBUG] {} rows were updated", updated);
+                    println!(
+                        "[DEBUG][people_reminders][insert] {} rows were updated",
+                        updated
+                    );
                 }
                 Err(_) => return Err(DbOperationsError::QueryError),
             }
@@ -429,7 +432,7 @@ impl DbOperations for Reminder {
         };
         match stmt.execute([self.id]) {
             Ok(updated) => {
-                println!("[DEBUG] {} rows were updated", updated);
+                println!("[DEBUG][reminders][update] {} rows were updated", updated);
             }
             Err(_) => return Err(DbOperationsError::QueryError),
         }
@@ -497,7 +500,7 @@ impl DbOperations for Reminder {
             self.id
         ]) {
             Ok(updated) => {
-                println!("[DEBUG] {} rows were updated", updated);
+                println!("[DEBUG][reminders][update] {} rows were updated", updated);
             }
             Err(_) => return Err(DbOperationsError::QueryError),
         }

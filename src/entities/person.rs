@@ -258,7 +258,10 @@ impl Person {
                 };
                 match stmt.execute(params![id, person.id]) {
                     Ok(updated) => {
-                        println!("[DEBUG] {} rows were updated", updated);
+                        println!(
+                            "[DEBUG][people_activities][update] {} rows were updated",
+                            updated
+                        );
                     }
                     Err(_) => return Err(DbOperationsError::GenericError),
                 }
@@ -325,7 +328,7 @@ impl crate::db::db_interface::DbOperations for Person {
 
         match stmt.execute(params![self.name, birthday_str]) {
             Ok(updated) => {
-                println!("[DEBUG] {} rows were updated", updated);
+                println!("[DEBUG][people][insert] {} rows were updated", updated);
             }
             Err(_) => return Err(DbOperationsError::QueryError),
         }
@@ -393,7 +396,10 @@ impl crate::db::db_interface::DbOperations for Person {
             };
 
             match stmt.execute(params![id, types[0], ci_value]) {
-                Ok(updated) => println!("[DEBUG] {} rows were updated", updated),
+                Ok(updated) => println!(
+                    "[DEBUG][contact_info][insert] {} rows were updated",
+                    updated
+                ),
                 Err(_) => return Err(DbOperationsError::QueryError),
             }
             Ok(())
@@ -418,7 +424,7 @@ impl crate::db::db_interface::DbOperations for Person {
         };
         match stmt.execute([self.id]) {
             Ok(updated) => {
-                println!("[DEBUG] {} rows were updated", updated);
+                println!("[DEBUG][people][update] {} rows were updated", updated);
             }
             Err(_) => return Err(DbOperationsError::QueryError),
         }
@@ -446,27 +452,30 @@ impl crate::db::db_interface::DbOperations for Person {
         };
         match stmt.execute(params![self.name, birthday_str, self.id]) {
             Ok(updated) => {
-                println!("[DEBUG] {} rows were updated", updated);
+                println!("[DEBUG][people][update] {} rows were updated", updated);
             }
             Err(_) => return Err(DbOperationsError::QueryError),
         }
 
-        // FIXME there are plenty of unecessary updates here when editing person
+        // FIXME there are plenty of unnecessary updates here when editing person
         if !self.contact_info.is_empty() {
             let mut stmt = match conn.prepare(
                 "UPDATE
-                            contact_info
-                         SET
-                            deleted = 1
-                         WHERE
-                            person_id = ?1",
+                       contact_info
+                    SET
+                       deleted = 1
+                    WHERE
+                       person_id = ?1",
             ) {
                 Ok(stmt) => stmt,
                 Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
             };
             match stmt.execute(params![self.id]) {
                 Ok(updated) => {
-                    println!("[DEBUG] {} rows were updated", updated);
+                    println!(
+                        "[DEBUG][contact_info][update] {} rows were updated",
+                        updated
+                    );
                 }
                 Err(_) => return Err(DbOperationsError::QueryError),
             };
@@ -538,7 +547,10 @@ impl crate::db::db_interface::DbOperations for Person {
                 };
                 match stmt.execute(params![self.id, types[0], ci_value]) {
                     Ok(updated) => {
-                        println!("[DEBUG] {} rows were updated", updated);
+                        println!(
+                            "[DEBUG][contact_info][insert] {} rows were updated",
+                            updated
+                        );
                     }
                     Err(_) => return Err(DbOperationsError::QueryError),
                 };

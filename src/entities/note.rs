@@ -167,7 +167,7 @@ impl DbOperations for Note {
 
         match stmt.execute(params![date_str, self.content]) {
             Ok(updated) => {
-                println!("[DEBUG] {} rows were updated", updated);
+                println!("[DEBUG][notes][insert] {} rows were updated", updated);
             }
             Err(_) => return Err(DbOperationsError::QueryError),
         }
@@ -189,7 +189,10 @@ impl DbOperations for Note {
 
             match stmt.execute(params![person.id, id]) {
                 Ok(updated) => {
-                    println!("[DEBUG] {} rows were updated", updated);
+                    println!(
+                        "[DEBUG][people_notes][insert] {} rows were updated",
+                        updated
+                    );
                 }
                 Err(_) => return Err(DbOperationsError::QueryError),
             }
@@ -213,7 +216,7 @@ impl DbOperations for Note {
 
         match stmt.execute([self.id]) {
             Ok(updated) => {
-                println!("[DEBUG] {} rows were updated", updated);
+                println!("[DEBUG][notes][update] {} rows were updated", updated);
             }
             Err(_) => return Err(DbOperationsError::QueryError),
         }
@@ -237,7 +240,7 @@ impl DbOperations for Note {
 
         match stmt.execute(params![self.date.to_string(), self.content, self.id]) {
             Ok(updated) => {
-                println!("[DEBUG] {} rows were updated", updated);
+                println!("[DEBUG][notes][update] {} rows were updated", updated);
             }
             Err(_) => return Err(DbOperationsError::QueryError),
         }
@@ -297,7 +300,10 @@ impl DbOperations for Note {
 
                     match stmt.execute(params![id]) {
                         Ok(updated) => {
-                            println!("[DEBUG] {} rows were updated", updated);
+                            println!(
+                                "[DEBUG][people_notes][update] {} rows were updated",
+                                updated
+                            );
                         }
                         Err(_) => return Err(DbOperationsError::QueryError),
                     }
@@ -316,7 +322,10 @@ impl DbOperations for Note {
             };
             match stmt.execute(params![person.id, self.id]) {
                 Ok(updated) => {
-                    println!("[DEBUG] {} rows were updated", updated);
+                    println!(
+                        "[DEBUG][people_notes][insert] {} rows were updated",
+                        updated
+                    );
                 }
                 Err(_) => return Err(DbOperationsError::QueryError),
             }

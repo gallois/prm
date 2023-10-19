@@ -376,7 +376,7 @@ impl DbOperations for Activity {
 
         match stmt.execute(params![self.name, types[0], date_str, self.content]) {
             Ok(updated) => {
-                println!("[DEBUG] {} rows were updated", updated);
+                println!("[DEBUG][activities][insert] {} rows were updated", updated);
             }
             Err(_) => return Err(DbOperationsError::GenericError),
         }
@@ -397,7 +397,10 @@ impl DbOperations for Activity {
             };
             match stmt.execute(params![person.id, id]) {
                 Ok(updated) => {
-                    println!("[DEBUG] {} rows were updated", updated);
+                    println!(
+                        "[DEBUG][people_activities][insert] {} rows were updated",
+                        updated
+                    );
                 }
                 Err(_) => return Err(DbOperationsError::GenericError),
             }
@@ -420,7 +423,7 @@ impl DbOperations for Activity {
         };
         match stmt.execute([self.id]) {
             Ok(updated) => {
-                println!("[DEBUG] {} rows were updated", updated);
+                println!("[DEBUG][activities][update] {} rows were updated", updated);
             }
             Err(_) => return Err(DbOperationsError::GenericError),
         }
@@ -493,7 +496,7 @@ impl DbOperations for Activity {
             self.id,
         ]) {
             Ok(updated) => {
-                println!("[DEBUG] {} rows were updated", updated);
+                println!("[DEBUG][activities][update] {} rows were updated", updated);
             }
             Err(_) => return Err(DbOperationsError::GenericError),
         }
@@ -557,7 +560,10 @@ impl DbOperations for Activity {
                     };
                     match stmt.execute(params![id]) {
                         Ok(updated) => {
-                            println!("[DEBUG] {} rows were updated", updated);
+                            println!(
+                                "[DEBUG][people_activities][update] {} rows were updated",
+                                updated
+                            );
                         }
                         Err(_) => return Err(DbOperationsError::GenericError),
                     }
@@ -576,7 +582,10 @@ impl DbOperations for Activity {
             };
             match stmt.execute(params![person.id, self.id]) {
                 Ok(updated) => {
-                    println!("[DEBUG] {} rows were updated", updated);
+                    println!(
+                        "[DEBUG][people_activities][insert] {} rows were updated",
+                        updated
+                    );
                 }
                 Err(_) => return Err(DbOperationsError::GenericError),
             }
