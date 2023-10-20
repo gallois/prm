@@ -151,6 +151,109 @@ impl Person {
         })
     }
 
+    fn update_contact_info(conn: &Connection, person: &Person) -> Result<(), DbOperationsError> {
+        if !person.contact_info.is_empty() {
+            let mut stmt = match conn.prepare(
+                "UPDATE
+                       contact_info
+                    SET
+                       deleted = 1
+                    WHERE
+                       person_id = ?1",
+            ) {
+                Ok(stmt) => stmt,
+                Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
+            };
+            match stmt.execute(params![person.id]) {
+                Ok(updated) => {
+                    println!(
+                        "[DEBUG][contact_info][update] {} rows were updated",
+                        updated
+                    );
+                }
+                Err(_) => return Err(DbOperationsError::QueryError),
+            };
+            for ci in person.contact_info.iter() {
+                let (ci_type, ci_value): (String, &str) = match &ci.contact_info_type {
+                    ContactInfoType::Phone(value) => (
+                        ContactInfoType::Phone(value.clone()).as_ref().to_owned(),
+                        value.as_ref(),
+                    ),
+                    ContactInfoType::WhatsApp(value) => (
+                        ContactInfoType::WhatsApp(value.clone()).as_ref().to_owned(),
+                        value.as_ref(),
+                    ),
+                    ContactInfoType::Email(value) => (
+                        ContactInfoType::Email(value.clone()).as_ref().to_owned(),
+                        value.as_ref(),
+                    ),
+                };
+                let mut stmt = match conn
+                    .prepare("SELECT id FROM contact_info_types WHERE type = ?")
+                {
+                    Ok(stmt) => stmt,
+                    Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
+                };
+
+                let mut rows = match stmt.query(params![ci_type]) {
+                    Ok(rows) => rows,
+                    Err(_) => return Err(DbOperationsError::QueryError),
+                };
+                let mut types: Vec<u32> = Vec::new();
+                loop {
+                    match rows.next() {
+                        Ok(row) => match row {
+                            Some(row) => match row.get(0) {
+                                Ok(row) => types.push(row),
+                                Err(e) => {
+                                    return Err(DbOperationsError::RecordError {
+                                        sqlite_error: Some(e),
+                                        strum_error: None,
+                                    })
+                                }
+                            },
+                            None => break,
+                        },
+                        Err(e) => {
+                            return Err(DbOperationsError::RecordError {
+                                sqlite_error: Some(e),
+                                strum_error: None,
+                            })
+                        }
+                    }
+                }
+
+                let mut stmt = match conn.prepare(
+                    "INSERT
+                        INTO
+                     contact_info
+                        (
+                            person_id,
+                            contact_info_type_id,
+                            contact_info_details,
+                            deleted
+                        )
+                     VALUES
+                        (?1, ?2, ?3, 0)",
+                ) {
+                    Ok(stmt) => stmt,
+                    Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
+                };
+                match stmt.execute(params![person.id, types[0], ci_value]) {
+                    Ok(updated) => {
+                        println!(
+                            "[DEBUG][contact_info][insert] {} rows were updated",
+                            updated
+                        );
+                    }
+                    Err(_) => return Err(DbOperationsError::QueryError),
+                };
+            }
+        }
+
+        Ok(())
+    }
+
     fn update_activities(conn: &Connection, person: &Person) -> Result<(), DbOperationsError> {
         // Check if any activity needs to be added
         for activity in person.activities.clone().iter_mut() {
@@ -458,104 +561,7 @@ impl crate::db::db_interface::DbOperations for Person {
         }
 
         // FIXME there are plenty of unnecessary updates here when editing person
-        if !self.contact_info.is_empty() {
-            let mut stmt = match conn.prepare(
-                "UPDATE
-                       contact_info
-                    SET
-                       deleted = 1
-                    WHERE
-                       person_id = ?1",
-            ) {
-                Ok(stmt) => stmt,
-                Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
-            };
-            match stmt.execute(params![self.id]) {
-                Ok(updated) => {
-                    println!(
-                        "[DEBUG][contact_info][update] {} rows were updated",
-                        updated
-                    );
-                }
-                Err(_) => return Err(DbOperationsError::QueryError),
-            };
-            for ci in self.contact_info.iter() {
-                let (ci_type, ci_value): (String, &str) = match &ci.contact_info_type {
-                    ContactInfoType::Phone(value) => (
-                        ContactInfoType::Phone(value.clone()).as_ref().to_owned(),
-                        value.as_ref(),
-                    ),
-                    ContactInfoType::WhatsApp(value) => (
-                        ContactInfoType::WhatsApp(value.clone()).as_ref().to_owned(),
-                        value.as_ref(),
-                    ),
-                    ContactInfoType::Email(value) => (
-                        ContactInfoType::Email(value.clone()).as_ref().to_owned(),
-                        value.as_ref(),
-                    ),
-                };
-                let mut stmt = match conn
-                    .prepare("SELECT id FROM contact_info_types WHERE type = ?")
-                {
-                    Ok(stmt) => stmt,
-                    Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
-                };
-
-                let mut rows = match stmt.query(params![ci_type]) {
-                    Ok(rows) => rows,
-                    Err(_) => return Err(DbOperationsError::QueryError),
-                };
-                let mut types: Vec<u32> = Vec::new();
-                loop {
-                    match rows.next() {
-                        Ok(row) => match row {
-                            Some(row) => match row.get(0) {
-                                Ok(row) => types.push(row),
-                                Err(e) => {
-                                    return Err(DbOperationsError::RecordError {
-                                        sqlite_error: Some(e),
-                                        strum_error: None,
-                                    })
-                                }
-                            },
-                            None => break,
-                        },
-                        Err(e) => {
-                            return Err(DbOperationsError::RecordError {
-                                sqlite_error: Some(e),
-                                strum_error: None,
-                            })
-                        }
-                    }
-                }
-
-                let mut stmt = match conn.prepare(
-                    "INSERT
-                        INTO
-                     contact_info
-                        (
-                            person_id,
-                            contact_info_type_id,
-                            contact_info_details,
-                            deleted
-                        )
-                     VALUES
-                        (?1, ?2, ?3, 0)",
-                ) {
-                    Ok(stmt) => stmt,
-                    Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
-                };
-                match stmt.execute(params![self.id, types[0], ci_value]) {
-                    Ok(updated) => {
-                        println!(
-                            "[DEBUG][contact_info][insert] {} rows were updated",
-                            updated
-                        );
-                    }
-                    Err(_) => return Err(DbOperationsError::QueryError),
-                };
-            }
-        }
+        Person::update_contact_info(conn, self)?;
 
         Person::update_activities(conn, self)?;
 
