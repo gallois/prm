@@ -153,26 +153,6 @@ impl Person {
 
     fn update_contact_info(conn: &Connection, person: &Person) -> Result<(), DbOperationsError> {
         if !person.contact_info.is_empty() {
-            let mut stmt = match conn.prepare(
-                "UPDATE
-                       contact_info
-                    SET
-                       deleted = 1
-                    WHERE
-                       person_id = ?1",
-            ) {
-                Ok(stmt) => stmt,
-                Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
-            };
-            match stmt.execute(params![person.id]) {
-                Ok(updated) => {
-                    println!(
-                        "[DEBUG][contact_info][update] {} rows were updated",
-                        updated
-                    );
-                }
-                Err(_) => return Err(DbOperationsError::QueryError),
-            };
             for ci in person.contact_info.iter() {
                 let (ci_type, ci_value): (String, &str) = match &ci.contact_info_type {
                     ContactInfoType::Phone(value) => (
@@ -223,32 +203,76 @@ impl Person {
                     }
                 }
 
+                // Check if entry needs to be updated
                 let mut stmt = match conn.prepare(
-                    "INSERT
-                        INTO
-                     contact_info
-                        (
-                            person_id,
-                            contact_info_type_id,
-                            contact_info_details,
-                            deleted
-                        )
-                     VALUES
-                        (?1, ?2, ?3, 0)",
+                    "SELECT EXISTS(SELECT
+                        *
+                    FROM
+                        contact_info
+                    WHERE
+                        person_id = ?1 AND
+                        contact_info_type_id = ?2 AND
+                        contact_info_details = ?3 AND
+                        deleted = 0)",
                 ) {
                     Ok(stmt) => stmt,
                     Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
                 };
-                match stmt.execute(params![person.id, types[0], ci_value]) {
-                    Ok(updated) => {
-                        println!(
-                            "[DEBUG][contact_info][insert] {} rows were updated",
-                            updated
-                        );
-                    }
+                let mut rows = match stmt.query(params![person.id, types[0], ci_value]) {
+                    Ok(rows) => rows,
                     Err(_) => return Err(DbOperationsError::QueryError),
                 };
+
+                match rows.next() {
+                    Ok(row) => match row {
+                        Some(row) => match row.get::<usize, bool>(0) {
+                            Ok(exists) => {
+                                if !exists {
+                                    let mut stmt = match conn.prepare(
+                                        "INSERT
+                                                    INTO
+                                            contact_info
+                                               (
+                                                   person_id,
+                                                   contact_info_type_id,
+                                                   contact_info_details,
+                                                   deleted
+                                               )
+                                            VALUES
+                                               (?1, ?2, ?3, 0)",
+                                    ) {
+                                        Ok(stmt) => stmt,
+                                        Err(e) => {
+                                            return Err(DbOperationsError::InvalidStatement {
+                                                sqlite_error: e,
+                                            });
+                                        }
+                                    };
+                                    match stmt.execute(params![person.id, types[0], ci_value]) {
+                                        Ok(updated) => {
+                                            println!(
+                                                "[DEBUG][contact_info][insert] {} rows were updated",
+                                                updated
+                                            )
+                                        }
+                                        Err(_) => return Err(DbOperationsError::QueryError),
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                return Err(DbOperationsError::RecordError {
+                                    sqlite_error: Some(e),
+                                    strum_error: None,
+                                })
+                            }
+                        },
+                        None => return Err(DbOperationsError::QueryError),
+                    },
+                    Err(_) => return Err(DbOperationsError::QueryError),
+                }
             }
+
+            // TODO remove obsolete contact_info
         }
 
         Ok(())

@@ -117,6 +117,10 @@ pub fn get_contact_info(id: u64, splits: Vec<Vec<String>>) -> Result<Vec<Contact
     let mut invalid_contact_info = vec![];
     let mut contact_info_type: Option<ContactInfoType>;
 
+    if splits[0][0].is_empty() {
+        return Ok(vec![]);
+    }
+
     for split in splits.iter() {
         match split[0].as_str() {
             "phone" => contact_info_type = Some(ContactInfoType::Phone(split[1].clone())),
