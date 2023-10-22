@@ -272,7 +272,127 @@ impl Person {
                 }
             }
 
-            // TODO remove obsolete contact_info
+            let mut stmt = match conn.prepare(
+                "SELECT
+                    *
+                FROM
+                    contact_info
+                WHERE
+                    person_id = ?1 AND
+                    deleted = 0",
+            ) {
+                Ok(stmt) => stmt,
+                Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
+            };
+
+            let mut rows = match stmt.query(params![person.id]) {
+                Ok(rows) => rows,
+                Err(_) => return Err(DbOperationsError::QueryError),
+            };
+
+            let mut contact_infos: Vec<ContactInfo> = Vec::new();
+            loop {
+                match rows.next() {
+                    Ok(row) => match row {
+                        Some(row) => {
+                            let id = match row.get(0) {
+                                Ok(id) => id,
+                                Err(e) => {
+                                    return Err(DbOperationsError::RecordError {
+                                        sqlite_error: Some(e),
+                                        strum_error: None,
+                                    });
+                                }
+                            };
+                            let ci_id = match row.get(2) {
+                                Ok(contact_info_type) => contact_info_type,
+                                Err(e) => {
+                                    return Err(DbOperationsError::RecordError {
+                                        sqlite_error: Some(e),
+                                        strum_error: None,
+                                    })
+                                }
+                            };
+                            let contact_info_type = match ContactInfoType::get_by_id(conn, ci_id)? {
+                                Some(contact_info_type) => contact_info_type,
+                                None => {
+                                    return Err(DbOperationsError::RecordError {
+                                        sqlite_error: None,
+                                        strum_error: None,
+                                    })
+                                }
+                            };
+
+                            let details = match row.get::<usize, String>(3) {
+                                Ok(details) => details,
+                                Err(e) => {
+                                    return Err(DbOperationsError::RecordError {
+                                        sqlite_error: Some(e),
+                                        strum_error: None,
+                                    })
+                                }
+                            };
+                            contact_infos.push(ContactInfo {
+                                id,
+                                person_id: person.id,
+                                contact_info_type,
+                                details,
+                            })
+                        }
+                        None => break,
+                    },
+                    Err(e) => {
+                        return Err(DbOperationsError::RecordError {
+                            sqlite_error: Some(e),
+                            strum_error: None,
+                        })
+                    }
+                }
+            }
+
+            let contact_info_tuples: Vec<(String, String)> = person
+                .contact_info
+                .iter()
+                .map(|ci| {
+                    (
+                        ci.contact_info_type.clone().as_ref().to_string(),
+                        ci.details.clone(),
+                    )
+                })
+                .collect::<Vec<(String, String)>>();
+            for contact_info in contact_infos {
+                let pair = (
+                    contact_info.contact_info_type.as_ref().to_string(),
+                    contact_info.details,
+                );
+                if contact_info_tuples.contains(&pair) {
+                    continue;
+                }
+                // if !contact_info_ids.contains(&contact_info.id) {
+                let mut stmt = match conn.prepare(
+                    "UPDATE
+                            contact_info
+                        SET
+                            deleted = 1
+                        WHERE
+                            id = ?1",
+                ) {
+                    Ok(stmt) => stmt,
+                    Err(e) => {
+                        return Err(DbOperationsError::InvalidStatement { sqlite_error: e });
+                    }
+                };
+                match stmt.execute(params![contact_info.id]) {
+                    Ok(updated) => {
+                        println!(
+                            "[DEBUG][contact_info][update] {} rows were updated",
+                            updated
+                        )
+                    }
+                    Err(_) => return Err(DbOperationsError::QueryError),
+                }
+                // }
+            }
         }
 
         Ok(())
@@ -584,9 +704,7 @@ impl crate::db::db_interface::DbOperations for Person {
             Err(_) => return Err(DbOperationsError::QueryError),
         }
 
-        // FIXME there are plenty of unnecessary updates here when editing person
         Person::update_contact_info(conn, self)?;
-
         Person::update_activities(conn, self)?;
 
         Ok(self)
