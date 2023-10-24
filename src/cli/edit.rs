@@ -19,11 +19,13 @@ pub fn person(
     birthday: Option<String>,
     contact_info: Option<String>,
     activities: Option<Vec<u64>>,
+    reminders: Option<Vec<u64>>,
 ) -> Result<Person, CliError> {
     let name_str: String;
     let birthday_str: Option<String>;
     let contact_info_str: Option<String>;
     let activity_ids: Vec<u64>;
+    let reminder_ids: Vec<u64>;
 
     let person = Person::get_by_id(conn, id);
 
@@ -56,6 +58,15 @@ pub fn person(
                 let activities_field = prm::helpers::join_int_vector(
                     person
                         .activities
+                        .iter()
+                        .map(|x| x.id)
+                        .collect::<Vec<u64>>()
+                        .as_slice(),
+                );
+
+                let reminders_field = prm::helpers::join_int_vector(
+                    person
+                        .reminders
                         .iter()
                         .map(|x| x.id)
                         .collect::<Vec<u64>>()
@@ -135,10 +146,27 @@ pub fn person(
                 } else {
                     activities_placeholder = "".to_string();
                 }
+                let reminders_placeholder: String;
+                if reminders.is_some() {
+                    reminders_placeholder = match reminders {
+                        Some(reminders) => prm::helpers::join_int_vector(reminders.as_slice()),
+                        None => {
+                            return Err(CliError::MissingField {
+                                entity: "person".to_string(),
+                                field: "reminders".to_string(),
+                            })
+                        }
+                    }
+                } else if !reminders_field.is_empty() {
+                    reminders_placeholder = reminders_field;
+                } else {
+                    reminders_placeholder = "".to_string();
+                }
                 vars.insert("name".to_string(), name_placeholder);
                 vars.insert("birthday".to_string(), birthday_placeholder);
                 vars.insert("contact_info".to_string(), contact_info_placeholder);
                 vars.insert("activities".to_string(), activities_placeholder);
+                vars.insert("reminders".to_string(), reminders_placeholder);
 
                 let person_str = match strfmt(PERSON_TEMPLATE, &vars) {
                     Ok(person_str) => person_str,
@@ -164,8 +192,14 @@ pub fn person(
                         }
                     }
                 };
-                let (n, b, c, a) = match Person::parse_from_editor(edited.as_str()) {
-                    Ok(d) => (d.name, d.birthday, d.contact_info, d.activities),
+                let (n, b, c, a, r) = match Person::parse_from_editor(edited.as_str()) {
+                    Ok(d) => (
+                        d.name,
+                        d.birthday,
+                        d.contact_info,
+                        d.activities,
+                        d.reminders,
+                    ),
                     Err(e) => {
                         return {
                             EditorParseSnafu {
@@ -180,6 +214,7 @@ pub fn person(
                 birthday_str = b;
                 contact_info_str = Some(c.join(","));
                 activity_ids = a;
+                reminder_ids = r;
 
                 let activities = match Activity::get_by_ids(conn, activity_ids) {
                     Ok(activities) => activities,
@@ -194,7 +229,26 @@ pub fn person(
                     }
                 };
 
-                match person.update(name_str, birthday_str, contact_info_str, activities) {
+                let reminders = match Reminder::get_by_ids(conn, reminder_ids) {
+                    Ok(reminders) => reminders,
+                    Err(e) => {
+                        return {
+                            EntitySnafu {
+                                entity: "Reminder".to_string(),
+                                message: format!("Error fetching reminders: {:#?}", e),
+                            }
+                            .fail()
+                        }
+                    }
+                };
+
+                match person.update(
+                    name_str,
+                    birthday_str,
+                    contact_info_str,
+                    activities,
+                    reminders,
+                ) {
                     Ok(_) => (),
                     Err(e) => {
                         return {

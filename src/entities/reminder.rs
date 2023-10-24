@@ -7,7 +7,9 @@ use crate::db::db_interface::DbOperationsError;
 use crate::db_interface::DbOperations;
 use crate::entities::person::Person;
 use crate::entities::Entities;
-use crate::{CliError, DateParseSnafu, RecordParseSnafu, RecurringTypeParseSnafu};
+use crate::{
+    CliError, DateParseSnafu, EntitySnafu, NotFoundSnafu, RecordParseSnafu, RecurringTypeParseSnafu,
+};
 use rusqlite::Connection;
 
 use super::Entity;
@@ -297,6 +299,32 @@ impl Reminder {
             people,
         })
     }
+
+    pub fn get_by_ids(conn: &Connection, ids: Vec<u64>) -> Result<Vec<Reminder>, CliError> {
+        let mut reminders: Vec<Reminder> = Vec::new();
+        for id in ids {
+            match Reminder::get_by_id(conn, id) {
+                Ok(entity) => match entity {
+                    Some(Entities::Reminder(reminder)) => reminders.push(reminder),
+                    _ => {
+                        return EntitySnafu {
+                            entity: "Reminder",
+                            message: format!("Error fetching reminder: {:#?}", entity),
+                        }
+                        .fail()
+                    }
+                },
+                Err(_) => {
+                    return NotFoundSnafu {
+                        entity: "Reminder",
+                        id,
+                    }
+                    .fail()
+                }
+            }
+        }
+        Ok(reminders)
+    }
 }
 
 impl DbOperations for Reminder {
@@ -540,7 +568,7 @@ impl DbOperations for Reminder {
                         }
                     };
                     let people = crate::db_helpers::people::get_by_reminder(conn, reminder_id)?;
-                    let description: Option<String> = match row.get(4) {
+                    let description: Option<String> = match row.get(3) {
                         Ok(description) => description,
                         Err(e) => {
                             return Err(DbOperationsError::RecordError {

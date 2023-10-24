@@ -1146,6 +1146,7 @@ pub mod db_helpers {
                     ),
                     vec![],
                     vec![],
+                    vec![],
                 ))
             }) {
                 Ok(rows) => rows,

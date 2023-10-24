@@ -19,6 +19,7 @@ pub static PERSON_TEMPLATE: &str = "Name: {name}
 Birthday: {birthday}
 Contact Info: {contact_info}
 Activities: {activities}
+Reminders: {reminders}
 ";
 #[derive(Debug, Clone, PartialEq)]
 pub struct Person {
@@ -36,6 +37,7 @@ pub struct EditorData {
     pub birthday: Option<String>,
     pub contact_info: Vec<String>,
     pub activities: Vec<u64>,
+    pub reminders: Vec<u64>,
 }
 
 impl Entity for Person {
@@ -52,6 +54,7 @@ impl Person {
         birthday: Option<NaiveDate>,
         contact_info: Vec<ContactInfo>,
         activities: Vec<Activity>,
+        reminders: Vec<Reminder>,
     ) -> Person {
         Person {
             id,
@@ -59,7 +62,7 @@ impl Person {
             birthday,
             contact_info,
             activities,
-            reminders: vec![],
+            reminders,
             notes: vec![],
         }
     }
@@ -71,6 +74,7 @@ impl Person {
         birthday: Option<String>,
         contact_info: Option<String>,
         activities: Vec<Activity>,
+        reminders: Vec<Reminder>,
     ) -> Result<&Self, CliError> {
         self.name = name;
         if let Some(birthday) = birthday {
@@ -103,6 +107,7 @@ impl Person {
         self.contact_info = contact_info_vec;
 
         self.activities = activities;
+        self.reminders = reminders;
 
         Ok(self)
     }
@@ -113,10 +118,12 @@ impl Person {
         let mut birthday: Option<String> = None;
         let mut contact_info: Vec<String> = vec![];
         let mut activity_ids: Vec<u64> = vec![];
+        let mut reminder_ids: Vec<u64> = vec![];
         let name_prefix = "Name: ";
         let birthday_prefix = "Birthday: ";
         let contact_info_prefix = "Contact Info: ";
         let activities_prefix = "Activities: ";
+        let reminders_prefix = "Reminders: ";
         content.lines().for_each(|line: &str| match line {
             s if s.starts_with(name_prefix) => {
                 name = s.trim_start_matches(name_prefix).to_string();
@@ -136,6 +143,14 @@ impl Person {
                     Err(_) => error = Some(CliError::InvalidIdFormat),
                 }
             }
+            s if s.starts_with(reminders_prefix) => {
+                let reminders_str = s.trim_start_matches(reminders_prefix);
+                let ids = reminders_str.split(',').map(|x| x.parse()).collect();
+                match ids {
+                    Ok(ids) => reminder_ids = ids,
+                    Err(_) => error = Some(CliError::InvalidIdFormat),
+                }
+            }
             _ => error = Some(CliError::FormatError),
         });
 
@@ -148,6 +163,7 @@ impl Person {
             birthday,
             contact_info,
             activities: activity_ids,
+            reminders: reminder_ids,
         })
     }
 
@@ -368,7 +384,6 @@ impl Person {
                 if contact_info_tuples.contains(&pair) {
                     continue;
                 }
-                // if !contact_info_ids.contains(&contact_info.id) {
                 let mut stmt = match conn.prepare(
                     "UPDATE
                             contact_info
@@ -391,7 +406,6 @@ impl Person {
                     }
                     Err(_) => return Err(DbOperationsError::QueryError),
                 }
-                // }
             }
         }
 
@@ -515,6 +529,124 @@ impl Person {
             }
         }
 
+        Ok(())
+    }
+
+    pub fn update_reminders(conn: &Connection, person: &Person) -> Result<(), DbOperationsError> {
+        for reminder in person.reminders.clone().iter_mut() {
+            let mut stmt = match conn.prepare(
+                "SELECT EXISTS(SELECT
+                    *
+                FROM
+                    people_reminders
+                WHERE
+                    reminder_id = ?1 AND
+                    person_id = ?2 AND
+                    deleted = 0)",
+            ) {
+                Ok(stmt) => stmt,
+                Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
+            };
+            let mut rows = match stmt.query(params![reminder.id, person.id]) {
+                Ok(rows) => rows,
+                Err(_) => return Err(DbOperationsError::QueryError),
+            };
+
+            match rows.next() {
+                Ok(row) => match row {
+                    Some(row) => {
+                        match row.get::<usize, bool>(0) {
+                            Ok(exists) => {
+                                if !exists {
+                                    reminder.people.push(person.clone());
+                                    reminder.save(conn)?;
+                                }
+                            }
+                            Err(e) => {
+                                return Err(DbOperationsError::RecordError {
+                                    sqlite_error: Some(e),
+                                    strum_error: None,
+                                });
+                            }
+                        };
+                    }
+                    None => return Err(DbOperationsError::QueryError),
+                },
+                Err(_) => return Err(DbOperationsError::QueryError),
+            }
+        }
+
+        // Remove reminders
+        let mut stmt = match conn.prepare(
+            "SELECT
+                reminder_id
+            FROM
+                people_reminders
+            WHERE
+                person_id = ? AND
+                deleted = 0",
+        ) {
+            Ok(stmt) => stmt,
+            Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
+        };
+        let mut rows = match stmt.query(params![person.id]) {
+            Ok(rows) => rows,
+            Err(_) => return Err(DbOperationsError::QueryError),
+        };
+        let mut ids: Vec<u64> = Vec::new();
+        loop {
+            match rows.next() {
+                Ok(row) => match row {
+                    Some(row) => {
+                        let id: u32 = match row.get(0) {
+                            Ok(row) => row,
+                            Err(e) => {
+                                return Err(DbOperationsError::RecordError {
+                                    sqlite_error: Some(e),
+                                    strum_error: None,
+                                })
+                            }
+                        };
+                        ids.push(id.into());
+                    }
+                    None => break,
+                },
+                Err(e) => {
+                    return Err(DbOperationsError::RecordError {
+                        sqlite_error: Some(e),
+                        strum_error: None,
+                    })
+                }
+            }
+        }
+
+        let person_reminder_ids: Vec<u64> =
+            person.reminders.iter().map(|r| r.id).collect::<Vec<u64>>();
+        for id in ids.iter() {
+            if !person_reminder_ids.contains(id) {
+                let mut stmt = match conn.prepare(
+                    "UPDATE
+                        people_reminders
+                    SET
+                        deleted = 1
+                    WHERE
+                        reminder_id = ?1 AND
+                        person_id = ?2",
+                ) {
+                    Ok(stmt) => stmt,
+                    Err(e) => return Err(DbOperationsError::InvalidStatement { sqlite_error: e }),
+                };
+                match stmt.execute(params![id, person.id]) {
+                    Ok(updated) => {
+                        println!(
+                            "[DEBUG][people_reminders][update] {} rows were updated",
+                            updated
+                        );
+                    }
+                    Err(_) => return Err(DbOperationsError::GenericError),
+                }
+            }
+        }
         Ok(())
     }
 }
@@ -706,6 +838,7 @@ impl crate::db::db_interface::DbOperations for Person {
 
         Person::update_contact_info(conn, self)?;
         Person::update_activities(conn, self)?;
+        Person::update_reminders(conn, self)?;
 
         Ok(self)
     }
@@ -1018,6 +1151,7 @@ mod tests {
             Some(birthday),
             contact_info.clone(),
             activities.clone(),
+            reminders.clone(),
         );
 
         assert_eq!(

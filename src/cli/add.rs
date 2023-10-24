@@ -33,6 +33,7 @@ pub fn person(
     let mut contact_info_vec: Vec<String> = vec![];
     let mut editor = false;
     let mut activity_ids: Vec<u64> = vec![];
+    let mut reminder_ids: Vec<u64> = vec![];
 
     if name.is_none() {
         editor = true;
@@ -68,8 +69,14 @@ pub fn person(
                 .fail()
             }
         };
-        let (n, b, c, a) = match Person::parse_from_editor(edited.as_str()) {
-            Ok(d) => (d.name, d.birthday, d.contact_info, d.activities),
+        let (n, b, c, a, r) = match Person::parse_from_editor(edited.as_str()) {
+            Ok(d) => (
+                d.name,
+                d.birthday,
+                d.contact_info,
+                d.activities,
+                d.reminders,
+            ),
             Err(e) => {
                 return EditorParseSnafu {
                     entity: "Person",
@@ -82,6 +89,7 @@ pub fn person(
         birthday_str = b;
         contact_info_vec = c;
         activity_ids = a;
+        reminder_ids = r;
     }
 
     if !editor {
@@ -158,8 +166,38 @@ pub fn person(
         }
     }
 
+    let mut reminders: Vec<Reminder> = vec![];
+    for i in reminder_ids {
+        match Reminder::get_by_id(conn, i) {
+            Ok(entity) => match entity {
+                Some(prm::entities::Entities::Reminder(reminder)) => reminders.push(reminder),
+                _ => {
+                    return EntitySnafu {
+                        entity: "Reminder",
+                        message: format!("Wrong entity type: {:#?}", entity),
+                    }
+                    .fail()
+                }
+            },
+            Err(_) => {
+                return NotFoundSnafu {
+                    entity: "Reminder",
+                    id: i,
+                }
+                .fail()
+            }
+        }
+    }
+
     assert!(!name_str.is_empty(), "Name cannot be empty");
-    let person = Person::new(0, name_str, birthday_obj, contact_info, activities);
+    let person = Person::new(
+        0,
+        name_str,
+        birthday_obj,
+        contact_info,
+        activities,
+        reminders,
+    );
     match person.add(conn) {
         Ok(_) => println!("{} added successfully", person),
         Err(_) => return AddSnafu { entity: "Person" }.fail(),
